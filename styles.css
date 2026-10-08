@@ -29,11 +29,13 @@
   background: #26323bd6;
   touch-action: none;
 }
+.campaign-controls .touch-crouch { display:none; }
+.campaign-controls .touch-crouch[aria-pressed="true"] { color:#f4e7c8; background:#526272; border-color:#f0dbad; }
 .snow-map { background: #c7d0d0; border-color: #8d9b9f; }
 .snow-map text { fill: #364f5d; }
 .welcome .text-button { display: block; padding: 9px 0; }
-body[data-region="snowbound"] .objective { background: linear-gradient(90deg,#22313edb,#273a45bd); }
-body[data-region="snowbound"] .vignette { background: linear-gradient(180deg,#142535a6,transparent 28%,transparent 65%,#152733a6); }
+body:is([data-region="snowbound"],[data-region="north-cutting"]) .objective { background: linear-gradient(90deg,#22313edb,#273a45bd); }
+body:is([data-region="snowbound"],[data-region="north-cutting"]) .vignette { background: linear-gradient(180deg,#142535a6,transparent 28%,transparent 65%,#152733a6); }
 body[data-region="snowbound"].intro .vignette { background: linear-gradient(90deg,#152532e0,transparent 72%),linear-gradient(180deg,#15253276,transparent 30%,#15253273); }
 body.melee .touch-actions { visibility: hidden; }
 .menu-settings select { margin-left: auto; padding: 7px; color: var(--cream); background: #29352d; border: 1px solid var(--line); font: inherit; }
@@ -41,6 +43,11 @@ body.melee .touch-actions { visibility: hidden; }
 #conversation #choices button { font-size: calc(13px * var(--dialogue-scale,1)); }
 .objective .mission-detail { margin-top:10px; color:#ecd3a3; font:9px/1.6 Arial,sans-serif; letter-spacing:.5px; }
 .dialogue-portrait svg { width:100%; height:100%; display:block; }
+.journal-illustration { margin:18px 0; padding:16px; color:#514936; background:#d8cfad; border:1px solid #a99b72; }
+.journal-illustration svg { display:block; width:100%; height:auto; }
+.journal-illustration figcaption { font:9px/1.6 Arial,sans-serif; letter-spacing:1px; }
+.journal-illustration p { font-size:13px; line-height:1.6; margin-bottom:0; }
+#panel-body [data-command="notebook"] { min-height:44px; padding:10px 14px; border:1px solid var(--line); font:12px Arial,sans-serif; }
 @media(max-width:600px) {
   .campaign-controls { right:18px; top:112px; }
   .campaign-controls button { padding:7px 9px; font-size:10px; min-height:40px; }
@@ -300,7 +307,7 @@ nav kbd{
   font-weight:400;
   margin:10px 0 10px
 }
-.objective>p:last-of-type{
+.objective #objective-text{
   font-size:12px;
   line-height:1.6;
   color:#e2d7b9;
@@ -904,7 +911,7 @@ body.intro .vignette{
     font-size:20px;
     margin:8px 0
   }
-  .objective>p:last-of-type{
+  .objective #objective-text{
     font-size:11px;
     line-height:1.5
   }
@@ -1086,6 +1093,7 @@ body.intro .vignette{
   }
 }
 @media(pointer:coarse){
+  .campaign-controls .touch-crouch{ display:flex; }
   .touch-controls{
     display:flex;
     position:absolute;
@@ -1191,7 +1199,7 @@ body.intro .vignette{
   .objective h1{
     font-size:18px
   }
-  .objective>p:last-of-type{
+  .objective #objective-text{
     font-size:10px
   }
   .objective-progress{
@@ -1252,6 +1260,49 @@ body.intro .vignette{
   }
   .vital{
     margin-bottom:14px
+  }
+}
+@media(pointer:coarse) and (max-height:580px) and (min-width:601px){
+  .objective{
+    top:65px;
+    width:300px;
+    max-width:none;
+    padding:8px 12px
+  }
+  .objective .eyebrow{
+    font-size:7px;
+    line-height:1.2;
+    margin:0
+  }
+  .objective h1{
+    font-size:16px;
+    margin:5px 0
+  }
+  .objective #objective-text{
+    font-size:10px;
+    line-height:1.3
+  }
+  .objective .mission-detail{
+    margin-top:5px;
+    font-size:8px;
+    line-height:1.3
+  }
+  .objective-progress{
+    margin-top:6px
+  }
+  .touch-controls{
+    bottom:78px
+  }
+  .interaction-area{
+    position:fixed;
+    bottom:96px;
+    left:118px;
+    right:118px;
+    max-width:none
+  }
+  .interaction-area>button{
+    padding:7px 10px;
+    font-size:11px
   }
 }
 .modal-feedback{

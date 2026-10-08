@@ -10,7 +10,8 @@ export function resolvePointerAim(state, ground, pointer, project) {
     for (const actor of actors) {
       if (!(actor.hp > 0) || actor.hidden || actor.departed || actor.escaped || actor.returned || actor.carried || actor.delivered || state.player?.carrying === actor.id) continue;
       const [x, y] = project(actor.x, actor.y, actor.z || 0);
-      const halfWidth = animal ? 28 : 17, height = animal ? 43 : 62;
+      const wolf = actor.kind === 'wolf';
+      const halfWidth = wolf ? 28 : animal ? 28 : 17, height = wolf ? 30 : animal ? 43 : 62;
       if (Math.abs(pointer.x - x) <= halfWidth && pointer.y >= y - height && pointer.y <= y + 5) {
         candidates.push({ actor, score: Math.hypot(pointer.x - x, (pointer.y - y + height * .48) * .6) });
       }

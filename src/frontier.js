@@ -1,12 +1,11 @@
 /** Route shared player controls to the active authored region. */
 import * as Mercy from './simulation.js';
-import * as Campaign from './campaign.js';
-import { SNOWBOUND_WORLD, CAMPAIGN_ITEMS } from '../content/campaign/snowbound.js';
+import * as Campaign from './campaign-journey.js';
 
 export const { WORLD, ITEMS, RECIPES, CAMP_UPGRADES, riverX } = Mercy;
-export const isCampaign = state => state?.region === 'snowbound';
-export const worldFor = state => isCampaign(state) ? SNOWBOUND_WORLD : WORLD;
-export const itemsFor = state => isCampaign(state) ? CAMPAIGN_ITEMS : ITEMS;
+export const isCampaign = state => state?.campaignId === 'dust-and-mercy' || state?.region === 'snowbound';
+export const worldFor = state => isCampaign(state) ? Campaign.worldForCampaign(state) : WORLD;
+export const itemsFor = state => isCampaign(state) ? Campaign.campaignItems : ITEMS;
 export const createState = (mode = 'campaign') => mode === 'mercy' ? Mercy.createState() : Campaign.createCampaignState();
 export const step = (s, dt, input) => isCampaign(s) ? Campaign.stepCampaign(s, dt, input) : Mercy.step(s, dt, input);
 export const getInteraction = s => isCampaign(s) ? Campaign.getCampaignInteraction(s) : Mercy.getInteraction(s);
