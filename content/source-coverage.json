@@ -90,7 +90,11 @@
         "src/snowbound-renderer.js",
         "src/game.js",
         "tests/campaign.test.mjs",
-        "scripts/campaign-playthrough.py"
+        "scripts/campaign-playthrough.py",
+        "src/western-animation.js",
+        "tests/presentation.test.mjs",
+        "tests/western-animation.test.mjs",
+        "scripts/campaign-input-playthrough.py"
       ],
       "acceptance_evidence": [],
       "source_chapter": "Chapter 1: Colter",
@@ -98,7 +102,7 @@
       "original_design_status": "runtime_implemented_pending_full_source_presentation_and_input_acceptance",
       "beat_decomposition_status": "sampled_and_mapped_unsealed",
       "prerequisite_audit_status": "initial_mission_and_next_unlock_indexed",
-      "notes": "Nine distinct original stages have runtime implementation and independent simulation/player-control evidence. Full source inventory/revision, bespoke choreography, complete input parity and actual later dependencies remain open. This requirement is not accepted; evidence does not claim full-game completion.",
+      "notes": "Nine distinct original stages have runtime implementation and independent simulation/player-control evidence. Authored contact animation and one complete automated pointer and controller path add partial evidence; source inventory/revision, full scene quality, native touch/hardware, all branch input combinations and actual later dependencies remain open. This requirement is not accepted; evidence does not claim full-game completion.",
       "research_date": "2026-10-08",
       "runtime_evidence_path": "docs/snowbound-evidence.md"
     },
@@ -107,17 +111,22 @@
       "category": "campaign",
       "source_title": "Enter, Pursued by a Memory",
       "source_url": "https://reddead.fandom.com/wiki/Enter%2C_Pursued_by_a_Memory",
-      "research_status": "indexed_article",
+      "research_status": "indexed_objectives_story_failure_and_reward",
       "implementation_status": "unimplemented",
-      "original_counterpart": null,
+      "original_counterpart": {
+        "id": "snowbound-a-voice-under-ice",
+        "title": "A Voice Under Ice",
+        "specification_path": "docs/missions/a-voice-under-ice.md"
+      },
       "implementation_evidence": [],
       "acceptance_evidence": [],
       "source_chapter": "Chapter 1: Colter",
       "proposed_original_chapter": "I — Snowbound",
-      "original_design_status": "not_authored",
-      "beat_decomposition_status": "pending",
-      "prerequisite_audit_status": "pending",
-      "notes": null
+      "original_design_status": "proposed_specification_pending_runtime_and_acceptance",
+      "beat_decomposition_status": "sampled_and_mapped_unsealed",
+      "prerequisite_audit_status": "opening_and_following_hunt_rival_missions_indexed",
+      "notes": "Proposed ten-stage original rescue, separate north-cutting region, new participants and migration/loan/replay contracts. No runtime implementation or acceptance is claimed. Indexed article and dialogue excerpts are not revision-pinned; incidental responses, exact predator count and later route/dependency details remain open.",
+      "research_date": "2026-10-08"
     },
     {
       "id": "campaign-the-aftermath-of-genesis",

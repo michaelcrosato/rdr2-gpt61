@@ -2,6 +2,8 @@
 
 Evidence date: 2026-10-08. The original campaign opening, **The Last Warm Light**, has a playable nine-stage runtime. The requested full game remains the target; neither this milestone nor its checks establish complete source coverage or final presentation quality.
 
+This document records the 0.2.0 opening baseline. The [0.2.1 animation and input follow-up](animation-input-evidence.md) adds authored contact motion, safe dismount placement, controller access to map/journal/satchel, eight further tests and complete pointer/controller runs. Baseline partial-input and animation gaps below describe the earlier build; the follow-up states the current evidence and remaining limits.
+
 ## Implementation and state
 
 `content/campaign/snowbound.js` authors the winter region, exact interior doors/collision, switchback, cast, seven distinct supply/clue objects and rescue route. `src/campaign.js` implements the following connected stages rather than reusing The Last Water under another title:
@@ -68,6 +70,6 @@ The mobile Lighthouse accessibility audit at `/tmp/dust-mercy-snowbound-accessib
 
 The source inventory remains open and its live revision is not pinned. This opening's source obligation is **in progress**, not accepted. Incidental participants/responses, full linked source beats and later dependencies still need reconciliation. The full campaign, regions, side content, catalogs, advanced systems and final boardroom report remain required.
 
-Presentation still needs bespoke saddle mounting/dismounting, sustained wind bracing and cover peeking, Pavel's platform drop/contact disarm/grapple, exact hand-to-prop contacts, carry lift/set-down, richer escort/relationship expressions and destruction choreography. Current rig blends and state cues make these actions readable, but do not prove the requested authored animation quality. Original audio/dialogue/camera staging also needs final scene-level review.
+The baseline identified saddle mounting/dismounting, wind bracing, cover peeking, Pavel's platform drop/contact disarm/grapple, hand-to-prop contacts and carry lift/set-down as unfinished. The 0.2.1 follow-up implements those authored motions and documents timed checks. Richer escort/relationship expressions, destruction choreography and final scene-level audio/dialogue/camera review remain open; those motion checks alone do not establish the requested final quality.
 
-Full touch/controller mission runs, physical hardware checks, all branch input combinations, accessible alternatives and measured balance remain open. Later care/warning/hearing/checkpoint events must be implemented in their actual content. The broader source ledger and full requested game cannot be closed by this opening's green tests or screenshots.
+The follow-up completes one full automated pointer path and one controller path. Native touch dragging, physical hardware checks, all branch input combinations, accessible alternatives and measured balance remain open. Later care/warning/hearing/checkpoint events must be implemented in their actual content. The broader source ledger and full requested game cannot be closed by this opening's green tests or screenshots.

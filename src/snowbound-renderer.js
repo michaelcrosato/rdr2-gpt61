@@ -1,4 +1,6 @@
 import { SNOWBOUND_WORLD } from '../content/campaign/snowbound.js';
+import { getCampaignPresentation } from './campaign.js';
+import { createWesternAnimator, contactHand, jointScreen, savePose, smooth, solveLimb } from './western-animation.js';
 
 const E = globalThis.My3D2dge;
 const P = E.px;
@@ -147,7 +149,7 @@ function drawObstacle(r, o, state) {
   const ruined = state.worldChanges?.boilerDestroyed && /boiler/.test(o.building || o.id || '');
   const top = ruined ? Math.min(13, h) : h, stone = /wall|stone|culvert|kiln/.test(o.kind || ''), color = ruined ? '#4b5956' : stone ? '#768a86' : '#7f7259';
   r.queue(o.x + o.w / 2, o.y + o.h, 0, g => {
-    const player = state.player, b = buildings().find(b => inside(player, b, 3) && inside({ x: o.x + o.w / 2, y: o.y + o.h / 2 }, b, 20));
+    const player = state.player, b = buildings().find(b => inside(player, b, player?.carrying ? 110 : 3) && inside({ x: o.x + o.w / 2, y: o.y + o.h / 2 }, b, 20));
     const fades = b && player.y < o.y + o.h;
     if (fades) { g.save(); g.globalAlpha *= .28; }
     r.box(g, o.x, o.y, 0, o.x + o.w, o.y + o.h, top, ruined ? '#7b8272' : '#c3d0bf', color);
@@ -276,6 +278,12 @@ function drawBoiler(r, o, state, clock) {
   const ruined = state.worldChanges?.boilerDestroyed;
   r.queue(o.x + o.w / 2, o.y + o.h, 0, g => {
     const center = r.w(o.x + o.w / 2, o.y + o.h * .7, 0), x = center[0], y = center[1];
+    const player = state.player, at = player && r.w(player.x, player.y, 0);
+    const width = player?.carrying ? 46 : 20, height = player?.mounted || player?.carrying ? 96 : 72;
+    const overlaps = (left, top, right, bottom) => at && at[0] + width > left && at[0] - width < right && at[1] > top && at[1] - height < bottom;
+    const fades = !ruined && player && player.y < o.y + o.h && (overlaps(x + 27, y - 148, x + 54, y - 70) || overlaps(x - 66, y - 91, x + 62, y));
+    if (fades) { g.save(); g.globalAlpha *= .3; }
+    try {
     if (ruined) {
       r.box(g, o.x, o.y, 0, o.x + o.w, o.y + o.h, 9, '#687d75', '#485f5a');
       P.poly(g, [[x - 54, y - 12], [x - 48, y - 52], [x - 31, y - 35], [x - 10, y - 46], [x + 23, y - 15]], '#354e4c');
@@ -294,6 +302,7 @@ function drawBoiler(r, o, state, clock) {
     for (let z = 85; z < 140; z += 15) P.line(g, x + 30, y - z, x + 50, y - z, '#314c4b', 1);
     P.ell(g, x - 5, y - 88, 38, 5, '#c8d2bd');
     P.line(g, x - 62, y - 33, x - 85, y - 33, '#415f5c', 6); P.line(g, x - 84, y - 33, x - 84, y - 12, '#415f5c', 6);
+    } finally { if (fades) { g.restore(); g._c = null; } }
   });
   smoke(r, o.x + o.w * .74, o.y + o.h * .7, ruined ? 10 : 124, clock, false, ruined ? 3 : 6);
   if (state.worldChanges?.fireActive && !ruined) {
@@ -433,7 +442,7 @@ function drawColdOutfit(g, x, y, h, view, state) {
       P.line(g, lamp[0] - 4, lamp[1] + 3, lamp[0] + 4, lamp[1] + 3, '#465b48', 2); P.line(g, lamp[0], lamp[1] + 4, lamp[0], lamp[1] + 11, '#677950', 1);
       P.ddisc(g, lamp[0], lamp[1] + 7, 13, '#e8bf7a', .14);
     }
-    if (state.player.carrying) {
+    if (state.player.carrying && !h.authoredCarry) {
       // Gideon's adult silhouette lies across Mara's shoulders; he has his
       // own persistent injury state in the simulation while being carried.
       const sg = atJoint(rig, view, x, y, 'shC', [-1, 0, 2]);
@@ -489,6 +498,11 @@ class SnowHorseRig {
     if (this.speed > 2) this.facing = Math.atan2(body.vy, body.vx); else if (Number.isFinite(body.facing)) this.facing = body.facing;
     this.fear = Math.max(0, Math.min(1, (body.fear || 0) > 1 ? body.fear / 100 : body.fear || 0)); this.owned = body.owned || body.mounted;
   }
+  sockets(x, y, s = 1) {
+    const flip = Math.cos(this.facing) < 0 ? -1 : 1, bob = Math.sin(this.phase * 2) * Math.min(2.5, this.speed / 60);
+    const q = (a, b) => [x + a * s * flip, y + (b + bob) * s];
+    return { flip, saddle: q(-1, -44), pommel: q(9, -46), stirrupL: q(-7, -27), stirrupR: q(8, -28), reins: q(17, -47), neck: q(25, -49 - this.fear * 9), halter: q(34, -55 - this.fear * 9) };
+  }
   draw(g, x, y, s = 1, body = {}) {
     const flip = Math.cos(this.facing) < 0 ? -1 : 1, headLift = this.fear * 9, bob = Math.sin(this.phase * 2) * Math.min(2.5, this.speed / 60);
     const q = (a, b) => [x + a * s * flip, y + (b + bob) * s];
@@ -510,6 +524,7 @@ class SnowHorseRig {
     P.line(g, ...q(30, -55 - headLift), ...q(42, -51 - headLift), '#d7c79a', 2 * s); P.line(g, ...q(34, -58 - headLift), ...q(34, -47 - headLift), '#6e7857', 1);
     P.line(g, ...q(37, -53 - headLift), ...q(8, -43), '#c5b68e', 1); P.ell(g, ...q(-1, -44), 12 * s, 4 * s, '#465b4d');
     P.poly(g, [q(-15, -42), q(11, -42), q(14, -29), q(-14, -29)], '#718274'); P.line(g, ...q(-11, -41), ...q(9, -41), '#c7bea0', 2);
+    for (const [a, b] of [[-7, -27], [8, -28]]) { P.line(g, ...q(a, -41), ...q(a, b), '#786647', 2); P.ell(g, ...q(a, b), 4 * s, 2 * s, '#b5b49a'); }
     if (this.owned || this.id === 'juniper') { P.rect(g, ...q(-18, -33), 13 * s, 13 * s, '#918866'); P.line(g, ...q(-17, -27), ...q(-7, -27), '#c0b58b', 2); }
     if (Math.sin(this.time * .7) > .5) { const muzzle = q(47, -48 - headLift); P.blend(g, .25, 'normal', () => P.ell(g, muzzle[0] + flip * 8, muzzle[1], 9, 4, '#dbe3cf')); }
   }
@@ -519,6 +534,8 @@ class SnowHorseRig {
 // are presentation only and never grant an item or advance a mission stage.
 export function createSnowboundRenderer(game) {
   const terrain = makeSnow(), scenery = treeScenery(), humans = new Map(), horses = new Map(), positions = new Map();
+  const animation = createWesternAnimator(E);
+  let contacts = [];
   let clock = 0, pressureTime = null;
   const humanFor = (id, hostile = false) => { if (!humans.has(id)) humans.set(id, makeHuman(id, hostile)); return humans.get(id); };
   const horseFor = (id) => { if (!horses.has(id)) horses.set(id, new SnowHorseRig(id)); return horses.get(id); };
@@ -528,6 +545,7 @@ export function createSnowboundRenderer(game) {
     return { vx: Math.abs(vx) < 600 ? vx : 0, vy: Math.abs(vy) < 600 ? vy : 0 };
   }
   function update(dt, state) {
+    animation.update(dt, state, getCampaignPresentation(state), game.reduceMotion);
     if (!game.reduceMotion) clock += dt;
     pressureTime = state.worldChanges?.pressureReleased ? (pressureTime ?? 0) + dt : null;
     const p = state.player;
@@ -550,17 +568,21 @@ export function createSnowboundRenderer(game) {
         if (current.restraint && !h.previous.restraint) h.pickup = .65;
       }
       h.previous = current;
-      const targetZ = p.mounted ? 23 : 0;
+      const targetZ = 0;
       if (!Number.isFinite(h.mountZ)) h.mountZ = targetZ;
       h.mountZ += Math.sign(targetZ - h.mountZ) * Math.min(Math.abs(targetZ - h.mountZ), dt * 65);
       const mounting = Math.abs(h.mountZ - targetZ) > .5;
       const action = p.action || p.animation || '', melee = state.melee || {};
       const block = action === 'block' || p.blockTimer > 0 || melee.blocking || melee.blockTimer > 0;
       const shove = action === 'shove' || p.shoveTimer > 0 || melee.shoveTimer > 0 || state.timers?.shoveCooldown > .12;
-      h.rig.o.outfit = p.coldcoat ? 'coat' : 'shirt';
+      const coatClip = animation.pickup('coat');
+      h.rig.o.outfit = p.coldcoat && (!coatClip || coatClip.age / coatClip.duration > .54) ? 'coat' : 'shirt';
       h.rig.update(dt, { ...p, z: h.mountZ, vx: p.mounted ? 0 : p.vx, vy: p.mounted ? 0 : p.vy, point: h.ready && (state.aiming || p.shotTimer > 0),
-        pose: p.hp <= 0 ? 'die' : block || h.disarmed > 0 ? 'block' : shove || p.carrying || h.gesture > 0 ? 'cast' : h.pickup > 0 ? 'kneel' : mounting || p.crouch ? 'crouch' : !p.coldcoat ? 'guard' : null,
+        pose: p.hp <= 0 ? 'die' : block || h.disarmed > 0 ? 'block' : shove || h.gesture > 0 ? 'cast' : h.pickup > 0 && !animation.clip('mara') ? 'kneel' : mounting || p.crouch ? 'crouch' : null,
         hurt: p.invulnerable > 0 && p.invulnerable < .3, stance: block ? 'guard' : null });
+      h.leading = !!state.horse?.leading || (state.animals || []).some(a => a.leading);
+      h.rig.o.cheat = h.leading ? 0 : .5;
+      if (h.leading) { h.rig._cheat = 0; const sh = h.rig.J.shR; solveLimb(E, h.rig, 'R', [sh[0] + 3, sh[1] + 1, sh[2] - 4]); }
     }
     for (const actor of [...(state.npcs || []), ...(state.enemies || [])]) {
       if (actor.hidden || actor.departed || actor.id === 'neri') continue;
@@ -575,7 +597,7 @@ export function createSnowboundRenderer(game) {
       if (actor.id === 'ada' && state.flags?.adaEscorting && !h.escorting) h.escortGesture = .7;
       h.escorting = actor.id === 'ada' && !!state.flags?.adaEscorting;
       const riding = actor.id === 'tomas' && state.mission?.stage === 1;
-      h.rig.update(dt, { ...actor, ...m, vx: riding ? 0 : m.vx, vy: riding ? 0 : m.vy, z: riding ? 23 : actor.z || 0, facing: actor.facing ?? (Math.hypot(m.vx, m.vy) > 3 ? Math.atan2(m.vy, m.vx) : 1.15), point: h.ready,
+      h.rig.update(dt, { ...actor, ...m, vx: riding ? 0 : m.vx, vy: riding ? 0 : m.vy, z: actor.z || 0, facing: actor.facing ?? (Math.hypot(m.vx, m.vy) > 3 ? Math.atan2(m.vy, m.vx) : 1.15), point: h.ready,
         pose: actor.hp <= 0 ? 'die' : actor.id === 'gideon' && actor.injured ? 'down' : actor.captured || actor.restrained || actor.bound || actor.surrendered ? 'guard' : h.escortGesture > 0 ? 'cast' : actor.id === 'tomas' && state.mission?.stage === 0 ? 'hips' : null });
     }
     if (state.horse && p) horseFor(state.horse.id || 'juniper').update(dt, p.mounted ? { ...p, hp: state.horse.hp, mounted: true } : { ...state.horse, ...motion(state.horse.id || 'juniper', state.horse, dt) });
@@ -583,19 +605,111 @@ export function createSnowboundRenderer(game) {
     for (const mount of state.mounts || []) horseFor(mount.id).update(dt, { ...mount, ...motion(mount.id, mount, dt) });
   }
 
+  function drawPickupBundle(g, at, id) {
+    const [x, y] = at;
+    if (id === 'weapon') { P.line(g, x - 5, y, x + 6, y - 1, '#abc0b1', 3); P.line(g, x - 3, y, x - 2, y + 4, '#7a6147', 3); }
+    else if (id === 'token') { P.disc(g, x, y + 2, 5, '#bfa471'); P.disc(g, x, y + 2, 3, '#e0c998'); }
+    else if (id === 'oil') { P.rect(g, x - 6, y, 12, 12, '#6e8981'); P.rect(g, x - 2, y - 3, 5, 4, '#354e4d'); P.rect(g, x - 3, y + 4, 7, 5, '#d0ba8c'); }
+    else if (id === 'oats') { P.ell(g, x, y + 7, 10, 11, '#b8ae83'); P.line(g, x - 5, y, x + 5, y, '#655f45', 2); }
+    else if (id === 'kindling') { for (let i = 0; i < 4; i++) P.line(g, x - 9, y + i * 2, x + 12, y + 4 + i * 2, i % 2 ? '#a9936a' : '#766448', 3); P.line(g, x, y, x + 3, y + 11, '#d2be87', 2); }
+    else if (id === 'broth') { P.rect(g, x - 5, y, 10, 12, '#b3996f'); P.ell(g, x, y, 5, 2, '#d7d0ad'); P.rect(g, x - 4, y + 4, 8, 5, '#9a6651'); }
+    else { P.rect(g, x - 11, y, 22, 10, id === 'blankets' ? '#976d67' : id === 'logbook' ? '#ded7b5' : '#c5c3a7'); P.line(g, x - 3, y, x - 3, y + 9, id === 'bandages' ? '#9d6553' : '#d1c8a4', 2); }
+  }
+
+  function carriedAdult(r, carrier, root, state, load) {
+    const h = humanFor('gideon'), rig = h.rig, restore = savePose(rig), cv = E.charView(r.view);
+    rig.downW = 1; rig.facing = 0; rig.o.cheat = 0; rig._cheat = 0; rig._pose();
+    const shoulder = jointScreen(carrier.rig, cv, root, 'shC'), hip = jointScreen(rig, cv, [0, 0], 'hipC');
+    const lifted = [shoulder[0] + 1 - hip[0], shoulder[1] - 2 - hip[1]];
+    const body = (state.npcs || []).find(n => n.id === 'gideon'), c = load.clip;
+    const ground = c?.target || body || state.player, floor = r.w(ground.x, ground.y, 0);
+    const at = [floor[0] + (lifted[0] - floor[0]) * load.load, floor[1] + (lifted[1] - floor[1]) * load.load];
+    const left = jointScreen(rig, cv, at, 'shC'), right = jointScreen(rig, cv, at, 'hipR');
+    const grip = Math.max(load.load, c ? Math.sin(Math.min(1, c.age / c.duration) * Math.PI) : 0);
+    const carrierHeight = 6 + load.load * 32;
+    for (const [side, target] of [['L', [left[0] + 4, left[1] + 2]], ['R', [right[0] + 8, right[1] + 3]]]) {
+      const hit = contactHand(E, carrier.rig, cv, root, target, side, carrierHeight, grip);
+      if (hit && grip > .995) contacts.push({ actorId: 'mara', kind: c?.kind || 'carrying', side, target, hit, error: Math.hypot(hit[0] - target[0], hit[1] - target[1]) });
+    }
+    return { restore, draw(g) {
+      rig.draw(g, ...at, r.view);
+      const head = jointScreen(rig, cv, at, 'head'), chest = jointScreen(rig, cv, at, 'shC');
+      P.line(g, head[0] - 5, head[1] - 3, head[0] + 4, head[1] - 2, '#d1c8aa', 3);
+      P.line(g, chest[0] - 3, chest[1] - 3, chest[0] + 7, chest[1] + 5, '#cfc8aa', 3);
+      P.line(g, chest[0] - 1, chest[1], chest[0] + 4, chest[1] + 4, '#ae7661', 1);
+    } };
+  }
+
   function drawHuman(r, body, id, state, horizon) {
-    if (body.hidden || body.departed || body.escaped || body.carried || state.player?.carrying === id) return;
+    if (body.hidden || body.departed || body.escaped || body.carried || state.player?.carrying === id || id === 'gideon' && animation.carry(state)) return;
     const companionMounted = id === 'tomas' && state.mission?.stage === 1;
     const h = humanFor(id, body.faction === 'company');
-    const z = id === 'mara' && Number.isFinite(h.mountZ) ? h.mountZ : body.mounted || companionMounted ? 23 : body.z || 0, at = r.w(body.x, body.y, 0);
+    const z = body.z || 0, at = r.w(body.x, body.y, 0);
     if (at[1] < horizon || !r.visible(body.x, body.y, z, 85, 130, 100)) return;
     if (id === 'neri') { drawFuneral(r, body, state.worldChanges?.neriRemembered); return; }
     r.shadow(body.x, body.y, body.mounted ? 15 : 8, .21, '#526d69');
-    r.actor(body.x, body.y, z, (g, x, y) => {
-      if (id === 'mara' && !state.player.coldcoat && !game.reduceMotion) x += Math.sin(clock * 20) * .75;
+    const queueBody = companionMounted ? state.mounts?.[0] || body : body;
+    r.actor(queueBody.x, queueBody.y, z, (g, x, y) => {
+      const horseId = id === 'tomas' ? state.mounts?.[0]?.id : state.horse?.id || 'juniper';
+      const horseBody = id === 'tomas' ? state.mounts?.[0] || body : body.mounted ? body : state.horse || body;
+      const horseAt = r.w(horseBody.x, horseBody.y, 0), horseRig = horseFor(horseId);
+      const copper = (state.animals || []).find(a => a.id === 'copper') || (state.horse?.id === 'copper' ? state.horse : null);
+      const copperAt = copper && r.w(copper.x, copper.y, 0);
+      const cover = rows(SNOWBOUND_WORLD.props).find(p => p.id === 'cover-' + state.flags?.cover);
+      const closeCover = cover && Math.hypot(body.x - cover.x, body.y - cover.y) < 80;
+      const targetActor = (state.npcs || []).find(n => n.id === animation.clip(id)?.targetId) || (state.enemies || []).find(n => n.id === animation.clip(id)?.targetId);
+      const targetAt = targetActor && r.w(targetActor.x, targetActor.y, 0);
+      let partnerSockets;
+      if (id === 'mara' && targetActor && ['block', 'shove', 'restrain'].includes(animation.clip(id)?.kind)) {
+        const partner = humanFor(targetActor.id).rig;
+        const preview = animation.applyHuman(targetActor.id, partner, targetAt, r.view, state, { project: (wx, wy, wz) => r.w(wx, wy, wz), reducedMotion: game.reduceMotion });
+        const cv = E.charView(r.view), shoulder = jointScreen(partner, cv, preview.root, 'shC'), hip = jointScreen(partner, cv, preview.root, 'hipC');
+        const a = jointScreen(partner, cv, preview.root, 'handL'), b = jointScreen(partner, cv, preview.root, 'handR');
+        partnerSockets = { chest: [shoulder[0] * .75 + hip[0] * .25, shoulder[1] * .75 + hip[1] * .25], hands: [(a[0] + b[0]) * .5, (a[1] + b[1]) * .5] };
+        preview.restore();
+      }
+      let playerHand;
+      if (id === 'pavel' && animation.clip(id)?.kind === 'pavel-drop') {
+        const mara = humanFor('mara').rig, at = r.w(state.player.x, state.player.y, 0);
+        const preview = animation.applyHuman('mara', mara, at, r.view, state, { project: (wx, wy, wz) => r.w(wx, wy, wz), reducedMotion: game.reduceMotion });
+        playerHand = jointScreen(mara, E.charView(r.view), preview.root, 'handR'); preview.restore();
+      }
+      const authored = animation.applyHuman(id, h.rig, [x, y], r.view, state, {
+        project: (wx, wy, wz) => r.w(wx, wy, wz), mounted: companionMounted,
+        sockets: horseRig.sockets(...horseAt, id === 'tomas' ? 1.12 : 1.17),
+        copperSockets: copperAt && horseFor('copper').sockets(...copperAt, 1.16),
+        partnerSockets,
+        playerHands: { R: playerHand },
+        exposed: !h.leading && !buildings().some(b => inside(body, b, 0)), cover: closeCover, coverSide: cover && body.x < cover.x ? -1 : 1,
+        reducedMotion: game.reduceMotion,
+        itemSocket: (c, p) => [p[0], p[1] - (c.kind === 'coat' ? 38 : c.kind === 'lantern' ? 20 : c.targetId === 'oats' ? 24 : c.targetId === 'oil' ? 21 : c.targetId === 'weapon' || c.targetId === 'token' ? 3 : 13)],
+      });
+      [x, y] = authored.root;
+      contacts.push(...authored.diagnostics.map(c => ({ actorId: id, kind: animation.clip(id)?.kind, ...c })));
+      h.authoredCarry = !!authored.carry;
+      const carried = authored.carry ? carriedAdult(r, h, [x, y], state, authored.carry) : null;
       const weapon = h.rig.o.weapon; h.rig.o.weapon = null;
-      try { h.rig.draw(g, x, y, r.view); } finally { h.rig.o.weapon = weapon; }
-      drawColdOutfit(g, x, y, h, r.view, state); drawGun(g, x, y, h, r.view, state.player);
+      try {
+        h.rig.draw(g, x, y, r.view);
+        if (carried) carried.draw(g);
+        const coatClip = id === 'mara' && animation.pickup('coat'), lanternClip = id === 'mara' && animation.pickup('lantern');
+        const visual = coatClip || lanternClip ? { ...state, player: { ...state.player, coldcoat: state.player.coldcoat && (!coatClip || coatClip.age / coatClip.duration > .54), lantern: state.player.lantern && (!lanternClip || lanternClip.age / lanternClip.duration > .54) } } : state;
+        drawColdOutfit(g, x, y, h, r.view, visual);
+        const disarm = id === 'mara' && animation.clip(id)?.kind === 'disarm' ? animation.clip(id) : null, wasReady = h.ready;
+        if (disarm && disarm.age / disarm.duration < .58) { h.ready = true; drawGun(g, x, y, h, r.view, { ...visual.player, weaponOwned: true }); h.ready = wasReady; }
+        else drawGun(g, x, y, h, r.view, visual.player);
+        if (disarm && disarm.age / disarm.duration >= .58) {
+          const hand = atJoint(h.rig, r.view, x, y, 'handR'), u = smooth((disarm.age / disarm.duration - .58) / .42);
+          for (const id of ['weapon', 'token']) if (state.dropped?.[id]) {
+            const dest = r.w(state.dropped[id].x, state.dropped[id].y, 0), at = [hand[0] + (dest[0] - hand[0]) * u, hand[1] + (dest[1] - hand[1]) * u - Math.sin(u * Math.PI) * 12];
+            drawPickupBundle(g, at, id);
+          }
+        }
+        const pickup = id === 'mara' && animation.clip(id);
+        if (pickup && pickup.kind.startsWith('pickup:') && pickup.age / pickup.duration > .48) {
+          const hand = atJoint(h.rig, r.view, x, y, 'handR');
+          drawPickupBundle(g, hand, pickup.targetId);
+        }
       if (body.captured || body.restrained || body.bound) {
         const hand = atJoint(h.rig, r.view, x, y, 'handR'); P.line(g, hand[0] - 5, hand[1], hand[0] + 5, hand[1], '#c9b485', 3); P.line(g, hand[0], hand[1] - 4, hand[0], hand[1] + 3, '#7c7051', 1);
       }
@@ -603,6 +717,7 @@ export function createSnowboundRenderer(game) {
         const head = atJoint(h.rig, r.view, x, y, 'head'), t = (clock * .28 + hash(idSeed(id))) % 1;
         if (t < .36) P.blend(g, (.36 - t) * .65, 'normal', () => P.ell(g, head[0] + 5 + t * 25, head[1] + 3 - t * 8, 3 + t * 12, 2 + t * 5, '#d9e2d0'));
       }
+      } finally { h.rig.o.weapon = weapon; carried?.restore(); authored.restore(); }
     }, { outline: false, alpha: body.hp <= 0 ? .85 : 1, flash: id === 'mara' && body.invulnerable > 0 && body.invulnerable < .3 ? '#d4d8b4' : false, margin: 100 });
   }
 
@@ -621,6 +736,7 @@ export function createSnowboundRenderer(game) {
   }
 
   function draw(r, state) {
+    contacts = [];
     const horizon = drawMountainSky(r, clock, state), g = r.ctx;
     g.save(); g.beginPath(); g.rect(0, horizon, r.bw, r.bh - horizon); g.clip();
     P.rect(g, 0, horizon, r.bw, r.bh - horizon, C.snow);
@@ -630,18 +746,21 @@ export function createSnowboundRenderer(game) {
     for (const b of buildings()) drawFloor(r, b);
     g.restore();
     for (const p of scenery) if (r.w(p.x, p.y, 0)[1] >= horizon) drawTree(r, p, clock, state.player);
+    const roofState = animation.carry(state) && !state.player.carrying ? { ...state, player: { ...state.player, carrying: 'gideon' } } : state;
     for (const o of obstacles()) {
       if (r.w(o.x + o.w / 2, o.y + o.h, 0)[1] < horizon) continue;
       if (o.kind === 'fence') drawFence(r, o);
       else if (o.kind === 'kiln') drawKiln(r, o, state, clock);
       else if (o.kind === 'tent') drawTent(r, o);
       else if (o.kind === 'boiler') drawBoiler(r, o, state, clock);
-      else drawObstacle(r, o, state);
+      else drawObstacle(r, o, roofState);
     }
-    for (const b of buildings()) if (r.w(b.x + b.w / 2, b.y + b.h, 0)[1] >= horizon) drawRoof(r, b, state);
-    for (const p of rows(SNOWBOUND_WORLD.props)) if (r.w(p.x, p.y, 0)[1] >= horizon) drawProp(r, p, state, clock, Math.min(1, (pressureTime ?? .7) / .7));
-    for (const p of rows(state.supplies || SNOWBOUND_WORLD.supplies)) if (r.w(p.x, p.y, 0)[1] >= horizon) drawSupply(r, p, p.collected || p.taken || p.lost);
-    for (const [id, item] of Object.entries(state.dropped || {})) if (item && !item.collected && r.w(item.x, item.y, 0)[1] >= horizon) r.queue(item.x, item.y, 0, ctx => {
+    for (const b of buildings()) if (r.w(b.x + b.w / 2, b.y + b.h, 0)[1] >= horizon) drawRoof(r, b, roofState);
+    const coatClip = animation.pickup('coat'), lampClip = animation.pickup('lantern');
+    const propState = coatClip || lampClip ? { ...state, player: { ...state.player, coldcoat: state.player.coldcoat && (!coatClip || coatClip.age / coatClip.duration > .54), lantern: state.player.lantern && (!lampClip || lampClip.age / lampClip.duration > .54) } } : state;
+    for (const p of rows(SNOWBOUND_WORLD.props)) if (r.w(p.x, p.y, 0)[1] >= horizon) drawProp(r, p, propState, clock, animation.valveTurn(state));
+    for (const p of rows(state.supplies || SNOWBOUND_WORLD.supplies)) if (r.w(p.x, p.y, 0)[1] >= horizon) drawSupply(r, p, (p.collected || p.taken || p.lost) && !(animation.pickup(p.id) && animation.pickup(p.id).age / animation.pickup(p.id).duration < .48));
+    for (const [id, item] of Object.entries(state.dropped || {})) if (item && animation.clip('mara')?.kind !== 'disarm' && (!item.collected || animation.pickup(id) && animation.pickup(id).age / animation.pickup(id).duration < .48) && r.w(item.x, item.y, 0)[1] >= horizon) r.queue(item.x, item.y, 0, ctx => {
       const [x, y] = r.w(item.x, item.y, 0);
       if (id === 'weapon') { P.line(ctx, x - 7, y - 3, x + 8, y - 5, '#45645b', 3); P.line(ctx, x - 4, y - 2, x - 3, y + 3, '#856141', 3); P.line(ctx, x - 7, y - 4, x + 7, y - 6, '#afbeaa', 1); }
       else { P.disc(ctx, x, y - 2, 6, '#9c8860'); P.disc(ctx, x, y - 2, 4, '#d2bd82'); P.line(ctx, x - 2, y - 3, x + 2, y - 3, '#716d48', 1); P.line(ctx, x, y - 3, x, y + 1, '#716d48', 1); }
@@ -651,8 +770,8 @@ export function createSnowboundRenderer(game) {
       r.shadow(animal.x, animal.y, 20, .21, '#56736a');
       r.actor(animal.x, animal.y, 0, (ctx, x, y) => horseFor(animal.id).draw(ctx, x, y, 1.16, animal), { outline: false, margin: 100 });
       if (animal.leading && state.player) r.queue(animal.x, animal.y, .1, ctx => {
-        const horseRig = horseFor(animal.id), at = r.w(animal.x, animal.y, 0), flip = Math.cos(horseRig.facing) < 0 ? -1 : 1;
-        const halter = [at[0] + 34 * 1.16 * flip, at[1] - (55 + horseRig.fear * 9) * 1.16];
+        const horseRig = horseFor(animal.id), at = r.w(animal.x, animal.y, 0);
+        const halter = horseRig.sockets(...at, 1.16).halter;
         const h = humanFor('mara'), foot = r.w(state.player.x, state.player.y, h.mountZ || 0), hand = atJoint(h.rig, r.view, ...foot, 'handR');
         P.line(ctx, ...halter, ...hand, '#62765c', 2); P.line(ctx, ...halter, ...hand, '#d5c59c', 1);
       });
@@ -696,5 +815,5 @@ export function createSnowboundRenderer(game) {
       if (p?.focusActive) P.blend(ctx, .07, 'normal', () => P.rect(ctx, 0, 0, r.bw, r.bh, '#d4b47b'));
     });
   }
-  return { update, draw };
+  return { update, draw, inspectAnimation: () => ({ contacts: contacts.map(c => ({ ...c })), mara: animation.clip('mara'), pavel: animation.clip('pavel') }) };
 }

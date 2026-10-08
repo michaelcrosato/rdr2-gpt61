@@ -10,6 +10,23 @@ const npc = (s, id) => s.npcs.find((actor) => actor.id === id);
 const foe = (s, id) => s.enemies.find((actor) => actor.id === id);
 const mare = (s) => s.animals.find((actor) => actor.id === 'copper');
 const prop = (id) => SNOWBOUND_WORLD.props.find((value) => value.id === id);
+// Authored animation consumes accepted actions, never controls their outcome.
+// WeakMap storage keeps these transient events out of saves and checkpoints.
+const presentations = new WeakMap();
+let presentationGeneration = 0;
+function resetPresentation(s) { presentations.set(s, { generation: ++presentationGeneration, seq: 0, events: [] }); }
+export function getCampaignPresentation(s) {
+  if (!presentations.has(s)) resetPresentation(s);
+  const record = presentations.get(s);
+  return { generation: record.generation, seq: record.seq, events: record.events.slice() };
+}
+function present(s, kind, target, targetId, from = s.player, actorId = 'mara') {
+  if (!presentations.has(s)) resetPresentation(s);
+  const record = presentations.get(s);
+  const point = actor => Object.freeze({ x: actor.x, y: actor.y, z: actor.z || 0, facing: actor.facing || 0 });
+  record.events.push(Object.freeze({ seq: ++record.seq, kind, actorId, targetId, target: point(target), from: point(from), time: s.elapsed }));
+  record.events = record.events.slice(-8);
+}
 const isInside = (actor, r, radius = 0) => actor.x > r.x - radius && actor.x < r.x + r.w + radius && actor.y > r.y - radius && actor.y < r.y + r.h + radius;
 const blocked = (x, y, radius = 9) => x < radius || y < radius || x > SNOWBOUND_WORLD.width - radius || y > SNOWBOUND_WORLD.height - radius || SNOWBOUND_WORLD.obstacles.some((r) => isInside({ x, y }, r, radius));
 function log(s, text) { s.log.push({ day: s.day, time: s.time, text }); s.log = s.log.slice(-100); }
@@ -127,6 +144,7 @@ export function createCampaignState() {
     performance: { noYardInjury: null, allSixSupplies: null, accurate: null, accuracy: 0 },
     failure: null, dialog: null, checkpoint: null, replayCanonical: null, log: [], notices: [], lastSave: null,
   };
+  resetPresentation(s);
   objective(s); log(s, 'Neri Bell died before the stove could be lit. Mara, Tomas and Inez must bring warmth to the lime kiln refuge. Silas Orr has not returned.');
   notice(s, 'Find the coat and lantern beside the kiln. Speak with Tomas Reed.'); checkpoint(s, 'Lime kiln refuge');
   return s;
@@ -307,6 +325,7 @@ export function stepCampaign(s, dt, input = {}) {
     if (player.carrying === 'gideon') {
       const gideon = npc(s, 'gideon'); gideon.x = player.x; gideon.y = player.y; gideon.carried = true;
       if (distance(player, prop('safe-walkway')) < 55) {
+        present(s, 'setdown', { x: 1125, y: 415 }, 'gideon');
         player.carrying = null; gideon.carried = false; s.flags.gideonSafe = true; gideon.x = 1125; gideon.y = 415;
         notice(s, 'Gideon is on the safe walkway. Bring Ada across before the relay fails.');
       }
@@ -320,6 +339,7 @@ export function stepCampaign(s, dt, input = {}) {
       if (s.flags.adaRouteIndex >= SNOWBOUND_WORLD.rescueRoute.length) { s.flags.adaSafe = true; ada.x = 1150; ada.y = 430; notice(s, 'Ada crossed the walkway. She can isolate the relay circuit.'); }
     }
     if (s.flags.adaSafe && s.flags.gideonSafe && s.worldChanges.pressureReleased) {
+      present(s, 'boiler-collapse', { x: 1470, y: 485 }, 'boiler');
       s.worldChanges.relayCircuitOff = true; s.worldChanges.boilerDestroyed = true; s.worldChanges.relayDamaged = true; s.worldChanges.fireActive = false;
       foe(s, 'saboteur').active = false; foe(s, 'saboteur').escaped = alive(foe(s, 'saboteur'));
       if (s.flags.rescuePriority === 'preserve-log') {
@@ -352,7 +372,7 @@ export function getCampaignInteractions(s) {
   if (s.dialog || s.failure) return [];
   const offers = [], player = s.player;
   const offer = (id, label, point, max = 55, priority = 3, targetId = id) => {
-    if (point && distance(player, point) <= max) offers.push({ id, label, targetId, distance: distance(player, point), priority });
+    if (point && distance(player, point) <= max) offers.push({ id, label, targetId, x: point.x, y: point.y, z: point.z || 0, distance: distance(player, point), priority });
   };
   if (player.mounted) offer('dismount', `Dismount ${s.horse.name}`, player, 1, 1);
   else if (alive(s.horse) && !player.carrying && s.horse.ridingUnlocked) offer('mount', `Ride ${s.horse.name}`, s.horse, 48, 1);
@@ -419,7 +439,7 @@ export function getCampaignInteraction(s) { return getCampaignInteractions(s)[0]
 export function interactCampaign(s, requestedId = null) {
   const offered = requestedId ? getCampaignInteractions(s).find((offer) => offer.id === requestedId) : getCampaignInteraction(s);
   if (!offered) { notice(s, 'Move closer to the marked person or object.'); return s; }
-  const id = offered.id, player = s.player;
+  const id = offered.id, player = s.player, from = { x: player.x, y: player.y, z: player.mounted ? 23 : 0, facing: player.facing };
   if (['holster', 'block', 'shove', 'restrain'].includes(id)) return campaignAction(s, id);
   if (id === 'mount') {
     let saddle = { x: s.horse.x, y: s.horse.y };
@@ -434,7 +454,17 @@ export function interactCampaign(s, requestedId = null) {
     }
     player.mounted = true; player.x = s.horse.x = saddle.x; player.y = s.horse.y = saddle.y; s.horse.hitched = false; notice(s, `Mounted ${s.horse.name}.`);
   }
-  else if (id === 'dismount') { player.mounted = false; notice(s, 'Dismounted. The wire trail and station lamp show the way.'); }
+  else if (id === 'dismount') {
+    let landing = null;
+    const heading = s.horse.facing ?? player.facing;
+    for (const radius of [26, 34, 42]) for (const offset of [Math.PI / 2, -Math.PI / 2, Math.PI, 0, Math.PI / 4, -Math.PI / 4, Math.PI * .75, -Math.PI * .75]) {
+      if (landing) break;
+      const point = { x: s.horse.x + Math.cos(heading + offset) * radius, y: s.horse.y + Math.sin(heading + offset) * radius };
+      if (!blocked(point.x, point.y, 9)) landing = point;
+    }
+    if (!landing) { notice(s, 'Move the horse away from the wall to find safe ground for dismounting.'); return s; }
+    player.mounted = false; Object.assign(player, landing); notice(s, 'Dismounted. The wire trail and station lamp show the way.');
+  }
   else if (id === 'coat') { s.flags.coatTaken = true; player.coldcoat = true; notice(s, 'Wool coat on. The cold is held at bay.'); depart(s); }
   else if (id === 'lantern') { s.flags.lanternTaken = true; player.lantern = true; notice(s, 'Lantern taken. Keep its light with the party.'); depart(s); }
   else if (id === 'tomas' && s.mission.stage === 0) talk(s, 'kiln-briefing', 'Tomas Reed', 'Neri should have lived to see another morning. Copperglass still has a smoking chimney. Bring blankets, food and fuel; Inez will find our pack mare. Silas Orr vanished with the last message. Keep your coat and lantern close.', [['accept-journey', 'I have the coat and light. Lead the way.'], ['leave', 'I need to prepare.']]);
@@ -459,6 +489,8 @@ export function interactCampaign(s, requestedId = null) {
     s.dropped.weapon = { x: player.x - 24, y: player.y - 15, collected: false }; s.dropped.token = { x: player.x + 24, y: player.y + 15, collected: false };
     const pavel = npc(s, 'pavel'); pavel.hidden = false; pavel.x = player.x + 30; pavel.y = player.y; pavel.hp = 80;
     s.timers.ambush = 1.2; notice(s, 'Pavel drops from the platform and disarms Mara. Block, shove twice, then restrain him.'); log(s, 'Pavel Dune ambushed Mara in the coal store. Her revolver and community token fell to the floor.');
+    present(s, 'pavel-drop', pavel, 'pavel', { ...prop('coal-platform'), z: 36, facing: pavel.facing }, 'pavel');
+    present(s, 'disarm', pavel, 'pavel', from);
   } else if (id === 'interrogate-pavel') talk(s, 'pavel-interrogation', 'Pavel Dune', 'Voss set a pressure fuse below the relay. Open the west relief valve before moving the Rusks. The keeper hid Silas’s route: the ice viaduct, beyond the north cutting. I was paid to strip wire, not burn people.', [['release-pavel', 'Release him. Bring a warning if the company returns.'], ['bind-pavel', 'Bind him for the community’s later judgment.'], ['kill-pavel', 'Kill him for the ambush.']]);
   else if (id === 'speak-copper') {
     if (!player.holstered || player.mounted) { notice(s, 'Holster and dismount before approaching Copper.'); return s; }
@@ -495,6 +527,8 @@ export function interactCampaign(s, requestedId = null) {
     const suppliesReaction = `${s.camp.blankets > 0 ? 'The recovered blankets are around the people who needed them.' : 'We still owe the people warmer blankets.'} ${s.supplies.find((item) => item.id === 'kindling').delivered > 0 ? 'Your dry kindling lit the stove.' : 'The fuel box still needs help.'} ${s.supplies.find((item) => item.id === 'bandages').delivered > 0 ? 'Gideon has the bandages that made it home.' : 'Gideon will need more dressings after the journey.'}`;
     talk(s, 'inez-aftermath', 'Inez Pike', `Copper is home, wearing the old halter. She is yours to care for, for all of us. ${pavelReaction} ${vossReaction} ${suppliesReaction}`, [['leave', 'I’ll care for Copper and keep the camp supplied.']]);
   }
+  const kind = id.startsWith('pickup:') ? 'pickup' : ({ coat: 'coat', lantern: 'lantern', mount: 'mount', dismount: 'dismount', hitch: 'hitch', 'calm-copper': 'calm', 'pat-copper': 'pat', 'hitch-copper': 'hitch-copper', 'pressure-valve': 'valve', 'carry-gideon': 'lift', 'set-down-gideon': 'setdown', 'capture-voss': 'restrain' })[id];
+  if (kind) present(s, kind, kind === 'mount' ? s.horse : kind === 'dismount' ? player : offered, ['mount', 'dismount'].includes(id) ? s.horse.id : offered.targetId, from);
   return s;
 }
 
@@ -570,17 +604,19 @@ export function campaignAction(s, action) {
     const keepCheckpoint = copy(s.checkpoint), canonical = s.replayCanonical ? copy(s.replayCanonical) : null, deaths = s.stats.deaths;
     const restored = copy(s.checkpoint.data); for (const key of Object.keys(s)) delete s[key]; Object.assign(s, restored);
     s.checkpoint = keepCheckpoint; s.replayCanonical = canonical; s.failure = null; s.dialog = null; s.stats.deaths = deaths;
+    resetPresentation(s);
     notice(s, `Retry · ${s.checkpoint.label}. Actors, supplies, equipment, mounts and crisis timers restored.`); return s;
   }
   if (action === 'restart') return restartCampaign(s);
   if (action === 'replay') {
     if (!s.mission.completed || s.replayCanonical) { notice(s, 'Complete this opening before replaying it.'); return s; }
     const canonical = snapshot(s), fresh = createCampaignState(); for (const key of Object.keys(s)) delete s[key]; Object.assign(s, fresh); s.replayCanonical = canonical;
+    resetPresentation(s);
     notice(s, 'Mission replay. The permanent journey is preserved in a separate snapshot.'); return s;
   }
   if (action === 'finish-replay') {
     if (!s.replayCanonical) return s;
-    const canonical = copy(s.replayCanonical); for (const key of Object.keys(s)) delete s[key]; Object.assign(s, canonical); s.replayCanonical = null; checkpoint(s, 'Permanent journey after replay'); notice(s, 'Permanent journey restored. Replay supplies and choices did not transfer.'); return s;
+    const canonical = copy(s.replayCanonical); for (const key of Object.keys(s)) delete s[key]; Object.assign(s, canonical); s.replayCanonical = null; resetPresentation(s); checkpoint(s, 'Permanent journey after replay'); notice(s, 'Permanent journey restored. Replay supplies and choices did not transfer.'); return s;
   }
   if (s.dialog || s.failure) return s;
   if (typeof action === 'string' && action.startsWith('store:')) return storeCampaignItem(s, action.slice(6));
@@ -589,13 +625,14 @@ export function campaignAction(s, action) {
   if (action === 'draw') { if (s.player.weaponOwned) s.player.holstered = false; return s; }
   const pavel = npc(s, 'pavel');
   if (s.mission.stage === 5 && s.flags.coalAmbushed && !s.flags.pavelSubdued && distance(s.player, pavel) <= 65 && !s.player.mounted) {
-    if (action === 'block') { s.player.blockTimer = 1.5; s.flags.blocked = true; return s; }
+    const from = { ...s.player }, target = { ...pavel };
+    if (action === 'block') { const starting = s.player.blockTimer <= 0; s.player.blockTimer = 1.5; s.flags.blocked = true; if (starting) present(s, 'block', target, 'pavel', from); return s; }
     if (action === 'shove' && s.flags.blocked && s.timers.shoveCooldown <= 0 && s.player.stamina >= 10) {
       s.flags.shoves++; pavel.hp = Math.max(25, pavel.hp - 25); s.player.stamina -= 10; s.timers.shoveCooldown = .35; s.timers.ambush = 1.2;
       s.player.facing = Math.atan2(pavel.y - s.player.y, pavel.x - s.player.x);
-      move(pavel, Math.cos(s.player.facing) * 12, Math.sin(s.player.facing) * 12); notice(s, s.flags.shoves >= 2 ? 'Pavel is off balance. Restrain him.' : 'Pavel staggered. Block and shove again.'); return s;
+      move(pavel, Math.cos(s.player.facing) * 12, Math.sin(s.player.facing) * 12); present(s, 'shove', target, 'pavel', from); notice(s, s.flags.shoves >= 2 ? 'Pavel is off balance. Restrain him.' : 'Pavel staggered. Block and shove again.'); return s;
     }
-    if (action === 'restrain' && s.flags.shoves >= 2) { s.flags.pavelSubdued = true; pavel.restrained = true; s.player.blockTimer = 0; notice(s, 'Pavel restrained. Recover the dropped revolver and community token.'); return s; }
+    if (action === 'restrain' && s.flags.shoves >= 2) { s.flags.pavelSubdued = true; pavel.restrained = true; s.player.blockTimer = 0; present(s, 'restrain', target, 'pavel', from); notice(s, 'Pavel restrained. Recover the dropped revolver and community token.'); return s; }
   }
   if (action === 'restrain' && foe(s, 'voss').fleeing && distance(s.player, foe(s, 'voss')) <= 42) return interactCampaign(s, 'capture-voss');
   const aliases = { carry: 'carry-gideon', release: 'set-down-gideon', calm: 'calm-copper', pat: 'pat-copper', lead: 'lead-copper' };
@@ -604,7 +641,7 @@ export function campaignAction(s, action) {
 }
 export function restartCampaign(s) {
   const canonical = s.replayCanonical ? copy(s.replayCanonical) : null; const fresh = createCampaignState();
-  for (const key of Object.keys(s)) delete s[key]; Object.assign(s, fresh); s.replayCanonical = canonical; return s;
+  for (const key of Object.keys(s)) delete s[key]; Object.assign(s, fresh); s.replayCanonical = canonical; resetPresentation(s); return s;
 }
 export function shootCampaign(s, targetX, targetY) {
   const player = s.player;

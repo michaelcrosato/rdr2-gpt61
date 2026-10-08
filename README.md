@@ -18,8 +18,8 @@ Open **http://127.0.0.1:4173** to begin in Snowbound. The title screen also open
 
 - **The Last Warm Light:** a distinct nine-stage campaign opening. Prepare at the frozen refuge, ride the wire trail with Tomas and Inez, negotiate at Copperglass, fight the boiler-yard guards, collect six separate supplies, survive Pavel's disarming ambush, choose his fate, calm and lead Copper, rescue Ada and Gideon through the service doorway, then return with actual supplies. Both rescue priorities and all three Pavel outcomes write lasting consequences; the destroyed boiler, recovered log and captured/escaped Voss persist.
 - Snowbound checkpoint retries restore people, equipment, pickups, mounts and fuse timers. Protected participants and abandonment have readable failures. Optional performance records track injury, supplies and actual shooting accuracy. Mission replay keeps the permanent world in a separate snapshot.
-- After returning to the kiln, Copper's riding, feeding and twelve-unit pack unlock. Storage transfers actual inventory while nearby. The next story, **A Voice Under Ice**, is identified but not playable yet.
-- Original winter terrain, door-aligned interiors, distinct cast rigs and portraits, snow/breath/steam/fire, frightened-mare and adult-carry presentation, five original synthesized music motifs and environmental sounds.
+- After returning to the kiln, Copper's riding, feeding and twelve-unit pack unlock. Storage transfers actual inventory while nearby. The next story, **A Voice Under Ice**, has a proposed ten-stage specification and is not playable yet.
+- Original winter terrain, door-aligned interiors, distinct cast rigs and portraits, snow/breath/steam/fire, authored saddle mounting/dismounting, hand-to-prop contacts, Pavel's drop and close combat, mare calming, adult lift/carry/set-down, wind bracing and cover peeking. Five original synthesized music motifs and environmental sounds accompany the opening.
 
 Mercy Vale remains a separate foundation region rather than the campaign's next chapter:
 
@@ -47,10 +47,14 @@ npm run test:browser
 python3 scripts/playthrough-check.py
 python3 scripts/campaign-playthrough.py --engine chromium --output /tmp/dust-mercy-campaign-playthrough-chromium
 python3 scripts/campaign-playthrough.py --engine webkit --output /tmp/dust-mercy-campaign-playthrough-webkit
+python3 scripts/campaign-input-playthrough.py --mode pointer --engine webkit --output /tmp/dust-mercy-pointer
+python3 scripts/campaign-input-playthrough.py --mode controller --engine chromium --output /tmp/dust-mercy-controller
 viewport-matrix 'http://127.0.0.1:4173/?play=1' -o /tmp/dust-mercy-viewports --dpr1
 ```
 
 Browser artifacts are written under `/tmp`, outside the repository. The Mercy Vale browser check accepts `GAME_URL` and `BROWSER_OUTPUT`; the campaign check accepts `CAMPAIGN_URL` and `CAMPAIGN_BROWSER_OUTPUT`. `?play=1` enters a saved journey when available or starts a new one, useful for viewport checks. iPhone-profile WebKit is the available automated Safari-engine approximation; real iOS Safari and physical controllers have not been tested here.
+
+The input playthrough uses the visible phone joystick with mouse pointer drags and touchscreen menu taps, or an isolated standard-Gamepad fixture with controller-only movement and menus. It does not write simulation state. These automated paths have completed the opening; native touch dragging and physical controller hardware remain unverified. The pause menu exposes map, journal and satchel to controller navigation.
 
 ## Production scope and evidence
 
@@ -58,6 +62,8 @@ Browser artifacts are written under `/tmp`, outside the repository. The Mercy Va
 - [Source research](docs/source-research.md) and [expandable source ledger](content/source-coverage.json)
 - [Original campaign opening specification](docs/missions/the-last-warm-light.md)
 - [Snowbound implementation, verification and remaining gates](docs/snowbound-evidence.md)
+- [Opening animation and complete pointer/controller run evidence](docs/animation-input-evidence.md)
+- [Proposed next rescue specification](docs/missions/a-voice-under-ice.md)
 - [Foundation verification and remaining gates](docs/foundation-evidence.md)
 - [Engine attribution and exact MIT license](THIRD_PARTY_NOTICES.md)
 
