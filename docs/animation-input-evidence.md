@@ -1,5 +1,7 @@
 # Dust & Mercy — opening animation and input evidence
 
+Current status (2026-10-08 re-review): this receipt preserves opening animation and input results from its recorded build. The rescue has since been implemented and verified within the limits in [rescue-evidence.md](rescue-evidence.md), and the hunt is documented in [hunt-evidence.md](hunt-evidence.md). Later-story availability statements below are historical. They do not describe the current three-mission journey.
+
 Evidence date: 2026-10-08. Build 0.2.1 follows the [nine-stage Snowbound opening](snowbound-evidence.md). It adds authored motion and completes two automated input paths. The requested full game and its open source ledger remain required; this update does not establish full source, presentation or input acceptance.
 
 ## Accepted actions and motion

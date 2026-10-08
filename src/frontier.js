@@ -21,11 +21,14 @@ export function restore(raw) {
   return isCampaign(data) ? Campaign.restoreCampaign(data) : Mercy.restore(data);
 }
 function message(s, text) { s.notices.push({ text, time: 5 }); s.notices = s.notices.slice(-5); return s; }
-export function shoot(s, x, y) {
-  if (isCampaign(s)) return Campaign.shootCampaign(s, x, y);
+export function shoot(s, x, y, aim = {}) {
+  if (isCampaign(s)) return Campaign.shootCampaign(s, x, y, aim);
   if (s.player.holstered) return message(s, 'Draw your revolver before firing.');
   return Mercy.shoot(s, x, y);
 }
+export const beginDraw = (s, x, y, aim = {}) => isCampaign(s) ? Campaign.beginCampaignDraw(s, x, y, aim) : s;
+export const releaseDraw = (s, x, y, aim = {}) => isCampaign(s) ? Campaign.releaseCampaignDraw(s, x, y, aim) : s;
+export const cancelDraw = s => isCampaign(s) ? Campaign.cancelCampaignDraw(s) : s;
 export function action(s, id) {
   if (isCampaign(s)) return Campaign.campaignAction(s, id === 'holster' && s.player.holstered ? 'draw' : id);
   if (id === 'holster' && !s.dialog) { s.player.holstered = !s.player.holstered; message(s, s.player.holstered ? 'Revolver holstered.' : 'Revolver drawn.'); }

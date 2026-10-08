@@ -1,5 +1,7 @@
 # Dust & Mercy — Snowbound implementation evidence
 
+Current status (2026-10-08 re-review): this receipt describes the earlier opening build. The northern rescue now has a playable implementation and independent evidence in [rescue-evidence.md](rescue-evidence.md); the subsequent companion hunt is documented in [hunt-evidence.md](hunt-evidence.md). Statements below about unavailable follow-ups describe the recorded build, not the current journey. The full source and quality gates remain open.
+
 Evidence date: 2026-10-08. The original campaign opening, **The Last Warm Light**, has a playable nine-stage runtime. The requested full game remains the target; neither this milestone nor its checks establish complete source coverage or final presentation quality.
 
 This document records the 0.2.0 opening baseline. The [0.2.1 animation and input follow-up](animation-input-evidence.md) adds authored contact motion, safe dismount placement, controller access to map/journal/satchel, eight further tests and complete pointer/controller runs. Baseline partial-input and animation gaps below describe the earlier build; the follow-up states the current evidence and remaining limits.

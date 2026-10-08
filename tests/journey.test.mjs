@@ -67,14 +67,14 @@ function suspendedFailure() {
 }
 
 for (const name of ['departure', 'copper-owned', 'gideon-carried', 'complete']) {
-  test(`v2 migrates the actual v1 ${name} Save with durable actor, inventory and branch state`, () => {
+  test(`current graph migrates the actual v1 ${name} Save with durable actor, inventory and branch state`, () => {
     const { raw, state } = migrate(name);
-    assert.equal(state.version, 2);
+    assert.equal(state.version, 3);
     assert.equal(state.campaignId, 'dust-and-mercy');
     assertLegacyCore(raw, state);
     assertSingleResidence(state);
     const restored = Journey.restoreCampaign(Journey.serializeCampaign(state));
-    assert.ok(restored, 'migrated state also survives the v2 codec');
+    assert.ok(restored, 'migrated state also survives the current codec');
     assert.deepEqual(durable(restored), durable(state));
     assert.strictEqual(restored.player, restored.entities.mara);
     assert.strictEqual(restored.horse, restored.entities[restored.party.mountId]);
