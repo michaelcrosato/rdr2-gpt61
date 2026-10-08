@@ -9,6 +9,7 @@ import os
 import math
 from pathlib import Path
 from playwright.async_api import async_playwright
+from campaign_save import normalize_campaign_save
 
 URL = os.environ.get('CAMPAIGN_URL', 'http://127.0.0.1:4173')
 OUTPUT = Path(os.environ.get('CAMPAIGN_BROWSER_OUTPUT', '/tmp/dust-mercy-campaign-browser'))
@@ -57,7 +58,7 @@ async def check(engine, name, mobile=False):
     await click(page.locator('[data-choice="accept-journey"]'))
     await page.wait_for_timeout(200)
     assert await page.locator('#mission-count').inner_text() == '02 / 09', 'Coat, lantern and Tomas are required before the trail'
-    saved = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+    saved = normalize_campaign_save(await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))'))
     assert saved['region'] == 'snowbound' and saved['mission']['stage'] == 1
     if mobile:
         before = await page.evaluate('My3D2dge.current.cam.tx')
@@ -187,7 +188,7 @@ async def check_controller(engine):
     else:
         raise AssertionError('Controller cannot reach Save journey')
     await press(0)
-    saved = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+    saved = normalize_campaign_save(await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))'))
     assert saved['horse']['follow'] and saved['mission']['stage'] == 1
     for name in ['map', 'journal', 'satchel']:
         selector = f'[data-command="panel"][data-id="{name}"]'

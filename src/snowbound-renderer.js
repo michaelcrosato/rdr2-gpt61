@@ -1,6 +1,9 @@
 import { SNOWBOUND_WORLD } from '../content/campaign/snowbound.js';
 import { getCampaignPresentation } from './campaign.js';
 import { createWesternAnimator, contactHand, jointScreen, savePose, smooth, solveLimb } from './western-animation.js';
+import { createExpeditionActors, isRescuePresentation } from './expedition-actors.js';
+import { createExpeditionHuman, drawExpeditionOutfit, EXPEDITION_CAST_IDS } from './expedition-cast.js';
+import { drawExpeditionCamp } from './expedition-camp.js';
 
 const E = globalThis.My3D2dge;
 const P = E.px;
@@ -406,6 +409,7 @@ function atJoint(rig, view, x, y, joint, offset = [0, 0, 0]) {
 }
 
 function drawColdOutfit(g, x, y, h, view, state) {
+  if (EXPEDITION_CAST_IDS.has(h.id)) { drawExpeditionOutfit(E, g, [x,y], h, view, (state.npcs || []).find(a=>a.id===h.id), state); return; }
   const rig = h.rig;
   if ((rig.downW || 0) > .6) return;
   const head = atJoint(rig, view, x, y, 'head'), shoulder = atJoint(rig, view, x, y, 'shC'), hip = atJoint(rig, view, x, y, 'hipC');
@@ -535,9 +539,10 @@ class SnowHorseRig {
 export function createSnowboundRenderer(game) {
   const terrain = makeSnow(), scenery = treeScenery(), humans = new Map(), horses = new Map(), positions = new Map();
   const animation = createWesternAnimator(E);
+  const expedition = createExpeditionActors(E, game);
   let contacts = [];
-  let clock = 0, pressureTime = null;
-  const humanFor = (id, hostile = false) => { if (!humans.has(id)) humans.set(id, makeHuman(id, hostile)); return humans.get(id); };
+  let clock = 0, pressureTime = null, rescuePresentation = false;
+  const humanFor = (id, hostile = false) => { if (!humans.has(id)) humans.set(id, EXPEDITION_CAST_IDS.has(id) ? createExpeditionHuman(E,id) : makeHuman(id, hostile)); return humans.get(id); };
   const horseFor = (id) => { if (!horses.has(id)) horses.set(id, new SnowHorseRig(id)); return horses.get(id); };
   function motion(id, body, dt) {
     const before = positions.get(id), vx = before && dt > 0 ? (body.x - before.x) / dt : 0, vy = before && dt > 0 ? (body.y - before.y) / dt : 0;
@@ -545,7 +550,10 @@ export function createSnowboundRenderer(game) {
     return { vx: Math.abs(vx) < 600 ? vx : 0, vy: Math.abs(vy) < 600 ? vy : 0 };
   }
   function update(dt, state) {
-    animation.update(dt, state, getCampaignPresentation(state), game.reduceMotion);
+    const rescue = isRescuePresentation(state), stream = getCampaignPresentation(state);
+    rescuePresentation = rescue;
+    animation.update(dt, state, rescue ? { ...stream, events: [] } : stream, game.reduceMotion);
+    if (rescue) expedition.update(dt,state);
     if (!game.reduceMotion) clock += dt;
     pressureTime = state.worldChanges?.pressureReleased ? (pressureTime ?? 0) + dt : null;
     const p = state.player;
@@ -596,7 +604,7 @@ export function createSnowboundRenderer(game) {
       h.escortGesture = Math.max(0, (h.escortGesture || 0) - dt);
       if (actor.id === 'ada' && state.flags?.adaEscorting && !h.escorting) h.escortGesture = .7;
       h.escorting = actor.id === 'ada' && !!state.flags?.adaEscorting;
-      const riding = actor.id === 'tomas' && state.mission?.stage === 1;
+      const riding = !rescue && actor.id === 'tomas' && state.mission?.stage === 1;
       h.rig.update(dt, { ...actor, ...m, vx: riding ? 0 : m.vx, vy: riding ? 0 : m.vy, z: actor.z || 0, facing: actor.facing ?? (Math.hypot(m.vx, m.vy) > 3 ? Math.atan2(m.vy, m.vx) : 1.15), point: h.ready,
         pose: actor.hp <= 0 ? 'die' : actor.id === 'gideon' && actor.injured ? 'down' : actor.captured || actor.restrained || actor.bound || actor.surrendered ? 'guard' : h.escortGesture > 0 ? 'cast' : actor.id === 'tomas' && state.mission?.stage === 0 ? 'hips' : null });
     }
@@ -641,8 +649,9 @@ export function createSnowboundRenderer(game) {
   }
 
   function drawHuman(r, body, id, state, horizon) {
+    if (isRescuePresentation(state) && (id === 'mara' || id === 'inez' || EXPEDITION_CAST_IDS.has(id))) return;
     if (body.hidden || body.departed || body.escaped || body.carried || state.player?.carrying === id || id === 'gideon' && animation.carry(state)) return;
-    const companionMounted = id === 'tomas' && state.mission?.stage === 1;
+    const companionMounted = !isRescuePresentation(state) && id === 'tomas' && state.mission?.stage === 1;
     const h = humanFor(id, body.faction === 'company');
     const z = body.z || 0, at = r.w(body.x, body.y, 0);
     if (at[1] < horizon || !r.visible(body.x, body.y, z, 85, 130, 100)) return;
@@ -744,8 +753,9 @@ export function createSnowboundRenderer(game) {
     g.save(); g.beginPath(); g.rect(0, horizon, r.bw, r.bh - horizon); g.clip();
     drawServiceWalkway(r);
     for (const b of buildings()) drawFloor(r, b);
+    drawExpeditionCamp(E,r,state);
     g.restore();
-    for (const p of scenery) if (r.w(p.x, p.y, 0)[1] >= horizon) drawTree(r, p, clock, state.player);
+    for (const p of scenery) if (!(state.entities?.elin && p.x > 250 && p.x < 510 && p.y > 1140 && p.y < 1370) && r.w(p.x, p.y, 0)[1] >= horizon) drawTree(r, p, clock, state.player);
     const roofState = animation.carry(state) && !state.player.carrying ? { ...state, player: { ...state.player, carrying: 'gideon' } } : state;
     for (const o of obstacles()) {
       if (r.w(o.x + o.w / 2, o.y + o.h, 0)[1] < horizon) continue;
@@ -766,6 +776,7 @@ export function createSnowboundRenderer(game) {
       else { P.disc(ctx, x, y - 2, 6, '#9c8860'); P.disc(ctx, x, y - 2, 4, '#d2bd82'); P.line(ctx, x - 2, y - 3, x + 2, y - 3, '#716d48', 1); P.line(ctx, x, y - 3, x, y + 1, '#716d48', 1); }
     });
     for (const animal of state.animals || []) {
+      if (isRescuePresentation(state)) continue;
       if (animal.id === state.horse?.id || animal.hidden || !r.visible(animal.x, animal.y, 0, 90, 140, 70) || r.w(animal.x, animal.y, 0)[1] < horizon) continue;
       r.shadow(animal.x, animal.y, 20, .21, '#56736a');
       r.actor(animal.x, animal.y, 0, (ctx, x, y) => horseFor(animal.id).draw(ctx, x, y, 1.16, animal), { outline: false, margin: 100 });
@@ -777,17 +788,19 @@ export function createSnowboundRenderer(game) {
       });
     }
     for (const mount of state.mounts || []) {
+      if (isRescuePresentation(state)) continue;
       if (mount.hidden || r.w(mount.x, mount.y, 0)[1] < horizon) continue;
       r.shadow(mount.x, mount.y, 23, .22, '#58746b');
       r.actor(mount.x, mount.y, 0, (ctx, x, y) => horseFor(mount.id).draw(ctx, x, y, 1.12, mount), { outline: false, margin: 110 });
     }
     for (const actor of [...(state.npcs || []), ...(state.enemies || [])]) drawHuman(r, actor, actor.id, state, horizon);
     const p = state.player, horse = p?.mounted ? p : state.horse;
-    if (horse && r.w(horse.x, horse.y, 0)[1] >= horizon) {
+    if (!isRescuePresentation(state) && horse && r.w(horse.x, horse.y, 0)[1] >= horizon) {
       r.shadow(horse.x, horse.y, 23, .22, '#58746b');
       r.actor(horse.x, horse.y, 0, (ctx, x, y) => horseFor(state.horse?.id || 'juniper').draw(ctx, x, y, 1.17, { ...horse, hp: state.horse?.hp ?? 100 }), { outline: false, margin: 110 });
     }
     if (p) drawHuman(r, p, 'mara', state, horizon);
+    if (isRescuePresentation(state)) expedition.draw(r,state);
     for (const shot of state.bullets || []) {
       const a = r.w(shot.x, shot.y, shot.z ?? 25), b = r.w(shot.x - shot.vx * .019, shot.y - shot.vy * .019, shot.z ?? 25);
       r.queue(shot.x, shot.y, 25, ctx => { P.line(ctx, ...a, ...b, shot.faction === 'player' ? '#ead9ad' : '#d9a673', 2); P.dot(ctx, ...a, '#f1e5c6'); });
@@ -815,5 +828,5 @@ export function createSnowboundRenderer(game) {
       if (p?.focusActive) P.blend(ctx, .07, 'normal', () => P.rect(ctx, 0, 0, r.bw, r.bh, '#d4b47b'));
     });
   }
-  return { update, draw, inspectAnimation: () => ({ contacts: contacts.map(c => ({ ...c })), mara: animation.clip('mara'), pavel: animation.clip('pavel') }) };
+  return { update, draw, inspectAnimation: () => rescuePresentation ? expedition.inspect() : ({ contacts: contacts.map(c => ({ ...c })), mara: animation.clip('mara'), pavel: animation.clip('pavel') }) };
 }

@@ -15,6 +15,7 @@ from pathlib import Path
 
 os.environ.setdefault("PLAYWRIGHT_HOST_PLATFORM_OVERRIDE", "ubuntu24.04-x64")
 from playwright.async_api import async_playwright
+from campaign_save import normalize_campaign_save
 
 
 async def run(url, output, engine, pavel_outcome="bind", rescue_priority="preserve-log", voss_outcome="escape"):
@@ -68,6 +69,7 @@ async def run(url, output, engine, pavel_outcome="bind", rescue_priority="preser
             await page.locator('[data-command="save"]').click()
             snapshot = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
             (output / f"{label}.json").write_text(json.dumps(snapshot, indent=2) + "\n")
+            snapshot = normalize_campaign_save(snapshot)
             await page.locator('[data-command="resume"]').click()
             await page.wait_for_timeout(80)
             assert snapshot["region"] == "snowbound"

@@ -1,0 +1,38 @@
+{
+  "sourceReport": "/tmp/dust-mercy-input-pointer-webkit-se375-complete/report.json",
+  "inputMode": "WebKit iPhone SE 375x667 automated public screen-pointer controls; no keyboard, game-state writes, teleports or injected saves",
+  "states": "Unmodified normal-menu Save artifacts from the implemented original game; generated game data, not source-game assets",
+  "files": {
+    "opening-v1-departure": "02-departure-state.json",
+    "opening-v1-copper-owned": "11-copper-owned-state.json",
+    "opening-v1-gideon-carried": "14-gideon-carried-state.json",
+    "opening-v1-complete": "16-complete-state.json"
+  },
+  "additionalCompletedBranches": {
+    "opening-v1-bind-log.json": {
+      "sourceState": "/tmp/dust-mercy-campaign-webkit-bind-log-complete/16-complete-state.json",
+      "sourceReport": "/tmp/dust-mercy-campaign-webkit-bind-log-complete/report.json",
+      "inputMode": "ordinary public keyboard/mouse playthrough; no injected saves or runtime state writes"
+    },
+    "opening-v1-kill-log.json": {
+      "sourceState": "/tmp/dust-mercy-campaign-playthrough-firefox-kill-log-verified/16-complete-state.json",
+      "sourceReport": "/tmp/dust-mercy-campaign-playthrough-firefox-kill-log-verified/report.json",
+      "inputMode": "ordinary public keyboard/mouse playthrough; no injected saves or runtime state writes"
+    },
+    "opening-v1-release-carry.json": {
+      "sourceState": "/tmp/dust-mercy-campaign-playthrough-chromium-release-carry-verified/16-complete-state.json",
+      "sourceReport": "/tmp/dust-mercy-campaign-playthrough-chromium-release-carry-verified/report.json",
+      "inputMode": "ordinary public keyboard/mouse playthrough; no injected saves or runtime state writes"
+    },
+    "opening-v1-release-log.json": {
+      "sourceState": "/tmp/dust-mercy-campaign-playthrough-chromium-release-log-capture-verified/16-complete-state.json",
+      "sourceReport": "/tmp/dust-mercy-campaign-playthrough-chromium-release-log-capture-verified/report.json",
+      "inputMode": "ordinary public keyboard/mouse playthrough; no injected saves or runtime state writes"
+    },
+    "opening-v1-kill-carry.json": {
+      "sourceState": "/tmp/dust-mercy-campaign-playthrough-chromium-kill-carry-complete/16-complete-state.json",
+      "sourceReport": "/tmp/dust-mercy-campaign-playthrough-chromium-kill-carry-complete/report.json",
+      "inputMode": "ordinary public keyboard/mouse playthrough; no injected saves or runtime state writes"
+    }
+  }
+}

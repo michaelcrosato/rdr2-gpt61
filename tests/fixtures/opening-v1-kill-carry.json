@@ -1,0 +1,1321 @@
+{
+  "version": 1,
+  "region": "snowbound",
+  "seed": 3373298943,
+  "elapsed": 149.38290000000055,
+  "day": 1,
+  "time": 7.193828999996994,
+  "weather": "snow",
+  "player": {
+    "id": "mara",
+    "name": "Mara Vale",
+    "x": 349.6778333332676,
+    "y": 1140.5149333333532,
+    "vx": 0,
+    "vy": 0,
+    "facing": 3.141592653589793,
+    "hp": 82,
+    "stamina": 100,
+    "focus": 100,
+    "mounted": false,
+    "ammo": 2,
+    "reserve": 48,
+    "money": 0,
+    "reloadTimer": 0,
+    "shotTimer": 0,
+    "invulnerable": 0,
+    "crouch": false,
+    "coldcoat": true,
+    "lantern": true,
+    "holstered": true,
+    "weaponOwned": true,
+    "blockTimer": 0,
+    "carrying": null,
+    "focusActive": false
+  },
+  "horse": {
+    "id": "copper",
+    "kind": "horse",
+    "name": "Copper",
+    "x": 374.93363298908196,
+    "y": 1099.9767571116004,
+    "hp": 100,
+    "stamina": 100,
+    "bond": 1,
+    "facing": 2.112788031973642,
+    "fear": 0,
+    "owned": true,
+    "leading": false,
+    "hitched": false,
+    "follow": true,
+    "route": [],
+    "routeTarget": {
+      "x": 1047.5706333332826,
+      "y": 726.3225333333406
+    },
+    "careUnlocked": true,
+    "ridingUnlocked": true,
+    "storageUnlocked": true,
+    "pack": {}
+  },
+  "mounts": [
+    {
+      "id": "tomas-mount",
+      "name": "Moth",
+      "x": 1070,
+      "y": 590,
+      "hp": 100,
+      "stamina": 100,
+      "owned": true
+    }
+  ],
+  "npcs": [
+    {
+      "id": "tomas",
+      "name": "Tomas Reed",
+      "role": "community organizer",
+      "x": 377.44674243331536,
+      "y": 1068.2297751550927,
+      "hp": 91,
+      "faction": "camp",
+      "invulnerable": 0,
+      "mounted": false,
+      "route": [],
+      "facing": 2.5352833983571386,
+      "routeTarget": {
+        "x": 375.008633333269,
+        "y": 1132.4918666666863
+      }
+    },
+    {
+      "id": "inez",
+      "name": "Inez Pike",
+      "role": "stable hand",
+      "x": 391.27277851106146,
+      "y": 1070.6450554284843,
+      "hp": 87,
+      "faction": "camp",
+      "invulnerable": 0,
+      "route": [],
+      "facing": 1.637453159535685,
+      "routeTarget": {
+        "x": 385,
+        "y": 1165
+      },
+      "shotTimer": 0.9528833333333575
+    },
+    {
+      "id": "ada",
+      "name": "Ada Rusk",
+      "role": "signal operator",
+      "x": 383.22476199259194,
+      "y": 1073.8784637815863,
+      "hp": 100,
+      "faction": "camp",
+      "invulnerable": 0,
+      "route": [],
+      "facing": 2.0994481094280006,
+      "routeTarget": {
+        "x": 375.008633333269,
+        "y": 1132.4918666666863
+      }
+    },
+    {
+      "id": "gideon",
+      "name": "Gideon Rusk",
+      "role": "injured station keeper",
+      "x": 375.90842271123483,
+      "y": 1090.3185903788487,
+      "hp": 60,
+      "faction": "camp",
+      "injured": true,
+      "invulnerable": 0,
+      "carried": false,
+      "route": [],
+      "facing": 2.267903501576012,
+      "routeTarget": {
+        "x": 1047.5706333332826,
+        "y": 740.2533333333424
+      }
+    },
+    {
+      "id": "pavel",
+      "name": "Pavel Dune",
+      "role": "cornered guard",
+      "x": 1213.230833333329,
+      "y": 760.4964000000142,
+      "hp": 0,
+      "faction": "company",
+      "hidden": false,
+      "invulnerable": 0,
+      "route": [],
+      "facing": 3.141592653589793,
+      "restrained": true
+    },
+    {
+      "id": "neri",
+      "name": "Neri Bell",
+      "role": "the camp\u2019s lost cook",
+      "x": 275,
+      "y": 1145,
+      "hp": 0,
+      "faction": "camp",
+      "invulnerable": 0
+    }
+  ],
+  "enemies": [
+    {
+      "id": "gauge-guard",
+      "name": "Pressure guard",
+      "kind": "gauge",
+      "x": 1310,
+      "y": 475,
+      "hp": 0,
+      "facing": 2.8979205352985815,
+      "active": true,
+      "fireTimer": 2.3888666666666727
+    },
+    {
+      "id": "chute-flanker",
+      "name": "Coal-chute flanker",
+      "kind": "flanker",
+      "x": 1210.6089217289764,
+      "y": 629.9629537008433,
+      "hp": 0,
+      "facing": -1.3859728655781756,
+      "active": true,
+      "fireTimer": 1.950049999999997,
+      "routeIndex": 4,
+      "route": [
+        {
+          "x": 1230,
+          "y": 630
+        },
+        {
+          "x": 1250,
+          "y": 630
+        },
+        {
+          "x": 1270,
+          "y": 630
+        },
+        {
+          "x": 1270,
+          "y": 650
+        },
+        {
+          "x": 1290,
+          "y": 650
+        },
+        {
+          "x": 1310,
+          "y": 650
+        },
+        {
+          "x": 1330,
+          "y": 650
+        },
+        {
+          "x": 1350,
+          "y": 650
+        },
+        {
+          "x": 1370,
+          "y": 650
+        },
+        {
+          "x": 1390,
+          "y": 650
+        },
+        {
+          "x": 1410,
+          "y": 650
+        },
+        {
+          "x": 1430,
+          "y": 650
+        }
+      ],
+      "routeTarget": {
+        "x": 1435,
+        "y": 650
+      }
+    },
+    {
+      "id": "voss",
+      "name": "Ansel Voss",
+      "kind": "supervisor",
+      "x": 1106.9825305532393,
+      "y": 370.22349988324686,
+      "hp": 100,
+      "facing": -2.599703149857802,
+      "active": false,
+      "fireTimer": 0.8501000000000144,
+      "fleeing": true,
+      "captured": false,
+      "escaped": true,
+      "routeIndex": 3,
+      "route": []
+    },
+    {
+      "id": "saboteur",
+      "name": "Fuse guard",
+      "kind": "saboteur",
+      "x": 1580,
+      "y": 470,
+      "hp": 65,
+      "facing": 3.141592653589793,
+      "active": false,
+      "hidden": false,
+      "fireTimer": 4,
+      "escaped": true
+    }
+  ],
+  "animals": [
+    {
+      "id": "copper",
+      "kind": "horse",
+      "name": "Copper",
+      "x": 374.93363298908196,
+      "y": 1099.9767571116004,
+      "hp": 100,
+      "stamina": 100,
+      "bond": 1,
+      "facing": -2.1946463252376796,
+      "fear": 0,
+      "owned": true,
+      "leading": false,
+      "hitched": false,
+      "follow": false,
+      "route": [],
+      "routeTarget": {
+        "x": 1319.9164999999775,
+        "y": 673.0964000000145
+      }
+    }
+  ],
+  "supplies": [
+    {
+      "id": "blankets",
+      "name": "Wool blankets",
+      "x": 1330,
+      "y": 280,
+      "amount": 1,
+      "essential": true,
+      "collected": true,
+      "delivered": 1,
+      "lost": false
+    },
+    {
+      "id": "oil",
+      "name": "Lamp oil",
+      "x": 1430,
+      "y": 260,
+      "amount": 1,
+      "essential": true,
+      "collected": true,
+      "delivered": 1,
+      "lost": false
+    },
+    {
+      "id": "oats",
+      "name": "Oat sack",
+      "x": 1515,
+      "y": 380,
+      "amount": 2,
+      "essential": true,
+      "collected": true,
+      "delivered": 2,
+      "lost": false
+    },
+    {
+      "id": "bandages",
+      "name": "Clean bandages",
+      "x": 1420,
+      "y": 370,
+      "amount": 2,
+      "essential": true,
+      "collected": true,
+      "delivered": 2,
+      "lost": false
+    },
+    {
+      "id": "broth",
+      "name": "Canned broth",
+      "x": 1330,
+      "y": 385,
+      "amount": 2,
+      "essential": true,
+      "collected": true,
+      "delivered": 2,
+      "lost": false
+    },
+    {
+      "id": "kindling",
+      "name": "Dry kindling",
+      "x": 1515,
+      "y": 285,
+      "amount": 1,
+      "essential": true,
+      "collected": true,
+      "delivered": 1,
+      "lost": false
+    },
+    {
+      "id": "logbook",
+      "name": "Message log",
+      "x": 1480,
+      "y": 325,
+      "amount": 1,
+      "essential": false,
+      "collected": false,
+      "delivered": 0,
+      "lost": true
+    }
+  ],
+  "dropped": {
+    "weapon": {
+      "x": 1156.5856999999962,
+      "y": 745.4964000000142,
+      "collected": true
+    },
+    "token": {
+      "x": 1204.5856999999962,
+      "y": 775.4964000000142,
+      "collected": true
+    }
+  },
+  "bullets": [],
+  "inventory": {
+    "tonic": 1,
+    "coffee": 1,
+    "blankets": 0,
+    "oil": 0,
+    "oats": 0,
+    "bandages": 0,
+    "broth": 0,
+    "kindling": 0,
+    "logbook": 0,
+    "token": 1
+  },
+  "mission": {
+    "id": "snowbound-the-last-warm-light",
+    "name": "The Last Warm Light",
+    "stage": 8,
+    "stageCount": 9,
+    "completed": true,
+    "rewardPaid": true,
+    "objective": "The kiln has light. Silas is next. A Voice Under Ice is not available yet."
+  },
+  "flags": {
+    "coatTaken": true,
+    "lanternTaken": true,
+    "briefed": true,
+    "routeIndex": 6,
+    "wireInspected": true,
+    "inezJoined": true,
+    "mountsHitched": true,
+    "cover": "culvert",
+    "negotiationStarted": true,
+    "negotiationPending": false,
+    "evictionTagRead": true,
+    "coalAmbushed": true,
+    "blocked": true,
+    "shoves": 2,
+    "pavelSubdued": true,
+    "weaponRecovered": true,
+    "tokenRecovered": true,
+    "pavelChoice": "kill",
+    "rescueClue": true,
+    "copperSpoken": true,
+    "copperCalmed": true,
+    "copperPatted": true,
+    "copperLeading": true,
+    "copperHitched": true,
+    "adaIdentified": true,
+    "rescuePriority": "carry-gideon-first",
+    "logSecured": false,
+    "adaEscorting": true,
+    "adaRouteIndex": 4,
+    "gideonCarried": true,
+    "gideonSafe": true,
+    "adaSafe": true,
+    "suppliesDeposited": true
+  },
+  "worldChanges": {
+    "boilerDestroyed": true,
+    "relayDamaged": true,
+    "pressureReleased": true,
+    "fireActive": false,
+    "relayCircuitOff": true,
+    "logRecovered": false,
+    "residentsDeparted": true,
+    "vossFutureCheckpoint": true,
+    "pavelFutureWarning": false,
+    "pavelCampGuardDuty": false,
+    "neriRemembered": true
+  },
+  "timers": {
+    "cold": 0,
+    "companionCall": 0,
+    "ambush": 1.0500000000000016,
+    "shoveCooldown": 0,
+    "copperKnockback": 0,
+    "crisis": 238.5679000000349,
+    "fire": 0,
+    "vossEscape": 0
+  },
+  "companions": {
+    "tomas": {
+      "trust": 0,
+      "following": true
+    },
+    "inez": {
+      "trust": 15,
+      "following": true
+    },
+    "ada": {
+      "trust": -3,
+      "joined": true
+    },
+    "gideon": {
+      "careNeeded": true,
+      "severity": 1
+    }
+  },
+  "camp": {
+    "food": 3,
+    "medicine": 2,
+    "materials": 0,
+    "morale": 60,
+    "upgrades": {},
+    "blankets": 1,
+    "oil": 1,
+    "oats": 2,
+    "broth": 1,
+    "stoveLit": true,
+    "pavelGuarded": false
+  },
+  "sideQuests": {
+    "silas": {
+      "name": "A Voice Under Ice",
+      "stage": 1,
+      "complete": false,
+      "unlocked": true
+    }
+  },
+  "wanted": {
+    "heat": 0,
+    "bounty": 0,
+    "witnessTimer": 0,
+    "pursuit": false,
+    "spawnTimer": 0
+  },
+  "honor": -20,
+  "stats": {
+    "shots": 4,
+    "hostileHits": 4,
+    "kills": 2,
+    "hunted": 0,
+    "fish": 0,
+    "deaths": 0,
+    "distance": 8644.449566665806,
+    "yardDamage": 18
+  },
+  "performance": {
+    "noYardInjury": false,
+    "allSixSupplies": true,
+    "accurate": true,
+    "accuracy": 1
+  },
+  "failure": null,
+  "dialog": null,
+  "checkpoint": {
+    "label": "A light at the kiln",
+    "data": {
+      "version": 1,
+      "region": "snowbound",
+      "seed": 3373298943,
+      "elapsed": 149.09960000000066,
+      "day": 1,
+      "time": 7.190995999997,
+      "weather": "snow",
+      "player": {
+        "id": "mara",
+        "name": "Mara Vale",
+        "x": 349.6778333332676,
+        "y": 1140.5149333333532,
+        "vx": 0,
+        "vy": 0,
+        "facing": 3.141592653589793,
+        "hp": 82,
+        "stamina": 100,
+        "focus": 100,
+        "mounted": false,
+        "ammo": 2,
+        "reserve": 48,
+        "money": 0,
+        "reloadTimer": 0,
+        "shotTimer": 0,
+        "invulnerable": 0,
+        "crouch": false,
+        "coldcoat": true,
+        "lantern": true,
+        "holstered": true,
+        "weaponOwned": true,
+        "blockTimer": 0,
+        "carrying": null,
+        "focusActive": false
+      },
+      "horse": {
+        "id": "copper",
+        "kind": "horse",
+        "name": "Copper",
+        "x": 374.93363298908196,
+        "y": 1099.9767571116004,
+        "hp": 100,
+        "stamina": 100,
+        "bond": 1,
+        "facing": 2.112788031973642,
+        "fear": 0,
+        "owned": true,
+        "leading": false,
+        "hitched": false,
+        "follow": true,
+        "route": [],
+        "routeTarget": {
+          "x": 1047.5706333332826,
+          "y": 726.3225333333406
+        },
+        "careUnlocked": true,
+        "ridingUnlocked": true,
+        "storageUnlocked": true,
+        "pack": {}
+      },
+      "mounts": [
+        {
+          "id": "tomas-mount",
+          "name": "Moth",
+          "x": 1070,
+          "y": 590,
+          "hp": 100,
+          "stamina": 100,
+          "owned": true
+        }
+      ],
+      "npcs": [
+        {
+          "id": "tomas",
+          "name": "Tomas Reed",
+          "role": "community organizer",
+          "x": 393.74300030806603,
+          "y": 1056.9293087806618,
+          "hp": 91,
+          "faction": "camp",
+          "invulnerable": 0,
+          "mounted": false,
+          "route": [],
+          "facing": 2.0439989909891705,
+          "routeTarget": {
+            "x": 375.008633333269,
+            "y": 1132.4918666666863
+          }
+        },
+        {
+          "id": "inez",
+          "name": "Inez Pike",
+          "role": "stable hand",
+          "x": 393.22224634184386,
+          "y": 1056.753581368393,
+          "hp": 87,
+          "faction": "camp",
+          "invulnerable": 0,
+          "route": [],
+          "facing": 2.038205032869467,
+          "routeTarget": {
+            "x": 375.008633333269,
+            "y": 1132.4918666666863
+          },
+          "shotTimer": 0.9528833333333575
+        },
+        {
+          "id": "ada",
+          "name": "Ada Rusk",
+          "role": "signal operator",
+          "x": 393.2269161375978,
+          "y": 1056.7546361294656,
+          "hp": 100,
+          "faction": "camp",
+          "invulnerable": 0,
+          "route": [],
+          "facing": 2.0382545302509483,
+          "routeTarget": {
+            "x": 375.008633333269,
+            "y": 1132.4918666666863
+          }
+        },
+        {
+          "id": "gideon",
+          "name": "Gideon Rusk",
+          "role": "injured station keeper",
+          "x": 381.3648014488787,
+          "y": 1083.8023850359048,
+          "hp": 60,
+          "faction": "camp",
+          "injured": true,
+          "invulnerable": 0,
+          "carried": false,
+          "route": [],
+          "facing": 2.0630992283821037,
+          "routeTarget": {
+            "x": 1047.5706333332826,
+            "y": 740.2533333333424
+          }
+        },
+        {
+          "id": "pavel",
+          "name": "Pavel Dune",
+          "role": "cornered guard",
+          "x": 1213.230833333329,
+          "y": 760.4964000000142,
+          "hp": 0,
+          "faction": "company",
+          "hidden": false,
+          "invulnerable": 0,
+          "route": [],
+          "facing": 3.141592653589793,
+          "restrained": true
+        },
+        {
+          "id": "neri",
+          "name": "Neri Bell",
+          "role": "the camp\u2019s lost cook",
+          "x": 275,
+          "y": 1145,
+          "hp": 0,
+          "faction": "camp",
+          "invulnerable": 0
+        }
+      ],
+      "enemies": [
+        {
+          "id": "gauge-guard",
+          "name": "Pressure guard",
+          "kind": "gauge",
+          "x": 1310,
+          "y": 475,
+          "hp": 0,
+          "facing": 2.8979205352985815,
+          "active": true,
+          "fireTimer": 2.3888666666666727
+        },
+        {
+          "id": "chute-flanker",
+          "name": "Coal-chute flanker",
+          "kind": "flanker",
+          "x": 1210.6089217289764,
+          "y": 629.9629537008433,
+          "hp": 0,
+          "facing": -1.3859728655781756,
+          "active": true,
+          "fireTimer": 1.950049999999997,
+          "routeIndex": 4,
+          "route": [
+            {
+              "x": 1230,
+              "y": 630
+            },
+            {
+              "x": 1250,
+              "y": 630
+            },
+            {
+              "x": 1270,
+              "y": 630
+            },
+            {
+              "x": 1270,
+              "y": 650
+            },
+            {
+              "x": 1290,
+              "y": 650
+            },
+            {
+              "x": 1310,
+              "y": 650
+            },
+            {
+              "x": 1330,
+              "y": 650
+            },
+            {
+              "x": 1350,
+              "y": 650
+            },
+            {
+              "x": 1370,
+              "y": 650
+            },
+            {
+              "x": 1390,
+              "y": 650
+            },
+            {
+              "x": 1410,
+              "y": 650
+            },
+            {
+              "x": 1430,
+              "y": 650
+            }
+          ],
+          "routeTarget": {
+            "x": 1435,
+            "y": 650
+          }
+        },
+        {
+          "id": "voss",
+          "name": "Ansel Voss",
+          "kind": "supervisor",
+          "x": 1106.9825305532393,
+          "y": 370.22349988324686,
+          "hp": 100,
+          "facing": -2.599703149857802,
+          "active": false,
+          "fireTimer": 0.8501000000000144,
+          "fleeing": true,
+          "captured": false,
+          "escaped": true,
+          "routeIndex": 3,
+          "route": []
+        },
+        {
+          "id": "saboteur",
+          "name": "Fuse guard",
+          "kind": "saboteur",
+          "x": 1580,
+          "y": 470,
+          "hp": 65,
+          "facing": 3.141592653589793,
+          "active": false,
+          "hidden": false,
+          "fireTimer": 4,
+          "escaped": true
+        }
+      ],
+      "animals": [
+        {
+          "id": "copper",
+          "kind": "horse",
+          "name": "Copper",
+          "x": 374.93363298908196,
+          "y": 1099.9767571116004,
+          "hp": 100,
+          "stamina": 100,
+          "bond": 1,
+          "facing": -2.1946463252376796,
+          "fear": 0,
+          "owned": true,
+          "leading": false,
+          "hitched": false,
+          "follow": false,
+          "route": [],
+          "routeTarget": {
+            "x": 1319.9164999999775,
+            "y": 673.0964000000145
+          }
+        }
+      ],
+      "supplies": [
+        {
+          "id": "blankets",
+          "name": "Wool blankets",
+          "x": 1330,
+          "y": 280,
+          "amount": 1,
+          "essential": true,
+          "collected": true,
+          "delivered": 1,
+          "lost": false
+        },
+        {
+          "id": "oil",
+          "name": "Lamp oil",
+          "x": 1430,
+          "y": 260,
+          "amount": 1,
+          "essential": true,
+          "collected": true,
+          "delivered": 1,
+          "lost": false
+        },
+        {
+          "id": "oats",
+          "name": "Oat sack",
+          "x": 1515,
+          "y": 380,
+          "amount": 2,
+          "essential": true,
+          "collected": true,
+          "delivered": 2,
+          "lost": false
+        },
+        {
+          "id": "bandages",
+          "name": "Clean bandages",
+          "x": 1420,
+          "y": 370,
+          "amount": 2,
+          "essential": true,
+          "collected": true,
+          "delivered": 2,
+          "lost": false
+        },
+        {
+          "id": "broth",
+          "name": "Canned broth",
+          "x": 1330,
+          "y": 385,
+          "amount": 2,
+          "essential": true,
+          "collected": true,
+          "delivered": 2,
+          "lost": false
+        },
+        {
+          "id": "kindling",
+          "name": "Dry kindling",
+          "x": 1515,
+          "y": 285,
+          "amount": 1,
+          "essential": true,
+          "collected": true,
+          "delivered": 1,
+          "lost": false
+        },
+        {
+          "id": "logbook",
+          "name": "Message log",
+          "x": 1480,
+          "y": 325,
+          "amount": 1,
+          "essential": false,
+          "collected": false,
+          "delivered": 0,
+          "lost": true
+        }
+      ],
+      "dropped": {
+        "weapon": {
+          "x": 1156.5856999999962,
+          "y": 745.4964000000142,
+          "collected": true
+        },
+        "token": {
+          "x": 1204.5856999999962,
+          "y": 775.4964000000142,
+          "collected": true
+        }
+      },
+      "bullets": [],
+      "inventory": {
+        "tonic": 1,
+        "coffee": 1,
+        "blankets": 0,
+        "oil": 0,
+        "oats": 0,
+        "bandages": 0,
+        "broth": 0,
+        "kindling": 0,
+        "logbook": 0,
+        "token": 1
+      },
+      "mission": {
+        "id": "snowbound-the-last-warm-light",
+        "name": "The Last Warm Light",
+        "stage": 8,
+        "stageCount": 9,
+        "completed": true,
+        "rewardPaid": true,
+        "objective": "The kiln has light. Silas is next. A Voice Under Ice is not available yet."
+      },
+      "flags": {
+        "coatTaken": true,
+        "lanternTaken": true,
+        "briefed": true,
+        "routeIndex": 6,
+        "wireInspected": true,
+        "inezJoined": true,
+        "mountsHitched": true,
+        "cover": "culvert",
+        "negotiationStarted": true,
+        "negotiationPending": false,
+        "evictionTagRead": true,
+        "coalAmbushed": true,
+        "blocked": true,
+        "shoves": 2,
+        "pavelSubdued": true,
+        "weaponRecovered": true,
+        "tokenRecovered": true,
+        "pavelChoice": "kill",
+        "rescueClue": true,
+        "copperSpoken": true,
+        "copperCalmed": true,
+        "copperPatted": true,
+        "copperLeading": true,
+        "copperHitched": true,
+        "adaIdentified": true,
+        "rescuePriority": "carry-gideon-first",
+        "logSecured": false,
+        "adaEscorting": true,
+        "adaRouteIndex": 4,
+        "gideonCarried": true,
+        "gideonSafe": true,
+        "adaSafe": true,
+        "suppliesDeposited": true
+      },
+      "worldChanges": {
+        "boilerDestroyed": true,
+        "relayDamaged": true,
+        "pressureReleased": true,
+        "fireActive": false,
+        "relayCircuitOff": true,
+        "logRecovered": false,
+        "residentsDeparted": true,
+        "vossFutureCheckpoint": true,
+        "pavelFutureWarning": false,
+        "pavelCampGuardDuty": false,
+        "neriRemembered": true
+      },
+      "timers": {
+        "cold": 0,
+        "companionCall": 0,
+        "ambush": 1.0500000000000016,
+        "shoveCooldown": 0,
+        "copperKnockback": 0,
+        "crisis": 238.5679000000349,
+        "fire": 0,
+        "vossEscape": 0
+      },
+      "companions": {
+        "tomas": {
+          "trust": 0,
+          "following": true
+        },
+        "inez": {
+          "trust": 15,
+          "following": true
+        },
+        "ada": {
+          "trust": -3,
+          "joined": true
+        },
+        "gideon": {
+          "careNeeded": true,
+          "severity": 1
+        }
+      },
+      "camp": {
+        "food": 3,
+        "medicine": 2,
+        "materials": 0,
+        "morale": 60,
+        "upgrades": {},
+        "blankets": 1,
+        "oil": 1,
+        "oats": 2,
+        "broth": 1,
+        "stoveLit": true,
+        "pavelGuarded": false
+      },
+      "sideQuests": {
+        "silas": {
+          "name": "A Voice Under Ice",
+          "stage": 1,
+          "complete": false,
+          "unlocked": true
+        }
+      },
+      "wanted": {
+        "heat": 0,
+        "bounty": 0,
+        "witnessTimer": 0,
+        "pursuit": false,
+        "spawnTimer": 0
+      },
+      "honor": -20,
+      "stats": {
+        "shots": 4,
+        "hostileHits": 4,
+        "kills": 2,
+        "hunted": 0,
+        "fish": 0,
+        "deaths": 0,
+        "distance": 8644.449566665806,
+        "yardDamage": 18
+      },
+      "performance": {
+        "noYardInjury": false,
+        "allSixSupplies": true,
+        "accurate": true,
+        "accuracy": 1
+      },
+      "failure": null,
+      "dialog": null,
+      "log": [
+        {
+          "day": 1,
+          "time": 5.7,
+          "text": "Neri Bell died before the stove could be lit. Mara, Tomas and Inez must bring warmth to the lime kiln refuge. Silas Orr has not returned."
+        },
+        {
+          "day": 1,
+          "time": 5.7371649999999255,
+          "text": "Tomas led Mara toward Copperglass for heat, food and Copper. Silas Orr remains missing."
+        },
+        {
+          "day": 1,
+          "time": 5.829326999999746,
+          "text": "Mara found a deliberately severed signal wire."
+        },
+        {
+          "day": 1,
+          "time": 5.951377999999509,
+          "text": "Inez reached the animal pen and recognized Copper\u2019s saddle under a company eviction tag."
+        },
+        {
+          "day": 1,
+          "time": 5.951377999999509,
+          "text": "Voss recognized Tomas\u2019s community token during the approach. The guards raised their rifles after his order to seize Tomas."
+        },
+        {
+          "day": 1,
+          "time": 6.011958499999388,
+          "text": "Tomas and Inez held the boiler yard. Mara can search the relay room while Voss flees."
+        },
+        {
+          "day": 1,
+          "time": 6.043705999999333,
+          "text": "Ansel Voss escaped through the service tunnel. He will recognize Mara at a later freight checkpoint."
+        },
+        {
+          "day": 1,
+          "time": 6.098203999999223,
+          "text": "Mara collected the station\u2019s wool blankets."
+        },
+        {
+          "day": 1,
+          "time": 6.118370999999181,
+          "text": "Mara collected the station\u2019s lamp oil."
+        },
+        {
+          "day": 1,
+          "time": 6.137702999999144,
+          "text": "Mara collected the station\u2019s dry kindling."
+        },
+        {
+          "day": 1,
+          "time": 6.1545359999991085,
+          "text": "Mara collected the station\u2019s oat sack."
+        },
+        {
+          "day": 1,
+          "time": 6.1735349999990685,
+          "text": "Mara collected the station\u2019s clean bandages."
+        },
+        {
+          "day": 1,
+          "time": 6.192534999999027,
+          "text": "Mara collected the station\u2019s canned broth."
+        },
+        {
+          "day": 1,
+          "time": 6.290363999998824,
+          "text": "Pavel Dune ambushed Mara in the coal store. Her revolver and community token fell to the floor."
+        },
+        {
+          "day": 1,
+          "time": 6.343361999998717,
+          "text": "Mara chose to kill Pavel. His pressure-fuse warning and Silas\u2019s ice-viaduct route were recorded regardless of his fate."
+        },
+        {
+          "day": 1,
+          "time": 6.443191999998514,
+          "text": "Inez\u2019s old rope halter identifies Copper as the community\u2019s seized pack mare."
+        },
+        {
+          "day": 1,
+          "time": 6.574852999998242,
+          "text": "Inez assigned Copper to Mara for community supply work. Riding, feeding and pack storage will unlock when the mare returns safely to the kiln."
+        },
+        {
+          "day": 1,
+          "time": 6.619684999998155,
+          "text": "Mara promised Ada to carry Gideon first."
+        },
+        {
+          "day": 1,
+          "time": 6.62835099999814,
+          "text": "Mara opened the west pressure relief valve before moving the Rusks."
+        },
+        {
+          "day": 1,
+          "time": 6.889173999997614,
+          "text": "The uncollected message log burned while Mara carried Gideon first. Silas\u2019s essential rescue lead survives."
+        },
+        {
+          "day": 1,
+          "time": 6.889173999997614,
+          "text": "Ada isolated the relay circuit. The boiler wing collapsed; the relay remains damaged but usable. Both Rusks survived."
+        },
+        {
+          "day": 1,
+          "time": 7.190995999997,
+          "text": "The recovered broth and kindling warmed the kiln. Ada joined the community; Gideon needs care. Neri\u2019s empty place was remembered. Silas Orr\u2019s rescue is the next obligation."
+        }
+      ],
+      "notices": [
+        {
+          "text": "The Last Warm Light complete. Copper is yours to care for. A Voice Under Ice is unlocked; Silas\u2019s separate rescue is still to come.",
+          "time": 6
+        }
+      ],
+      "lastSave": null,
+      "aiming": false,
+      "pointer": null,
+      "interactionTarget": {
+        "id": "deposit-supplies",
+        "label": "Deposit supplies in the communal stove store",
+        "targetId": "deposit-supplies",
+        "distance": 0.6074106510028177,
+        "priority": 7
+      }
+    }
+  },
+  "replayCanonical": null,
+  "log": [
+    {
+      "day": 1,
+      "time": 5.7,
+      "text": "Neri Bell died before the stove could be lit. Mara, Tomas and Inez must bring warmth to the lime kiln refuge. Silas Orr has not returned."
+    },
+    {
+      "day": 1,
+      "time": 5.7371649999999255,
+      "text": "Tomas led Mara toward Copperglass for heat, food and Copper. Silas Orr remains missing."
+    },
+    {
+      "day": 1,
+      "time": 5.829326999999746,
+      "text": "Mara found a deliberately severed signal wire."
+    },
+    {
+      "day": 1,
+      "time": 5.951377999999509,
+      "text": "Inez reached the animal pen and recognized Copper\u2019s saddle under a company eviction tag."
+    },
+    {
+      "day": 1,
+      "time": 5.951377999999509,
+      "text": "Voss recognized Tomas\u2019s community token during the approach. The guards raised their rifles after his order to seize Tomas."
+    },
+    {
+      "day": 1,
+      "time": 6.011958499999388,
+      "text": "Tomas and Inez held the boiler yard. Mara can search the relay room while Voss flees."
+    },
+    {
+      "day": 1,
+      "time": 6.043705999999333,
+      "text": "Ansel Voss escaped through the service tunnel. He will recognize Mara at a later freight checkpoint."
+    },
+    {
+      "day": 1,
+      "time": 6.098203999999223,
+      "text": "Mara collected the station\u2019s wool blankets."
+    },
+    {
+      "day": 1,
+      "time": 6.118370999999181,
+      "text": "Mara collected the station\u2019s lamp oil."
+    },
+    {
+      "day": 1,
+      "time": 6.137702999999144,
+      "text": "Mara collected the station\u2019s dry kindling."
+    },
+    {
+      "day": 1,
+      "time": 6.1545359999991085,
+      "text": "Mara collected the station\u2019s oat sack."
+    },
+    {
+      "day": 1,
+      "time": 6.1735349999990685,
+      "text": "Mara collected the station\u2019s clean bandages."
+    },
+    {
+      "day": 1,
+      "time": 6.192534999999027,
+      "text": "Mara collected the station\u2019s canned broth."
+    },
+    {
+      "day": 1,
+      "time": 6.290363999998824,
+      "text": "Pavel Dune ambushed Mara in the coal store. Her revolver and community token fell to the floor."
+    },
+    {
+      "day": 1,
+      "time": 6.343361999998717,
+      "text": "Mara chose to kill Pavel. His pressure-fuse warning and Silas\u2019s ice-viaduct route were recorded regardless of his fate."
+    },
+    {
+      "day": 1,
+      "time": 6.443191999998514,
+      "text": "Inez\u2019s old rope halter identifies Copper as the community\u2019s seized pack mare."
+    },
+    {
+      "day": 1,
+      "time": 6.574852999998242,
+      "text": "Inez assigned Copper to Mara for community supply work. Riding, feeding and pack storage will unlock when the mare returns safely to the kiln."
+    },
+    {
+      "day": 1,
+      "time": 6.619684999998155,
+      "text": "Mara promised Ada to carry Gideon first."
+    },
+    {
+      "day": 1,
+      "time": 6.62835099999814,
+      "text": "Mara opened the west pressure relief valve before moving the Rusks."
+    },
+    {
+      "day": 1,
+      "time": 6.889173999997614,
+      "text": "The uncollected message log burned while Mara carried Gideon first. Silas\u2019s essential rescue lead survives."
+    },
+    {
+      "day": 1,
+      "time": 6.889173999997614,
+      "text": "Ada isolated the relay circuit. The boiler wing collapsed; the relay remains damaged but usable. Both Rusks survived."
+    },
+    {
+      "day": 1,
+      "time": 7.190995999997,
+      "text": "The recovered broth and kindling warmed the kiln. Ada joined the community; Gideon needs care. Neri\u2019s empty place was remembered. Silas Orr\u2019s rescue is the next obligation."
+    }
+  ],
+  "notices": [],
+  "lastSave": null,
+  "aiming": false,
+  "pointer": null,
+  "interactionTarget": {
+    "id": "deposit-supplies",
+    "label": "Deposit supplies in the communal stove store",
+    "targetId": "deposit-supplies",
+    "distance": 0.6074106510028177,
+    "priority": 7
+  }
+}

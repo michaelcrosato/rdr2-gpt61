@@ -20,12 +20,18 @@ export function getCampaignPresentation(s) {
   const record = presentations.get(s);
   return { generation: record.generation, seq: record.seq, events: record.events.slice() };
 }
-function present(s, kind, target, targetId, from = s.player, actorId = 'mara') {
+function present(s, kind, target, targetId, from = s.player, actorId = 'mara', details = {}) {
   if (!presentations.has(s)) resetPresentation(s);
   const record = presentations.get(s);
   const point = actor => Object.freeze({ x: actor.x, y: actor.y, z: actor.z || 0, facing: actor.facing || 0 });
-  record.events.push(Object.freeze({ seq: ++record.seq, kind, actorId, targetId, target: point(target), from: point(from), time: s.elapsed }));
+  record.events.push(Object.freeze({ seq: ++record.seq, kind, actorId, sourceId: typeof details.sourceId === 'string' ? details.sourceId : actorId, targetId, target: point(target), from: point(from), time: s.elapsed }));
   record.events = record.events.slice(-8);
+}
+export const emitCampaignPresentation = present;
+export const resetCampaignPresentation = resetPresentation;
+export function forwardCampaignPresentation(target, source) {
+  if (!presentations.has(source)) resetPresentation(source);
+  presentations.set(target, presentations.get(source));
 }
 const isInside = (actor, r, radius = 0) => actor.x > r.x - radius && actor.x < r.x + r.w + radius && actor.y > r.y - radius && actor.y < r.y + r.h + radius;
 const blocked = (x, y, radius = 9) => x < radius || y < radius || x > SNOWBOUND_WORLD.width - radius || y > SNOWBOUND_WORLD.height - radius || SNOWBOUND_WORLD.obstacles.some((r) => isInside({ x, y }, r, radius));
