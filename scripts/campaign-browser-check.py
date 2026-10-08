@@ -189,10 +189,28 @@ async def check_controller(engine):
     await press(0)
     saved = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
     assert saved['horse']['follow'] and saved['mission']['stage'] == 1
+    for name in ['map', 'journal', 'satchel']:
+        selector = f'[data-command="panel"][data-id="{name}"]'
+        for _ in range(20):
+            if await page.evaluate('(selector)=>document.activeElement?.matches(selector)', selector):
+                break
+            await press(13)
+        else:
+            raise AssertionError(f'Controller cannot reach {name} from the pause menu')
+        await press(0)
+        assert await page.locator('#panel').evaluate('(el)=>el.open')
+        assert not await page.locator('[data-command="panel"]').count(), f'{name} replaces the menu'
+        if name == 'map':
+            assert await page.locator('.snow-map').is_visible()
+        if name == 'satchel':
+            assert await page.locator('[data-command="use"][data-id="tonic"]').is_visible()
+        await press(8)
+        if name != 'satchel':
+            await press(8)
     assert not errors, errors
     assert not await page.evaluate('My3D2dge.current.errors')
     await page.screenshot(path=str(OUTPUT / 'controller-input.png'))
     await browser.close()
-    return {'engine': 'chromium', 'input': 'emulated standard Gamepad API', 'opening_preparations_dialogue': True, 'move_draw_holster_call_menu': True, 'dpad_text_size_and_save': True, 'errors': errors}
+    return {'engine': 'chromium', 'input': 'emulated standard Gamepad API', 'opening_preparations_dialogue': True, 'move_draw_holster_call_menu': True, 'dpad_text_size_and_save': True, 'controller_map_journal_satchel': True, 'errors': errors}
 
 asyncio.run(main())

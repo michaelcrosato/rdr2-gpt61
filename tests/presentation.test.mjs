@@ -1,0 +1,56 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createCampaignState, getCampaignPresentation, interactCampaign, campaignAction, serializeCampaign, restoreCampaign } from '../src/campaign.js';
+
+test('accepted contact events preserve source positions and stay outside saves and checkpoint recovery', () => {
+  const state = createCampaignState();
+  const originalCheckpoint = structuredClone(state.checkpoint);
+  const generation = getCampaignPresentation(state).generation;
+  interactCampaign(state, 'pressure-valve');
+  assert.equal(getCampaignPresentation(state).seq, 0, 'unavailable actions cannot fabricate contact clips');
+  const from = { x: state.player.x, y: state.player.y };
+  interactCampaign(state, 'coat');
+  const event = getCampaignPresentation(state).events[0];
+  assert.equal(event.kind, 'coat');
+  assert.deepEqual({ x: event.from.x, y: event.from.y }, from);
+  assert.deepEqual({ x: event.target.x, y: event.target.y }, { x: 350, y: 1075 });
+  assert.equal(state.player.coldcoat, true);
+  assert.ok(Object.isFrozen(event.target), 'later movement cannot move a recorded contact');
+  const restored = restoreCampaign(serializeCampaign(state));
+  assert.ok(restored?.player.coldcoat);
+  assert.deepEqual(getCampaignPresentation(restored).events, [], 'loading does not replay an old pickup');
+  assert.deepEqual(state.checkpoint, originalCheckpoint, 'presentation does not enter the recovery snapshot');
+  campaignAction(state, 'retry');
+  assert.equal(state.player.coldcoat, false);
+  assert.equal(getCampaignPresentation(state).seq, 0);
+  assert.notEqual(getCampaignPresentation(state).generation, generation, 'retry invalidates active animation clips');
+});
+
+test('mount events retain the pre-snap approach and bounded history while dismount starts at saddle height', () => {
+  const state = createCampaignState();
+  Object.assign(state.player, { x: 355, y: 1155 });
+  interactCampaign(state, 'mount');
+  let event = getCampaignPresentation(state).events.at(-1);
+  assert.equal(event.kind, 'mount');
+  assert.equal(event.targetId, 'juniper');
+  assert.equal(event.from.x, 355);
+  assert.equal(event.target.x, 375);
+  assert.equal(state.player.x, 375, 'gameplay owns the completed saddle transfer');
+  interactCampaign(state, 'dismount');
+  assert.equal(getCampaignPresentation(state).events.at(-1).from.z, 23);
+  assert.ok(Math.hypot(state.player.x - state.horse.x, state.player.y - state.horse.y) >= 26 - 1e-8, 'dismount ends on ground beside the saddle');
+  assert.equal(getCampaignPresentation(state).events.at(-1).target.y, state.player.y, 'visual landing agrees with the authoritative ground position');
+  for (let i = 0; i < 10; i++) interactCampaign(state, state.player.mounted ? 'dismount' : 'mount');
+  const history = getCampaignPresentation(state);
+  assert.equal(history.events.length, 8);
+  assert.equal(history.events.at(-1).seq, history.seq);
+  history.events.length = 0;
+  assert.equal(getCampaignPresentation(state).events.length, 8, 'consumers cannot clear the producer history');
+  const besideWall = createCampaignState();
+  Object.assign(besideWall.horse, { x: 322, y: 1045 });
+  Object.assign(besideWall.player, { x: 342, y: 1045 });
+  interactCampaign(besideWall, 'mount');
+  assert.equal(besideWall.player.mounted, true);
+  assert.notEqual(besideWall.horse.x, 322, 'mounting finds a valid saddle beside the wall');
+  assert.equal(getCampaignPresentation(besideWall).events.at(-1).target.x, besideWall.horse.x, 'the animation ends at the accepted saddle position');
+});

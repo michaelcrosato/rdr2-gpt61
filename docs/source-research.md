@@ -21,7 +21,7 @@ All chapter headings are catalog groupings, not a dependency graph. Proposed Dus
 Proposed authoring destination: **I — Snowbound**. Each entry needs individual beat, battle, branch, prerequisite, reward, failure and aftermath research.
 
 - [Outlaws from the West](https://reddead.fandom.com/wiki/Outlaws_from_the_West).
-- [Enter, Pursued by a Memory](https://reddead.fandom.com/wiki/Enter%2C_Pursued_by_a_Memory).
+- [Enter, Pursued by a Memory](https://reddead.fandom.com/wiki/Enter%2C_Pursued_by_a_Memory) — sampled article/story/objectives are mapped to the [proposed A Voice Under Ice specification](missions/a-voice-under-ice.md). Its ten stages, region, cast and state contracts are authoring only; the mission remains unimplemented and unavailable, with revision and incidental-beat reconciliation open.
 - [The Aftermath of Genesis](https://reddead.fandom.com/wiki/The_Aftermath_of_Genesis).
 - [Old Friends](https://reddead.fandom.com/wiki/Old_Friends).
 - [Who the Hell is Leviticus Cornwall?](https://reddead.fandom.com/wiki/Who_the_Hell_is_Leviticus_Cornwall%3F).
