@@ -1,0 +1,143 @@
+{
+  "capturedOn": "2026-10-08",
+  "provenance": "Original Dust & Mercy game state generated through ordinary keyboard/mouse movement, proximity E actions, normal choices and Save menu in Chromium. Opening began fresh. Rescue continued the actual completed opening via visible Import Save file chooser. Camera/manual Save evaluations were read-only; no runtime state writes, teleports or simulation injection. Rescue combat used the game ordinary J aiming helper. These are our authored game states, not source-game data.",
+  "storage": "Losslessly gzip-compressed original observed Save bytes with deterministic timestamp. No JSON fields or values rewritten. Hashes identify the decompressed original bytes.",
+  "validation": "All eight original v2 states restored successfully in the pre-third-mission journey codec before v3 migration work. Full underlying source reports passed.",
+  "fixtures": [
+    {
+      "fixture": "journey-v2-opening-departure.json.gz",
+      "sourceSave": "/tmp/dust-mercy-journey-opening-chromium-stable/02-departure-state.json",
+      "sourceReport": "/tmp/dust-mercy-journey-opening-chromium-stable/report.json",
+      "sha256OfUncompressedOriginalBytes": "cc81eb4c75016fc7037b4087264c13e428938610919c3d69ec9335c3afd1cb11",
+      "uncompressedBytes": 88151,
+      "compressedBytes": 8213,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-the-last-warm-light",
+      "stage": 1,
+      "openingCompleted": false,
+      "rescueCompleted": false,
+      "silasAttachment": null,
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v2-opening-carried.json.gz",
+      "sourceSave": "/tmp/dust-mercy-journey-opening-chromium-stable/14-gideon-carried-state.json",
+      "sourceReport": "/tmp/dust-mercy-journey-opening-chromium-stable/report.json",
+      "sha256OfUncompressedOriginalBytes": "419d5e8391c80fe27bd68f65bf9ddab303be86c363419c2388b42f356a2dc291",
+      "uncompressedBytes": 203146,
+      "compressedBytes": 13295,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-the-last-warm-light",
+      "stage": 7,
+      "openingCompleted": false,
+      "rescueCompleted": false,
+      "silasAttachment": null,
+      "playerCarrying": "gideon"
+    },
+    {
+      "fixture": "journey-v2-opening-complete.json.gz",
+      "sourceSave": "/tmp/dust-mercy-journey-opening-chromium-stable/17-reloaded-state.json",
+      "sourceReport": "/tmp/dust-mercy-journey-opening-chromium-stable/report.json",
+      "sha256OfUncompressedOriginalBytes": "5e9a55f128bd5ccce410b50419a598da2ca63448061ab582469260acaae388ca",
+      "uncompressedBytes": 279676,
+      "compressedBytes": 20317,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-the-last-warm-light",
+      "stage": 8,
+      "openingCompleted": true,
+      "rescueCompleted": false,
+      "silasAttachment": null,
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v2-rescue-prepared.json.gz",
+      "sourceSave": "/tmp/dust-mercy-rescue-chromium-final/01-prepared-state.json",
+      "sourceReport": "/tmp/dust-mercy-rescue-chromium-final/report.json",
+      "sha256OfUncompressedOriginalBytes": "b40d56208a1c35e1da9785c5772d8b61cc05d7fbb924889ff089f7f6da2dccd7",
+      "uncompressedBytes": 357871,
+      "compressedBytes": 30097,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-a-voice-under-ice",
+      "stage": 1,
+      "openingCompleted": true,
+      "rescueCompleted": false,
+      "silasAttachment": null,
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v2-rescue-resting.json.gz",
+      "sourceSave": "/tmp/dust-mercy-rescue-chromium-final/06-rest-pad-state.json",
+      "sourceReport": "/tmp/dust-mercy-rescue-chromium-final/report.json",
+      "sha256OfUncompressedOriginalBytes": "1a01dd97bfc7f935af651caeeb7b08a0f660a9538897898512a841e468b69147",
+      "uncompressedBytes": 500042,
+      "compressedBytes": 53444,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-a-voice-under-ice",
+      "stage": 6,
+      "openingCompleted": true,
+      "rescueCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-rest-pad",
+        "regionId": "north-cutting"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v2-rescue-carried.json.gz",
+      "sourceSave": "/tmp/dust-mercy-rescue-chromium-final/07-loading-state.json",
+      "sourceReport": "/tmp/dust-mercy-rescue-chromium-final/report.json",
+      "sha256OfUncompressedOriginalBytes": "a404b66df23214d06ea976e6e78ece0b0f05dcdf21f9ab978857df1c654d1a2c",
+      "uncompressedBytes": 548950,
+      "compressedBytes": 61206,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-a-voice-under-ice",
+      "stage": 7,
+      "openingCompleted": true,
+      "rescueCompleted": false,
+      "silasAttachment": {
+        "type": "carried",
+        "targetId": "inez"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v2-rescue-passenger.json.gz",
+      "sourceSave": "/tmp/dust-mercy-rescue-chromium-final/07-passenger-state.json",
+      "sourceReport": "/tmp/dust-mercy-rescue-chromium-final/report.json",
+      "sha256OfUncompressedOriginalBytes": "d443e3fe406dfe9e8d6c9d86c8b1cd6cb4cd49c8f7db52b75e6f04f0ddd45415",
+      "uncompressedBytes": 548999,
+      "compressedBytes": 61206,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-a-voice-under-ice",
+      "stage": 7,
+      "openingCompleted": true,
+      "rescueCompleted": false,
+      "silasAttachment": {
+        "type": "passenger",
+        "targetId": "thimble",
+        "strap": true
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v2-rescue-complete.json.gz",
+      "sourceSave": "/tmp/dust-mercy-rescue-chromium-final/11-reloaded-state.json",
+      "sourceReport": "/tmp/dust-mercy-rescue-chromium-final/report.json",
+      "sha256OfUncompressedOriginalBytes": "b110e78f9d4467455c0ad23d13acc05c6f8f49b00326bf71c35864bf419925b0",
+      "uncompressedBytes": 696828,
+      "compressedBytes": 84812,
+      "sourceVersion": 2,
+      "activeMissionId": "snowbound-a-voice-under-ice",
+      "stage": 9,
+      "openingCompleted": true,
+      "rescueCompleted": true,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    }
+  ]
+}

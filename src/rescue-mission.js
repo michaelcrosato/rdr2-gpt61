@@ -1,6 +1,7 @@
 /** A Voice Under Ice: original physical rescue. The journey owns registry, codec and replay. */
 import { NORTH_CUTTING_WORLD as WORLD, RESCUE_CAST, RESCUE_STAGES, RESCUE_ITEMS } from '../content/campaign/north-cutting.js';
 import { SNOWBOUND_WORLD } from '../content/campaign/snowbound.js';
+import { WILLOW_RUN_WORLD } from '../content/campaign/willow-run.js';
 export { NORTH_CUTTING_WORLD, NORTH_WORLD, RESCUE_ITEMS } from '../content/campaign/north-cutting.js';
 export const RESCUE_ID = 'snowbound-a-voice-under-ice';
 export const RESCUE_ENTITY_IDS = [...RESCUE_CAST.map(a => a.id), ...WORLD.predators.map(a => a.id)];
@@ -61,7 +62,7 @@ function tx(s, id, amount, apply) {
 }
 function objective(s) {
   const r = rec(s);
-  r.mission.objective = r.mission.stage === 1 && !r.flags.tomasUrged ? 'Speak with Tomas at the kiln before inspecting the rescue weapon.' : r.mission.stage === 1 && !r.flags.inezVolunteered ? 'Speak with Inez beside Thimble. She will guide the northern search.' : r.mission.completed ? 'Silas is home and healing. The companion hunt and rival-camp investigation are next; they are not available yet.' : RESCUE_STAGES[r.mission.stage];
+  r.mission.objective = r.mission.stage === 1 && !r.flags.tomasUrged ? 'Speak with Tomas at the kiln before inspecting the rescue weapon.' : r.mission.stage === 1 && !r.flags.inezVolunteered ? 'Speak with Inez beside Thimble. She will guide the northern search.' : r.mission.completed ? s.campaign.missions['snowbound-a-quiet-table']?.status === 'unstarted' ? 'Silas is home and healing. Speak with Orla in the drying-shed kitchen about fresh food.' : 'Silas is home and healing. The companion hunt and rival-camp investigation are next; they are not available yet.' : RESCUE_STAGES[r.mission.stage];
 }
 function advance(s, ctx, stage, checkpointId = null, label = '') {
   const r = rec(s); if (stage <= r.mission.stage) return;
@@ -112,14 +113,15 @@ export function getRescueInteractions(s, ctx) {
   if (!r || r.status === 'locked' || s.failure || s.dialog) return list;
   ensureRescueCast(s, ctx);
   const p = s.player, i = entity(s, ctx, 'inez'), silas = entity(s, ctx, 'silas'), thimble = entity(s, ctx, 'thimble');
-  if (!active(s)) { if (s.mission.completed && r.status === 'unstarted' && s.region === 'snowbound') offer(list, s, 'rescue:elin', 'Speak with Elin about Silas', entity(s, ctx, 'elin'), 78, -2); return list; }
+  if (!active(s) && !r.mission.completed) { if (s.mission.completed && r.status === 'unstarted' && s.region === 'snowbound') offer(list, s, 'rescue:elin', 'Speak with Elin about Silas', entity(s, ctx, 'elin'), 78, -2); return list; }
+  if (!active(s) && s.region !== 'snowbound') return list;
   if (r.traversal.player || r.timers.rest > 0) return list;
   if (r.mission.completed) {
     if (s.region === 'snowbound') {
       for (const [id, label] of [['elin', 'Ask how Silas is healing'], ['fin', 'Look at Silas’s scarf'], ['silas', 'Speak with Silas'], ['della', 'Read the rescue ledger'], ['inez', 'Speak about the return trail'], ['tomas', 'Ask about the convoy']]) offer(list, s, `aftermath:${id}`, label, entity(s, ctx, id), 66, 2);
       if (r.rescue.silas.healingHours > 0 && r.timers.helper === 0 && onFoot(s) && ((s.inventory.bandages || 0) > 0 || s.camp.medicine > 0) && Array.from({ length: 6 }, (_, n) => `care:dressing-${n + 1}`).some(id => !r.transactions[`${RESCUE_ID}:${id}`])) offer(list, s, 'care:silas', 'Change Silas’s dressing and check his hands', { ...silas, z: 0 }, 65, 1);
       if (!silas.coatRepaired && onFoot(s) && s.camp.materials > 0) offer(list, s, 'repair:silas-coat', 'Ask Elin about Silas’s torn coat', entity(s, ctx, 'elin'), 65, 1);
-      offer(list, s, 'revisit:north', 'Ride back to the lower northern trail', WORLD.camp.gate, 65, 4);
+      if (active(s)) offer(list, s, 'revisit:north', 'Ride back to the lower northern trail', WORLD.camp.gate, 65, 4);
     } else offer(list, s, 'return:kiln', 'Return to the kiln', WORLD.trail[0], 65, 3);
   } else {
     const stage = r.mission.stage;
@@ -196,6 +198,7 @@ export function getRescueInteractions(s, ctx) {
       if (r.flags.dellaRecorded && !r.flags.journalWritten) offer(list, s, 'journal:rescue', 'Draw Silas’s return in the journal', entity(s, ctx, 'della'), 90, -2);
     }
   }
+  if (!active(s)) return list.sort((a, b) => a.priority - b.priority || a.distance - b.distance);
   if (!p.carrying && !r.traversal.player) {
     if (p.mounted) offer(list, s, 'dismount', 'Dismount Copper', s.horse, 35, 5);
     else if (!r.flags.mountsHitched || r.mission.stage >= 7 || r.mission.completed) offer(list, s, 'mount', 'Mount Copper', s.horse, 58, 5);
@@ -419,7 +422,7 @@ function finish(s, ctx) {
   ctx.notice(s, 'Silas is safely home. The loaned coach gun is yours; unused rescue supplies returned once.');
 }
 const inside = (a, r, radius = 0) => a.x > r.x - radius && a.x < r.x + r.w + radius && a.y > r.y - radius && a.y < r.y + r.h + radius;
-function geometry(s) { return s.region === WORLD.id ? WORLD : { ...SNOWBOUND_WORLD, obstacles: [...SNOWBOUND_WORLD.obstacles, ...WORLD.camp.obstacles] }; }
+function geometry(s) { return s.region === WORLD.id ? WORLD : { ...SNOWBOUND_WORLD, obstacles: [...SNOWBOUND_WORLD.obstacles, ...WORLD.camp.obstacles, ...(s.campaign.missions['snowbound-a-quiet-table'] && s.campaign.missions['snowbound-a-quiet-table'].status !== 'locked' ? WILLOW_RUN_WORLD.camp.obstacles : [])] }; }
 function blocked(s, x, y, height = 0, radius = 9, crouch = false) {
   const w = geometry(s), p = { x, y };
   if (x < radius || y < radius || x > w.width - radius || y > w.height - radius) return true;
@@ -762,6 +765,24 @@ function healingStep(s, dt, ctx) {
   }
   if (r.rescue.silas.healingHours === 0) { patient.injured = false; s.sideQuests.silas.status = 'recovering-strength'; ctx.notice(s, 'Silas’s dressing has held through the healing schedule. His scars remain; strength and trust still take time.'); }
 }
+/** Advance the existing bedside schedule while another mission owns the world clock.
+ * The caller supplies its elapsed step; this helper never changes elapsed/time or
+ * prior mission performance. Active-rescue stepping keeps its existing behavior.
+ */
+export function advanceRescueClinical(s, dt, ctx) {
+  const r = rec(s);
+  // The caller supplies time that actually elapsed. A scene or failure opened
+  // at the end of that tick must not erase its already advanced world hours.
+  if (!r?.mission.completed || !Number.isFinite(dt)) return s;
+  dt = clamp(dt, 0, 0.1); if (!dt) return s;
+  if (!active(s)) r.timers.helper = Math.max(0, r.timers.helper - dt);
+  healingStep(s, dt, ctx);
+  if (!active(s) && s.region === 'snowbound') {
+    const elin = entity(s, ctx, 'elin');
+    if (elin?.goal) { follow(s, elin, elin.goal, 70, dt, 5, 9); if (near(elin, elin.goal, 9)) delete elin.goal; }
+  }
+  return s;
+}
 function safeSetdown(s, ctx) {
   const patient = entity(s, ctx, 'silas'); if (!patient?.attachment || patient.attachment.type === 'rest') return;
   const carrier = entity(s, ctx, patient.attachment.targetId), from = point(patient);
@@ -964,13 +985,17 @@ export function validateRescueRecord(s) {
 }
 function validRescueDialog(s) {
   const d = s.dialog, r = rec(s); if (!d) return true;
+  // Completed rescue still owns the camp clock during the hunt's prelude.
+  // The authored Hunt scene is validated by its own strict mission validator.
+  if (r.mission.completed && d.id?.startsWith('hunt') && ['unstarted', 'active'].includes(s.campaign.missions['snowbound-a-quiet-table']?.status)) return true;
   if (!active(s) && !d.id?.startsWith('rescue')) return true;
   if (!Array.isArray(d.choices) || typeof d.id !== 'string') return false;
   const ids = d.choices.map(c => c.id), exact = expected => ids.length === expected.length && ids.every((id, n) => id === expected[n]);
   const f = r.flags, stage = r.mission.stage;
   if (d.id === 'mission-failed') return !!s.failure && d.speaker === 'A Voice Under Ice · Checkpoint' && exact(['retry', 'restart', ...(s.campaign.replayMissionId === RESCUE_ID ? ['finish-replay'] : [])]);
   if (d.id === 'rescue-briefing') return stage === 0 && !f.briefed && f.elinMet && ['unstarted', 'active'].includes(r.status) && d.speaker === 'Elin Orr' && (exact(['ask:departure', 'accept-rescue', 'leave']) || exact(['accept-rescue', 'leave']));
-  if (!active(s)) return false;
+  if (!active(s) && !r.mission.completed) return false;
+  if (!active(s) && !['rescue-repair-request'].includes(d.id) && !d.id.startsWith('rescue-aftermath-')) return false;
   if (d.id === 'rescue-postpone') return stage === 1 && d.speaker === 'Elin Orr' && exact(unusedKit(s) ? ['postpone-rescue', 'leave'] : ['leave']);
   const scenes = {
     'rescue-urge': [stage === 1 && f.tomasUrged && !f.inezVolunteered, 'Tomas Reed'],

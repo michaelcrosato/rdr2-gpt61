@@ -33,6 +33,10 @@
 .campaign-controls .touch-crouch[aria-pressed="true"] { color:#f4e7c8; background:#526272; border-color:#f0dbad; }
 .snow-map { background: #c7d0d0; border-color: #8d9b9f; }
 .snow-map text { fill: #364f5d; }
+.willow-map { background:#b5b69a; border-color:#78826a; }
+.willow-map text { fill:#384b3f; }
+body[data-region="willow-run"] .objective { background:linear-gradient(90deg,#2c3c32e0,#3d4a39c4); }
+body[data-region="willow-run"] .vignette { background:linear-gradient(180deg,#24392a8a,transparent 28%,transparent 65%,#293c2c8a); }
 .welcome .text-button { display: block; padding: 9px 0; }
 body:is([data-region="snowbound"],[data-region="north-cutting"]) .objective { background: linear-gradient(90deg,#22313edb,#273a45bd); }
 body:is([data-region="snowbound"],[data-region="north-cutting"]) .vignette { background: linear-gradient(180deg,#142535a6,transparent 28%,transparent 65%,#152733a6); }

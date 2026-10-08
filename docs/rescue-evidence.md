@@ -1,5 +1,7 @@
 # Dust & Mercy — northern rescue implementation evidence
 
+Current status (2026-10-08 re-review): this receipt preserves the rescue build and its original acceptance limits. Rescue completion now unlocks the implemented companion hunt, [A Quiet Table](missions/a-quiet-table.md), whose own results and open gates are in [hunt-evidence.md](hunt-evidence.md). The rival investigation remains unavailable. The full-game target and source inventory remain open.
+
 Evidence date: 2026-10-08. Build 0.3.0 adds **A Voice Under Ice**, a ten-stage original rescue following [The Last Warm Light](snowbound-evidence.md). The full production plan remains active. This document records implementation and bounded verification; the open source ledger has zero accepted requirements.
 
 ## Playable behavior and persistent campaign

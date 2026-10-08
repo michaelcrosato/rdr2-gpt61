@@ -2,7 +2,9 @@ import * as Sim from './frontier.js';
 import { createWorldRenderer } from './world-renderer.js';
 import { createSnowboundRenderer } from './snowbound-renderer.js';
 import { createNorthCuttingRenderer } from './north-cutting-renderer.js';
-import { resolvePointerAim } from './aiming.js';
+import { createWillowRunRenderer } from './willow-run-renderer.js';
+import { huntAnimalHitZones } from '../content/campaign/willow-run.js';
+import { resolvePointerAim, resolveHuntPointerAim } from './aiming.js';
 import { createSnowboundAudio } from './snowbound-audio.js';
 import { castPortrait } from './cast-portraits.js';
 import { rescueJournalDrawing } from './campaign-journal.js';
@@ -12,6 +14,7 @@ const $ = (id) => document.getElementById(id);
 const escape = (value) => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const OPENING_ID = 'snowbound-the-last-warm-light';
 const RESCUE_ID = 'snowbound-a-voice-under-ice';
+const HUNT_ID = 'snowbound-a-quiet-table';
 const SAVE_KEY = 'dust-mercy.journey.v1';
 const CAMPAIGN_SAVE_KEY = 'dust-mercy.campaign.v1';
 const MERCY_SAVE_KEY = 'dust-mercy.mercy.v1';
@@ -23,7 +26,7 @@ const input = {
   sprint: ['ShiftLeft', 'ShiftRight', 'Pad10'], focus: ['Space', 'Pad5'], reload: ['KeyR', 'Pad2'], whistle: ['KeyH', 'Pad1'],
   crouch: ['KeyC', 'Pad11'], pause: ['Escape', 'KeyP', 'Pad8'], map: ['KeyM'], journal: ['KeyL'], satchel: ['KeyI'],
   tonic: ['Digit1'], coffee: ['Digit2'], oats: ['Digit3'],
-  holster: ['KeyQ', 'Pad3'], block: ['KeyF', 'Pad4'], shove: ['KeyV'], restrain: ['KeyB'],
+  cancelDraw: ['KeyX'], holster: ['KeyQ', 'Pad3'], block: ['KeyF', 'Pad4'], shove: ['KeyV'], restrain: ['KeyB'],
 };
 const game = new E.Game({ canvas: 'screen', view: 'threequarter', views: ['threequarter'], minH: 400, minW: 360, maxW: 1600, maxH: 1200, input, bg: '#838849' });
 const snowboundAudio = createSnowboundAudio(game.audio);
@@ -31,7 +34,7 @@ let state = Sim.createState(requestedMode), started = false, activePanel = '', p
 const renderers = new Map();
 function rendererForState() {
   const id = Sim.isCampaign(state) ? state.region : 'mercy';
-  if (!renderers.has(id)) renderers.set(id, id === 'north-cutting' ? createNorthCuttingRenderer(game) : id === 'snowbound' ? createSnowboundRenderer(game) : createWorldRenderer(game));
+  if (!renderers.has(id)) renderers.set(id, id === 'north-cutting' ? createNorthCuttingRenderer(game) : id === 'willow-run' ? createWillowRunRenderer(game) : id === 'snowbound' ? createSnowboundRenderer(game) : createWorldRenderer(game));
   return renderers.get(id);
 }
 let world = rendererForState();
@@ -40,12 +43,18 @@ const progressKey = () => `${state.region}:${state.mission.id}:${state.mission.s
 let uiClock = 0, saveClock = 0, lastProgress = progressKey(), noticeText = '', statusTimer, previousShopSnapshot = '';
 let muted = false, touchMove = [0, 0], touchHeld = new Set(), stickPointer = null;
 let pointerMode = false, padAim = null, gameplaySpaceHeld = false, touchCrouching = false;
+let bowFireHeld = false, bowBlockedUntilRelease = false, huntPadCursor = null;
+const bowEquipped = () => state.mission.id === HUNT_ID && state.weapons?.[state.player.equippedWeaponId]?.kind === 'bow';
+function cancelBowInput() {
+  Sim.cancelDraw(state); bowBlockedUntilRelease = true; bowFireHeld = false;
+}
 function setTouchCrouch(crouching) {
   touchCrouching = crouching;
   document.querySelector('[data-action="crouch"]').setAttribute('aria-pressed', String(crouching));
 }
 function syncRegionView() {
   if (renderedRegion === state.region && world === rendererForState()) return;
+  cancelBowInput(); huntPadCursor = null;
   renderedRegion = state.region; world = rendererForState(); game.cam.snap = true;
   pointerMode = false; padAim = null;
   setTouchCrouch(false);
@@ -106,7 +115,7 @@ function startJourney(continueSaved = false, mode = requestedMode) {
   beginJourney(next);
 }
 function beginJourney(next) {
-  state = next;
+  cancelBowInput(); state = next; huntPadCursor = null;
   world = rendererForState(); renderedRegion = state.region;
   pointerMode = false; padAim = null; setTouchCrouch(false); touchHeld.clear(); releaseStick();
   state.aiming = false; state.pointer = null; state.interactionTarget = null;
@@ -125,7 +134,7 @@ function openPanel(id) {
   if (!started && id !== 'menu') return;
   if (state.dialog) return;
   if (activePanel === id) { closePanel(); return; }
-  activePanel = id; game.input.clear(); touchHeld.clear(); touchMove = [0, 0];
+  cancelBowInput(); activePanel = id; game.input.clear(); touchHeld.clear(); touchMove = [0, 0];
   renderPanel(); if (!$('panel').open) $('panel').showModal();
 }
 function panelRow(title, description, buttons = '') {
@@ -141,6 +150,7 @@ function completedStories() {
 function journeyMarks(record) {
   const mark = passed => passed ? '✓' : '○', p = record.performance;
   if (record.mission.id === OPENING_ID) return `<p>${mark(p.noYardInjury)} No injury in the boiler yard<br>${mark(p.allSixSupplies)} All six supply objects recovered<br>${mark(p.accurate)} At least 80% shooting accuracy · ${Math.round(p.accuracy * 100)}%</p>`;
+  if (record.mission.id === HUNT_ID) return `<p>${mark(p.oneArrowEach)} Each deer killed with one arrow<br>${mark(p.noSpook)} Neither deer frightened<br>${mark(p.secondCleanKill)} Second deer killed cleanly</p>`;
   if (record.mission.id === RESCUE_ID) return `<p>${mark(p.allWolvesNoBites)} All seven wolves killed without a bite<br>${mark(p.accuracy80)} At least 80% shooting accuracy · ${Math.round(p.shots ? p.hits / p.shots * 100 : 0)}%</p>`;
   return '';
 }
@@ -150,6 +160,12 @@ function renderSnowboundMap(region) {
   const places = region.places.map(p => `<circle cx="${p.x}" cy="${p.y}" r="8" fill="#42535e"/><text x="${p.x + 20}" y="${p.y - 14}" class="map-small">${escape(p.name)}</text>`).join('');
   const rooms = (region.interiors || []).map(room => `<rect x="${room.x}" y="${room.y}" width="${room.w}" height="${room.h}" fill="#a99b79" fill-opacity=".45"/>`).join('');
   const walls = region.obstacles.map(w => `<rect x="${w.x}" y="${w.y}" width="${w.w}" height="${w.h}" fill="#4d5b60" fill-opacity=".6"/>`).join('');
+  if (state.region === 'willow-run') {
+    const line = points => points.map(p => `${p.x},${p.y}`).join(' ');
+    const confirmed = region.props.filter(prop => state.tracks?.inspected?.[prop.id]).map(prop => `<circle cx="${prop.x}" cy="${prop.y}" r="15" fill="none" stroke="#8a573f" stroke-width="4"/>`).join('');
+    $('panel-body').innerHTML = `<svg class="map-art willow-map" viewBox="0 0 ${region.width} ${region.height}" role="img" aria-label="Willow Run map with Mara, inspected sign, stream, ford and hillside return"><rect width="${region.width}" height="${region.height}" fill="#b5b69a"/><polyline points="${line(region.stream)}" fill="none" stroke="#628985" stroke-width="56"/>${walls}<polyline points="${line(region.trail)}" fill="none" stroke="#766746" stroke-width="10" stroke-dasharray="18 8"/><polyline points="${line(region.returnRoute)}" fill="none" stroke="#7b5945" stroke-width="8" stroke-dasharray="12 12"/>${places}${confirmed}<circle class="player-marker" cx="${state.player.x}" cy="${state.player.y}" r="15"/><text x="${state.player.x + 25}" y="${state.player.y + 40}" class="map-small">MARA</text><text x="${region.width - 170}" y="100">N ↑</text></svg><div class="map-legend"><span>● Mara Vale</span><span>○ Inspected sign</span><span>┄ Sheltered return</span></div><p class="panel-copy">Hitch at the sheltered bank and follow fresh hoofprints and browsed stems. Cross the shallow ford for the cedar shelf. The bear is across the gorge; bring both loads home along the hillside.</p>`;
+    return;
+  }
   if (north) {
     const line = points => points.map(p => `${p.x},${p.y}`).join(' ');
     const shelfNames = { 'ledge-one': 'Lower ledge', 'upper-arch': 'Upper arch', recess: 'Maintenance recess', 'south-middle': 'Middle descent shelf', 'south-lower': 'Lower descent shelf' };
@@ -162,7 +178,7 @@ function renderSnowboundMap(region) {
 }
 function renderPanel() {
   const campaign = Sim.isCampaign(state), items = Sim.itemsFor(state), region = Sim.worldFor(state);
-  const titles = { map: ['THE COUNTRY AHEAD', campaign ? state.region === 'north-cutting' ? 'North Cutting' : 'Snowbound' : 'Mercy Vale'], journal: ['THE MARKS WE LEAVE', 'Your journal'], satchel: ['READY FOR THE ROAD', 'Your satchel'], menu: ['TAKE A BREATH', 'Dust & Mercy'] };
+  const titles = { map: ['THE COUNTRY AHEAD', campaign ? state.region === 'willow-run' ? 'Willow Run' : state.region === 'north-cutting' ? 'North Cutting' : 'Snowbound' : 'Mercy Vale'], journal: ['THE MARKS WE LEAVE', 'Your journal'], satchel: ['READY FOR THE ROAD', 'Your satchel'], menu: ['TAKE A BREATH', 'Dust & Mercy'] };
   const [kicker, title] = titles[activePanel] || titles.menu;
   $('panel-title').textContent = title; $('panel-kicker').textContent = kicker;
   if (activePanel === 'map') {
@@ -183,15 +199,20 @@ function renderPanel() {
         const selected = state.player.equippedWeaponId === weapon.id;
         const rack = state.entities[weapon.rackMountId];
         const withinReach = weapon.location === 'carried' || weapon.location === 'saddle' && rack && Math.hypot(state.player.x - rack.x, state.player.y - rack.y) <= 58 && Math.abs((state.player.z || 0) - (rack.z || 0)) < 6;
-        const canSelect = state.mission.id === RESCUE_ID && withinReach && !state.player.carrying && !state.traversal?.player;
-        html += panelRow(weapon.name || (weapon.kind === 'coach-gun' ? 'Short coach gun' : 'Vale revolver'), `${weapon.ammo} loaded · ${weapon.reserve} spare ${weapon.kind === 'coach-gun' ? 'shells' : 'rounds'} · ${weapon.loanMissionId ? 'Community loan' : 'Owned'}${weapon.location === 'saddle' ? ` · On ${rack?.name || 'the horse'}’s rack` : ''}`, button(selected ? 'Equipped' : 'Equip', 'equipment', `equip:${weapon.id}`, selected || !canSelect));
+        const needsInspection = weapon.kind === 'bow' && state.mission.id === HUNT_ID && !state.flags.bowInspected;
+        const canSelect = [RESCUE_ID, HUNT_ID].includes(state.mission.id) && withinReach && !needsInspection && !state.player.carrying && !state.traversal?.player;
+        html += panelRow(weapon.name || (weapon.kind === 'coach-gun' ? 'Short coach gun' : 'Vale revolver'), `${weapon.ammo} loaded · ${weapon.reserve} spare ${weapon.kind === 'bow' ? 'arrows' : weapon.kind === 'coach-gun' ? 'shells' : 'rounds'} · ${weapon.loanMissionId ? 'Community loan' : 'Owned'}${weapon.location === 'saddle' ? ` · On ${rack?.name || 'the horse'}’s rack` : ''}${needsInspection ? ' · Inspect the bow beside Copper before equipping it.' : ''}`, button(selected ? 'Equipped' : needsInspection ? 'Inspect at rack' : 'Equip', 'equipment', `equip:${weapon.id}`, selected || !canSelect));
       }
+    }
+    if (campaign && state.itemInstances && Object.keys(state.itemInstances).length) {
+      html += '<h3>Hides and tools</h3>';
+      for (const item of Object.values(state.itemInstances)) html += panelRow(item.kind === 'field-knife' ? 'Field skinning knife' : `${item.sourceEntityId === 'willow-creek-doe' ? 'Creek doe' : 'Cedar buck'} hide · Quality ${item.quality} / 3`, `${item.owner === 'community' ? 'Community owned' : 'Owned'} · ${item.location.type.replaceAll('-', ' ')}`, item.kind === 'deer-hide' && item.owner === 'mara' ? button('Carry hide', 'equipment', `take-hide:${item.id}`, item.location.type === 'carried') + button('Store on Copper', 'equipment', `store-hide:${item.id}`, item.location.type === 'saddle') : '');
     }
     for (const [id, item] of Object.entries(items)) {
       if (id === 'ammo') continue;
       const count = state.inventory[id] || 0;
       if (!count && !['tonic', 'coffee', 'oats', 'meat', 'pelt', 'trout'].includes(id)) continue;
-      const usable = ['tonic', 'coffee', 'oats', 'meat', 'cookedMeat', 'bandages', 'broth', 'warmRation'].includes(id);
+      const usable = ['tonic', 'coffee', 'oats', 'meat', 'cookedMeat', 'bandages', 'broth', 'warmRation', 'quietRation', 'tableBroth', 'warmCider'].includes(id);
       html += panelRow(`${item.name} × ${count}`, item.description || '', usable ? button('Use', 'use', id, !count) : '');
     }
     const campDist = Math.hypot(state.player.x - 690, state.player.y - 750);
@@ -210,7 +231,7 @@ function renderPanel() {
       }
       for (const [id, up] of Object.entries(Sim.CAMP_UPGRADES || {})) html += panelRow(up.name || id, `$${up.price} · ${up.materials} materials${up.medicine ? ` · ${up.medicine} medicine` : ''}. ${up.description || ''}`, button(state.camp.upgrades?.[id] ? 'Built' : 'Build', 'upgrade', id, campDist >= 160 || !!state.camp.upgrades?.[id]));
     }
-    if (campaign) html += `<h3>The kiln community</h3><p class="panel-copy">Food ${Math.floor(state.camp.food)} · Medicine ${Math.floor(state.camp.medicine)} · Materials ${Math.floor(state.camp.materials)}. Bring recovered essentials to the stove store at the refuge. ${state.mission.completed ? 'Copper’s ownership and care are yours.' : 'Copper still needs a patient hand.'}</p>`;
+    if (campaign) html += `<h3>The kiln community</h3><p class="panel-copy">Food ${Math.floor(state.camp.food)} · Medicine ${Math.floor(state.camp.medicine)} · Materials ${Math.floor(state.camp.materials)}. Bring recovered essentials to the stove store at the refuge. ${state.horse.owned ? 'Copper’s ownership and care are yours.' : 'Copper still needs a patient hand.'}</p>`;
     if (campaign && state.horse.storageUnlocked) {
       const pack = state.horse.pack, used = Object.values(pack).reduce((sum, count) => sum + count, 0);
       const nearby = Math.hypot(state.player.x - state.horse.x, state.player.y - state.horse.y) < 80;
@@ -224,7 +245,7 @@ function renderPanel() {
   } else {
     const browse = ['map', 'journal', 'satchel'].map(name => button({ map: 'View map', journal: 'Read journal', satchel: 'Open satchel' }[name], 'panel', name, !started)).join('');
     const replays = completedStories().map(record => button(`Replay ${record.mission.name}`, 'story', `replay:${record.mission.id}`, !!state.replayCanonical)).join('');
-    $('panel-body').innerHTML = `<div class="menu-buttons">${button('Return to the trail', 'resume', '', !started)}${button('Save journey', 'save', '', !started)}${button('Load saved journey', 'load', '', !savedJourney())}${button('Export save file', 'export', '', !started)}${button('Import save file', 'import', '')}${button(started ? 'Start a new journey' : 'Begin the story', 'new', '')}${campaign && started ? button('Retry checkpoint', 'story', 'retry') : ''}${replays}${state.replayCanonical ? button('Return to your saved world', 'story', 'finish-replay') : ''}${browse}</div><div class="menu-settings"><label><input type="checkbox" id="mute-audio" ${muted ? 'checked' : ''}> Mute music and sound</label><label><input type="checkbox" id="reduce-motion" ${game.reduceMotion ? 'checked' : ''}> Reduce motion and camera shake</label><label for="text-size">Dialogue text size <select id="text-size"><option value="1">Standard</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label></div><div class="panel-copy"><h3>On the trail</h3><p>WASD or arrows to move · E to interact · Shift to run · H to call your horse · C to crouch. Aim with the mouse and click to shoot. R reloads. Q draws/holsters. Hold Space to focus. 1 / 2 / 3 use tonic, coffee or horse feed.</p><p>In a close fight, F blocks, V shoves, and B restrains. The same actions are available as on-screen buttons.</p><p>Controller: left stick to move, right stick to aim, A to interact, RT to shoot, LT to aim, X to reload, B to call your horse, RB to focus, Y to holster, LB to block. Press the left stick to run. View opens this menu; its map, journal and satchel controls work with the D-pad and A. The right stick scrolls open panels. In close combat, A performs the displayed shove or restraint.</p><p>On touch screens, drag the left stick to move. Tap the world to choose an aim point. Tap Crouch to lower your stance, move with the stick, then tap it again to stand. The right-side buttons act.</p><p>Campaign build 0.3.0 · The full campaign and source coverage remain in production.</p></div><input id="save-file" type="file" accept=".json,application/json" hidden>`;
+    $('panel-body').innerHTML = `<div class="menu-buttons">${button('Return to the trail', 'resume', '', !started)}${button('Save journey', 'save', '', !started)}${button('Load saved journey', 'load', '', !savedJourney())}${button('Export save file', 'export', '', !started)}${button('Import save file', 'import', '')}${button(started ? 'Start a new journey' : 'Begin the story', 'new', '')}${campaign && started ? button('Retry checkpoint', 'story', 'retry') : ''}${replays}${state.replayCanonical ? button('Return to your saved world', 'story', 'finish-replay') : ''}${browse}</div><div class="menu-settings"><label><input type="checkbox" id="mute-audio" ${muted ? 'checked' : ''}> Mute music and sound</label><label><input type="checkbox" id="reduce-motion" ${game.reduceMotion ? 'checked' : ''}> Reduce motion and camera shake</label><label for="text-size">Dialogue text size <select id="text-size"><option value="1">Standard</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label></div><div class="panel-copy"><h3>On the trail</h3><p>WASD or arrows to move · E to interact · Shift to run · H to call your horse · C to crouch. Aim with the mouse and click to shoot. With the bow, hold to draw and release to loose an arrow; X cancels the draw. R reloads. Q draws/holsters. Hold Space to focus. 1 / 2 / 3 use tonic, coffee or horse feed.</p><p>In a close fight, F blocks, V shoves, and B restrains. The same actions are available as on-screen buttons.</p><p>Controller: left stick to move, right stick to aim, A to interact, RT to shoot, LT to aim, X to reload, B to call your horse, RB to focus, Y to holster, LB to block. Press the left stick to run. View opens this menu; its map, journal and satchel controls work with the D-pad and A. With the bow, move the aiming cursor with the right stick, hold RT to draw and release to loose; X cancels. The right stick scrolls open panels. In close combat, A performs the displayed shove or restraint.</p><p>On touch screens, drag the left stick to move. Tap the world to choose an aim point. Tap Crouch to lower your stance, move with the stick, then tap it again to stand. The right-side buttons act. With the bow, tap the animal to aim, hold Fire to draw, then release. Cancel draw puts the arrow back.</p><p>Campaign build 0.4.0 · The full campaign and source coverage remain in production.</p></div><input id="save-file" type="file" accept=".json,application/json" hidden>`;
     $('text-size').value = document.documentElement.style.getPropertyValue('--dialogue-scale') || '1';
   }
 }
@@ -237,6 +258,7 @@ function updateConversation() {
   const d = state.dialog;
   if (!d) { if ($('conversation').open) $('conversation').close(); previousDialog = null; previousShopSnapshot = ''; return; }
   if (previousDialog !== d) {
+    cancelBowInput();
     $('speaker').textContent = d.speaker; $('dialogue-text').textContent = d.text;
     document.querySelector('.dialogue-portrait').innerHTML = Sim.isCampaign(state) ? castPortrait(d.speaker, state) : '✦';
     $('choices').innerHTML = d.choices.map((c, i) => `<button data-choice="${escape(c.id)}"><kbd>${i + 1}</kbd>${escape(c.label)}</button>`).join('');
@@ -255,7 +277,7 @@ function updateConversation() {
 }
 
 function updateUI() {
-  const campaign = Sim.isCampaign(state), regionName = campaign ? state.region === 'north-cutting' ? 'NORTH CUTTING' : 'SNOWBOUND' : 'MERCY VALE';
+  const campaign = Sim.isCampaign(state), regionName = campaign ? state.region === 'willow-run' ? 'WILLOW RUN' : state.region === 'north-cutting' ? 'NORTH CUTTING' : 'SNOWBOUND' : 'MERCY VALE';
   $('clock').textContent = formatTime(state.time);
   $('day-weather').textContent = `DAY ${state.day} · ${state.weather === 'snow' ? 'SNOW' : state.weather === 'rain' ? 'RAIN' : state.weather === 'overcast' ? 'OVERCAST' : regionName}`;
   document.body.dataset.region = campaign ? state.region : 'mercy';
@@ -283,6 +305,11 @@ function updateUI() {
     else if (state.mission.stage === 6) detail = state.player.carrying ? 'TAKE THE WIDE DESCENT · HAND SILAS TO INEZ' : 'STABILIZE SILAS · USE THE SHELTERED REST PAD';
     else if (state.mission.stage === 8) detail = state.flags.creekConcealed ? 'BOTH MOUNTS’ TRAIL IS CONCEALED · TAKE THE LEFT BANK' : 'KEEP BOTH MOUNTS IN THE CREEK TO CONCEAL THEIR TRAIL';
   }
+  if (campaign && state.mission.id === HUNT_ID && !state.mission.completed) {
+    if (state.bow?.drawing) detail = `BOW DRAW · ${Math.round(state.bow.charge * 100)}% · RELEASE TO LOOSE · X / CANCEL TO LOWER`;
+    else if ([3, 4, 5].includes(state.mission.stage)) detail = 'CROUCH AND READ THE SIGN · AIM AT THE ANIMAL';
+    else if (state.player.carrying) detail = 'ONE BODY, ONE LOAD · CALL COPPER AND WAIT FOR HER';
+  }
   $('mission-detail').hidden = !detail; $('mission-detail').textContent = detail;
   $('mission-progress').innerHTML = Array.from({ length: stageCount }, (_, i) => `<span class="${i < state.mission.stage ? 'done' : ''}"></span>`).join('');
   for (const [key, id] of [['hp', 'health'], ['stamina', 'stamina'], ['focus', 'focus']]) {
@@ -293,15 +320,15 @@ function updateUI() {
   $('money').textContent = `$${state.player.money.toFixed(2)}`;
   $('honor').textContent = state.honor > 15 ? 'A NAME THE VALLEY TRUSTS' : state.honor < -15 ? 'A NAME THE VALLEY FEARS' : 'A NAME YET TO BE MADE';
   $('ammo').textContent = state.player.ammo; $('reserve').textContent = `/ ${state.player.reserve}`;
-  $('weapon-status').textContent = state.player.reloadTimer > 0 ? 'Reloading…' : state.player.focusActive ? 'FOCUS · TIME SLOWS' : 'Right click to aim · Click to fire';
-  const weapon = state.weapons?.[state.player.equippedWeaponId], weaponLabel = weapon?.kind === 'coach-gun' ? 'COACH GUN' : 'REVOLVER';
+  $('weapon-status').textContent = state.player.reloadTimer > 0 ? 'Reloading…' : state.player.focusActive ? 'FOCUS · TIME SLOWS' : bowEquipped() ? state.bow?.drawing ? `Draw ${Math.round(state.bow.charge * 100)}% · Release to loose` : 'Hold Fire to draw · Release to loose' : 'Right click to aim · Click to fire';
+  const weapon = state.weapons?.[state.player.equippedWeaponId], weaponLabel = weapon?.kind === 'bow' ? 'ASH BOW' : weapon?.kind === 'coach-gun' ? 'COACH GUN' : 'REVOLVER';
   const carried = state.entities?.[state.player.carrying]?.name?.split(' ')[0] || 'Gideon';
   $('weapon-name').textContent = state.player.carrying ? `CARRYING ${carried.toUpperCase()}` : state.player.mounted ? `RIDING ${state.horse.name.toUpperCase()}` : state.player.weaponOwned === false ? 'DISARMED' : state.player.holstered ? `${weaponLabel} HOLSTERED` : weapon?.name?.toUpperCase() || (weapon?.kind === 'coach-gun' ? 'SHORT COACH GUN' : 'VALE REVOLVER');
   $('campaign-controls').hidden = !campaign || !!state.dialog || !!activePanel;
   const melee = campaign && state.mission.id === OPENING_ID && state.mission.stage === 5;
   document.body.classList.toggle('melee', melee);
   $('holster-label').textContent = state.player.holstered ? 'Draw' : 'Holster';
-  document.querySelectorAll('[data-story-action]').forEach(el => { el.hidden = el.dataset.storyAction !== 'holster' && !melee; el.disabled = el.dataset.storyAction === 'holster' && state.player.weaponOwned === false; });
+  document.querySelectorAll('[data-story-action]').forEach(el => { el.hidden = el.dataset.storyAction === 'cancel-bow' ? !bowEquipped() || !state.bow?.drawing : el.dataset.storyAction !== 'holster' && !melee; el.disabled = el.dataset.storyAction === 'holster' && state.player.weaponOwned === false; });
   const interaction = Sim.getInteraction(state);
   $('interact').hidden = !interaction || !!state.dialog || !!activePanel;
   if (interaction) $('interaction-label').textContent = interaction.label;
@@ -327,11 +354,27 @@ function aimTarget(auto = false) {
   if (enemy && Math.hypot(enemy.x - state.player.x, enemy.y - state.player.y) < 450) return [enemy.x, enemy.y];
   return [state.player.x + Math.cos(state.player.facing) * 400, state.player.y + Math.sin(state.player.facing) * 400];
 }
+function huntAim() {
+  let ground, pointer;
+  if (huntPadCursor) {
+    ground = [state.player.x + huntPadCursor.x, state.player.y + huntPadCursor.y];
+    const projected = game.r.w(...ground, 0); pointer = { x: projected[0], y: projected[1] };
+  } else if (pointerMode) {
+    ground = game.mouseGround(); const screen = game.input.mouseScreen();
+    pointer = screen ? { x: screen[0] - game.r.ix, y: screen[1] - game.r.iy } : null;
+  }
+  const region = Sim.worldFor(state);
+  const bounded = point => [Math.max(0, Math.min(region.width, point[0])), Math.max(0, Math.min(region.height, point[1]))];
+  if (!ground) return { point: bounded([state.player.x + Math.cos(state.player.facing) * 400, state.player.y + Math.sin(state.player.facing) * 400]), z: 19 };
+  const aim = resolveHuntPointerAim(state, ground, pointer, (x, y, z) => game.r.w(x, y, z), huntAnimalHitZones);
+  aim.point = bounded(aim.point); return aim;
+}
 function fire(auto = false) {
   const shots = state.stats.shots, target = aimTarget(auto); Sim.shoot(state, ...target);
   if (state.stats.shots > shots) { game.audio.sfx('shoot', { vol: .32, pitch: .7 }); game.shake(.8); game.particles.smoke(state.player.x, state.player.y, 24, 2); }
 }
 function performAction(id) {
+  if (id === 'cancel-bow') { cancelBowInput(); updateUI(); return; }
   const next = Sim.action(state, id);
   if (next && next !== state) { state = next; world = rendererForState(); game.cam.snap = true; }
   syncRegionView();
@@ -394,20 +437,40 @@ game.start({
           const pad = Array.from(navigator.getGamepads?.() || []).find(p => p?.connected);
           const x = pad?.axes[2] || 0, y = pad?.axes[3] || 0;
           padAim = Math.hypot(x, y) > .2 ? game.view.screenDirToGround(x, y) : null;
+          if (bowEquipped() && padAim) {
+            pointerMode = false;
+            huntPadCursor ||= { x: Math.cos(state.player.facing) * 160, y: Math.sin(state.player.facing) * 160 };
+            huntPadCursor.x = Math.max(-500, Math.min(500, huntPadCursor.x + padAim[0] * 240 * dt));
+            huntPadCursor.y = Math.max(-500, Math.min(500, huntPadCursor.y + padAim[1] * 240 * dt));
+          }
         } catch { padAim = null; }
-        state.aiming = game.input.down('aim') || !!padAim;
+        state.aiming = game.input.down('aim') || !!padAim || bowEquipped() && (state.bow?.drawing || !!huntPadCursor);
         const mouse = game.input.mouseScreen();
         state.pointer = mouse ? { x: mouse[0] - game.r.ix, y: mouse[1] - game.r.iy } : null;
         if (game.input.pressed('interact')) { Sim.interact(state); game.audio.sfx('select', { vol: .2 }); }
-        if (game.input.pressed('reload')) Sim.reload(state);
+        if (game.input.pressed('reload')) { if (bowEquipped()) cancelBowInput(); Sim.reload(state); }
+        if (game.input.pressed('cancelDraw') && bowEquipped()) cancelBowInput();
         if (game.input.pressed('whistle')) { Sim.whistle(state); game.audio.sfx({ wave: 'sine', freq: 1400, to: 1900, dur: .25, vol: .1 }); }
         for (const name of ['holster', 'block', 'shove', 'restrain']) if (game.input.pressed(name)) performAction(name);
-        if (game.input.pressed('shoot') || game.input.down('shoot') || touchHeld.has('shoot')) fire(touchHeld.has('shoot') && !pointerMode);
+        const fireHeld = game.input.down('shoot') || touchHeld.has('shoot');
+        const bowAim = bowEquipped() ? huntAim() : null;
+        if (bowAim) {
+          if (!fireHeld) bowBlockedUntilRelease = false;
+          if (fireHeld && !bowFireHeld && !bowBlockedUntilRelease) Sim.beginDraw(state, ...bowAim.point, { z: bowAim.z });
+          if (!fireHeld && bowFireHeld && !bowBlockedUntilRelease) {
+            const before = state.bow.serial; Sim.releaseDraw(state, ...bowAim.point, { z: bowAim.z });
+            if (state.bow.serial > before) game.audio.sfx({ wave: 'noise', freq: 1400, to: 380, dur: .13, vol: .1, filter: 'lowpass' });
+          }
+          bowFireHeld = fireHeld;
+        } else {
+          bowFireHeld = false; huntPadCursor = null;
+          if (game.input.pressed('shoot') || fireHeld) fire(touchHeld.has('shoot') && !pointerMode);
+        }
         for (const [key, item] of [['tonic', 'tonic'], ['coffee', 'coffee'], ['oats', 'oats']]) if (game.input.pressed(key)) Sim.useItem(state, item);
         const hp = state.player.hp;
-        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch') || touchCrouching, focus: game.input.down('focus') || touchHeld.has('focus'), block: game.input.down('block') || touchHeld.has('block') });
+        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch') || touchCrouching, focus: game.input.down('focus') || touchHeld.has('focus'), block: game.input.down('block') || touchHeld.has('block'), drawHeld: bowEquipped() && fireHeld && !bowBlockedUntilRelease, ...(bowAim ? { aimX: bowAim.point[0], aimY: bowAim.point[1], aimZ: bowAim.z } : {}) });
         if (state.aiming && !state.player.mounted && !state.player.carrying && state.player.weaponOwned !== false) {
-          const target = aimTarget();
+          const target = bowEquipped() ? huntAim().point : aimTarget();
           state.player.facing = Math.atan2(target[1] - state.player.y, target[0] - state.player.x);
         }
         if (state.player.hp < hp) { game.shake(1.4); game.audio.sfx('hurt', { vol: .2 }); }
@@ -424,7 +487,13 @@ game.start({
     if (started && Sim.isCampaign(state)) snowboundAudio.update(dt, state, !!activePanel || !!state.dialog || !!state.failure);
     if (uiClock > .1) { uiClock = 0; updateUI(); }
   },
-  draw(r) { world.draw(r, state); },
+  draw(r) {
+    world.draw(r, state);
+    if (started && bowEquipped() && !activePanel && !state.dialog && (pointerMode || huntPadCursor)) {
+      const aim = huntAim(), [x, y] = r.w(...aim.point, aim.z);
+      r.overlay(() => { const g = r.ctx; g.save(); g.strokeStyle = state.bow?.charge >= .8 ? '#edcf88' : '#f1ead5'; g.lineWidth = 1; g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.moveTo(x - 9, y); g.lineTo(x - 3, y); g.moveTo(x + 3, y); g.lineTo(x + 9, y); g.moveTo(x, y - 9); g.lineTo(x, y - 3); g.moveTo(x, y + 3); g.lineTo(x, y + 9); g.stroke(); g.restore(); });
+    }
+  },
 });
 
 $('new-game').addEventListener('click', () => startJourney());
@@ -480,7 +549,7 @@ document.addEventListener('change', async e => {
   if (['mute-audio', 'reduce-motion', 'text-size'].includes(e.target.id)) savePreferences();
   if (e.target.id === 'save-file') {
     const file = e.target.files?.[0]; if (!file) return;
-    if (file.size > 1024 * 1024) { announce('This save file is too large.'); return; }
+    if (file.size > 8 * 1024 * 1024) { announce('This save exceeds the 8 MB import limit.'); return; }
     try {
       const loaded = Sim.restore(await file.text());
       if (!loaded) { announce('This file is not a valid Dust & Mercy journey.'); return; }
@@ -503,9 +572,9 @@ document.addEventListener('keyup', e => {
   // Its release must not activate the newly focused Retry button.
   if (e.code === 'Space' && gameplaySpaceHeld) { e.preventDefault(); gameplaySpaceHeld = false; }
 }, true);
-$('screen').addEventListener('pointermove', e => { if (e.pointerType !== 'touch') pointerMode = true; });
+$('screen').addEventListener('pointermove', e => { if (e.pointerType !== 'touch') { pointerMode = true; huntPadCursor = null; } });
 $('screen').addEventListener('pointerdown', e => {
-  pointerMode = true;
+  pointerMode = true; huntPadCursor = null;
   if (e.pointerType === 'touch') { e.stopImmediatePropagation(); game.input.mouse = { cx: e.clientX, cy: e.clientY, active: true }; }
 }, true);
 const joystick = $('joystick');
@@ -534,8 +603,8 @@ document.querySelectorAll('[data-story-action]').forEach(el => {
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(name, () => touchHeld.delete('block'));
   el.addEventListener('click', e => { if (e.detail === 0) performAction(el.dataset.storyAction); });
 });
-addEventListener('blur', () => { gameplaySpaceHeld = false; touchHeld.clear(); releaseStick(); if (started) saveJourney(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { touchHeld.clear(); releaseStick(); if (started) { saveJourney(); if (!activePanel && !state.dialog) openPanel('menu'); } } });
+addEventListener('blur', () => { cancelBowInput(); gameplaySpaceHeld = false; touchHeld.clear(); releaseStick(); if (started) saveJourney(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelBowInput(); touchHeld.clear(); releaseStick(); if (started) { saveJourney(); if (!activePanel && !state.dialog) openPanel('menu'); } } });
 addEventListener('pagehide', () => { if (started) saveJourney(); });
 game.audio.setVolume(muted ? 0 : .65);
 if (new URLSearchParams(location.search).has('play')) startJourney(!!savedJourney());

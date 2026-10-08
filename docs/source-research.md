@@ -2,7 +2,7 @@
 
 The requested end state is a finished, original game covering variations of every mission, battle, side quest, character, item, job, progression system, creature and other described beat in the supplied RDR2 wiki. A vertical slice is an intermediate quality proof. It does not clear that goal.
 
-This research establishes an expandable source inventory. It does **not** establish complete source extraction, complete design, or implemented gameplay. The machine-readable record is [content/source-coverage.json](../content/source-coverage.json); entries remain `unimplemented` until source-specific code and runtime are independently inspected. The opening now records `in_progress` implementation evidence; full source/presentation/input acceptance remains open.
+This research establishes an expandable source inventory. It does **not** establish complete source extraction, complete design, or full gameplay coverage. The machine-readable record is [content/source-coverage.json](../content/source-coverage.json); entries remain `unimplemented` until source-specific code and runtime are independently inspected. The opening, northern rescue and companion hunt now record `in_progress` implementation evidence. None is accepted; full source/presentation/input and later-dependency acceptance remains open. A newly authored specification is design evidence, not implemented gameplay.
 
 ## Evidence and source access
 
@@ -21,9 +21,9 @@ All chapter headings are catalog groupings, not a dependency graph. Proposed Dus
 Proposed authoring destination: **I — Snowbound**. Each entry needs individual beat, battle, branch, prerequisite, reward, failure and aftermath research.
 
 - [Outlaws from the West](https://reddead.fandom.com/wiki/Outlaws_from_the_West).
-- [Enter, Pursued by a Memory](https://reddead.fandom.com/wiki/Enter%2C_Pursued_by_a_Memory) — sampled article/story/objectives are mapped to the [proposed A Voice Under Ice specification](missions/a-voice-under-ice.md). Its ten stages, region, cast and state contracts are authoring only; the mission remains unimplemented and unavailable, with revision and incidental-beat reconciliation open.
-- [The Aftermath of Genesis](https://reddead.fandom.com/wiki/The_Aftermath_of_Genesis).
-- [Old Friends](https://reddead.fandom.com/wiki/Old_Friends).
+- [Enter, Pursued by a Memory](https://reddead.fandom.com/wiki/Enter%2C_Pursued_by_a_Memory) — sampled source obligations are mapped to [A Voice Under Ice](missions/a-voice-under-ice.md). Its ten-stage original runtime, separate region/cast, ownership and clinical state have bounded independent evidence in [Rescue verification](rescue-evidence.md); source revision, incidental beats, full presentation/input and later-dependency acceptance remain open.
+- [The Aftermath of Genesis](https://reddead.fandom.com/wiki/The_Aftermath_of_Genesis) — [A Quiet Table](missions/a-quiet-table.md) adds an eleven-stage original companion hunt. [Hunt verification](hunt-evidence.md) separates state, presentation and public-input evidence from the still-open source, full-input, catalog and onward-order gates.
+- [Old Friends](https://reddead.fandom.com/wiki/Old_Friends) — indexed mission/dialogue and targeting-progression research are mapped to [The Names They Took](missions/the-names-they-took.md), an original fourteen-scene authoring specification. It remains unimplemented and unavailable. Its battle, physical search/loot, pursuit/capture, return questioning and persistent captive require their own runtime; source revisions and exact conditional triggers remain unsealed.
 - [Who the Hell is Leviticus Cornwall?](https://reddead.fandom.com/wiki/Who_the_Hell_is_Leviticus_Cornwall%3F).
 - [Eastward Bound](https://reddead.fandom.com/wiki/Eastward_Bound).
 
@@ -270,9 +270,13 @@ The [RDR2 section of Bounty Hunting](https://reddead.fandom.com/wiki/Bounty_Hunt
 
 This remains an open inventory. The article's prose says seven mission-specific bounties; its visible list has eight names across seven owning missions because The Ties That Bind Us has two optional targets. The [target category](https://reddead.fandom.com/wiki/Category%3ABounty_targets_in_Redemption_2) has 19 entries that omit that optional pair. This explains the different framing totals without making any total a sealed production target. Target biographies and mission articles still need investigation for approach, flight, guards, pursuit, surrender, delivery, later-world outcomes and version/edition history. The conditional later poster for Anthony Foreman also depends on his earlier spared outcome; generating every poster unconditionally would lose a source branch.
 
-### First original campaign specification
+### Original campaign specifications and bounded evidence
 
 [The Last Warm Light](missions/the-last-warm-light.md) is an original authoring specification for the opening source obligation. It identifies separate playable stages, companions and adversaries, interactions, choices, checkpoints, failure recovery, persistent aftermath, assets and acceptance requirements. Its original situation is a community restoring an occupied mountain signal station during a lethal freeze. Its nine-stage runtime now has independent simulation and player-control evidence in [Snowbound verification](snowbound-evidence.md). Full live-source reconciliation, bespoke presentation, complete input parity and later dependencies remain pending, so its requirement is in progress. Other opening chapter missions remain distinct obligations.
+
+[A Voice Under Ice](missions/a-voice-under-ice.md) and [A Quiet Table](missions/a-quiet-table.md) are separate implemented original stories with independent northern-search and hunting regions, distinct participant roles and consequential equipment/body/resource state. Their respective [rescue](rescue-evidence.md) and [hunt](hunt-evidence.md) evidence documents retain the limits of state fixtures, public-control paths and presentation checks. They do not establish full source acceptance, global wildlife/item/cast completion, or the entire campaign graph.
+
+[The Names They Took](missions/the-names-they-took.md) is the next full original campaign specification. It introduces Bellwether Works, a rival foreclosure crew, a six-rider expedition, a new captive and his own mount, separate assault/reinforcement battles, physical finite looting and depot searches, automatic focus-marking instruction, a mounted pursuit and a persistent disputed camp holding. Research/design are recorded separately from its absent runtime. Hunt and rival-operation order, the next heist's AND prerequisite and early camp windows remain explicit implementation and acceptance obligations.
 
 ## Weapons, equipment and items
 
@@ -293,7 +297,7 @@ The prominent source cast is recorded as individual requirements rather than col
 ## Open gaps and acceptance policy
 
 - **inventory-seal:** The requested wiki and linked guide scope has not been fully traversed or pinned to article revisions. Source inventories remain open; row totals are not final source totals.
-- **mission-beats:** Campaign title existence is indexed; mission-by-mission beats, battles, objectives, optional branches, companion roles, failure rules, cinematic aftermath, unlock edges, and medal objectives remain to be decomposed.
+- **mission-beats:** Campaign titles are indexed; four opening requirements now have sampled source-to-original scene specifications, three with in-progress runtime. Full mission-by-mission beats, battles, objectives, optional branches, companion roles, failure rules, cinematic aftermath, unlock edges and medal objectives remain unsealed and require source reconciliation, implementation and acceptance.
 - **stranger-parts:** Each stranger strand needs its individual numbered meetings, conditional branches, availability windows, collectibles, rewards and aftermath audited. Apparent part counts vary with framing scenes.
 - **special-editions:** Special/Ultimate edition missions, unlocks and items need explicit original equivalents. Online-only and cut material must be tagged separately instead of silently included or omitted.
 - **ambient-events:** The random encounter index is not exhaustively itemized; every named event, sequence, region, time window, repeat occurrence and lasting consequence remains in scope.
@@ -305,7 +309,7 @@ The prominent source cast is recorded as individual requirements rather than col
 - **geography:** Major locations are inventoried; every smaller locality, interior, business, landmark, shack, grave, encounter area and point of interest remains in scope.
 - **cast:** The prominent cast is inventoried; stranger patrons, debtors, bounty targets, gang members, merchants, service staff, lawmen, named ambient figures and mentioned/deceased personalities require separate expansion.
 - **progression:** The entire campaign and post-story state graph, moral outcomes, attribute levels, focus abilities, equipment perks, economies and completion trackers require implemented-and-played evidence.
-- **implementation-audit:** The opening now supplies code and targeted independent runtime evidence, recorded as in progress. It is not accepted: full source/presentation/input and later-dependency gates remain open. Other entries default to unimplemented until their own evidence exists.
+- **implementation-audit:** The opening, northern rescue and companion hunt supply code and bounded independent state/player-control/presentation evidence, recorded as in progress. None is accepted: full source, presentation, input, branch and later-dependency gates remain open. Other entries default to unimplemented until their own inspected runtime evidence exists; specifications alone do not change implementation status.
 - **presentation-polish:** Original assets, animations, environmental and musical direction, sound, readable UI, input parity, camera work, performance, accessibility and cross-browser/mobile verification remain completion gates.
 - **final-presentation:** The requested final boardroom report requires evidence from the finished game: approach, design choices, effort allocation, engine assessment, technology rationale, validation and full coverage reconciliation.
 

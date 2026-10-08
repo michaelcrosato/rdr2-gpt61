@@ -144,7 +144,7 @@
       "original_design_status": "runtime_implemented_pending_full_source_presentation_and_input_acceptance",
       "beat_decomposition_status": "sampled_and_mapped_unsealed",
       "prerequisite_audit_status": "opening_and_following_hunt_rival_missions_indexed",
-      "notes": "Ten original runtime stages, separate persistent northern region and cast, independent weapon/loan/clinical/attachment/replay contracts, authored contact animation, 158 passing substantive tests and actual ordinary Chromium/Firefox recovered-case and WebKit omitted-case continuation/reload evidence. Full WebKit phone-pointer and emulated Chromium-controller continuations also pass; separate public notebook controls expose the drawing and support controller scrolling. The public routes start from a game-generated current-v2 opening Save through visible Import; they are not one uninterrupted fresh two-mission run. Source revision/transcript/minor beats, exact encounter count and scoring, full branch/input/hardware/presentation acceptance and actual next missions remain open. No source acceptance or full-game completion is claimed.",
+      "notes": "Ten original runtime stages, separate persistent northern region and cast, independent weapon/loan/clinical/attachment/replay contracts, authored contact animation, the recorded 158-test substantive verification receipt and actual ordinary Chromium/Firefox recovered-case and WebKit omitted-case continuation/reload evidence. Full WebKit phone-pointer and emulated Chromium-controller continuations also pass; separate public notebook controls expose the drawing and support controller scrolling. The public routes start from a game-generated original version-2 opening Save through visible Import; they are not one uninterrupted fresh two-mission run. Source revision/transcript/minor beats, exact encounter count and scoring, full branch/input/hardware/presentation acceptance and full onward order, rival/heist and remaining later dependencies remain open; Hunt now has its own in-progress implementation record. No source acceptance or full-game completion is claimed.",
       "research_date": "2026-10-08",
       "runtime_evidence_path": "docs/rescue-evidence.md"
     },
@@ -153,34 +153,63 @@
       "category": "campaign",
       "source_title": "The Aftermath of Genesis",
       "source_url": "https://reddead.fandom.com/wiki/The_Aftermath_of_Genesis",
-      "research_status": "indexed_article",
-      "implementation_status": "unimplemented",
-      "original_counterpart": null,
-      "implementation_evidence": [],
+      "research_status": "indexed_article_and_dialogue_with_revision_and_trigger_gaps",
+      "implementation_status": "in_progress",
+      "original_counterpart": {
+        "id": "snowbound-a-quiet-table",
+        "title": "A Quiet Table",
+        "specification_path": "docs/missions/a-quiet-table.md"
+      },
+      "implementation_evidence": [
+        "content/campaign/willow-run.js",
+        "src/hunt-mission.js",
+        "src/campaign-journey.js",
+        "src/willow-run-renderer.js",
+        "src/willow-run-rigs.js",
+        "src/willow-run-actors.js",
+        "src/willow-run-animation.js",
+        "src/aiming.js",
+        "src/game.js",
+        "src/snowbound-audio.js",
+        "tests/hunt.test.mjs",
+        "tests/willow-run-animation.test.mjs",
+        "tests/aiming.test.mjs",
+        "tests/fixtures/journey-v2-provenance.json",
+        "scripts/hunt-playthrough.py",
+        "scripts/hunt-browser-check.py",
+        "scripts/hunt-ui-matrix.py"
+      ],
       "acceptance_evidence": [],
       "source_chapter": "Chapter 1: Colter",
       "proposed_original_chapter": "I — Snowbound",
-      "original_design_status": "not_authored",
-      "beat_decomposition_status": "pending",
-      "prerequisite_audit_status": "pending",
-      "notes": null
+      "original_design_status": "runtime_implemented_pending_full_source_presentation_and_input_acceptance",
+      "beat_decomposition_status": "sampled_and_mapped_unsealed",
+      "prerequisite_audit_status": "rescue_required_hunt_and_rival_alternative_order_unverified",
+      "notes": "Eleven original runtime stages with separate Willow Run geography, injured companion and mount, actual bow draw/release/projectiles and wounds, independent prey history and quality, exclusive physical carcass loads, kitchen deliveries, timed processing, exactly-once food/hide ownership and historical replay. Independent state/migration evidence, complete imported public keyboard/mouse continuation/reload in Chromium, Firefox and WebKit, normal three-engine preparation/satchel regression and responsive draw-cancel checks add bounded evidence. Complete pointer/controller paths, native touch/hardware, exact source revision and conditional triggers, species identification, full catalog/compendium, presentation acceptance and actual rival-first/next-heist dependencies remain open. No source acceptance or full-game completion is claimed.",
+      "research_date": "2026-10-08",
+      "runtime_evidence_path": "docs/hunt-evidence.md"
     },
     {
       "id": "campaign-old-friends",
       "category": "campaign",
       "source_title": "Old Friends",
       "source_url": "https://reddead.fandom.com/wiki/Old_Friends",
-      "research_status": "indexed_article",
+      "research_status": "indexed_article_dialogue_and_targeting_with_revision_and_trigger_gaps",
       "implementation_status": "unimplemented",
-      "original_counterpart": null,
+      "original_counterpart": {
+        "id": "snowbound-the-names-they-took",
+        "title": "The Names They Took",
+        "specification_path": "docs/missions/the-names-they-took.md"
+      },
       "implementation_evidence": [],
       "acceptance_evidence": [],
       "source_chapter": "Chapter 1: Colter",
       "proposed_original_chapter": "I — Snowbound",
-      "original_design_status": "not_authored",
-      "beat_decomposition_status": "pending",
-      "prerequisite_audit_status": "pending",
-      "notes": null
+      "original_design_status": "authored_specification_pending_source_reconciliation_and_runtime",
+      "beat_decomposition_status": "sampled_and_mapped_unsealed",
+      "prerequisite_audit_status": "rescue_and_hunt_rival_alternative_order_with_onward_and_gate_indexed",
+      "notes": "Fourteen-scene original authoring contract at Bellwether Works: six-rider expedition, separate assault/reinforcement tactics, finite body/search/cargo and optional disarm acquisition, automatic cursor-sweep focus instruction, physical pursuit/lariat/tackle/binding/rear transport, evidence-gated questions and a persistent new captive Levi Senn with mount Skein. It retains released/held/dead Pavel identity distinctions and Hunt/rival alternative order. Design only: no runtime, implementation evidence or acceptance; source revision, complete conditional transcript, exact population/scoring/capture/incidental variations, all presentation/input/recovery and later dependencies remain open.",
+      "research_date": "2026-10-08"
     },
     {
       "id": "campaign-who-the-hell-is-leviticus-cornwall",
@@ -10216,7 +10245,7 @@
     {
       "id": "mission-beats",
       "status": "open",
-      "description": "Campaign title existence is indexed; mission-by-mission beats, battles, objectives, optional branches, companion roles, failure rules, cinematic aftermath, unlock edges, and medal objectives remain to be decomposed."
+      "description": "Campaign titles are indexed; four opening requirements now have sampled source-to-original scene specifications, three with in-progress runtime. Full mission-by-mission beats, battles, objectives, optional branches, companion roles, failure rules, cinematic aftermath, unlock edges and medal objectives remain unsealed and require source reconciliation, implementation and acceptance."
     },
     {
       "id": "stranger-parts",
@@ -10276,7 +10305,7 @@
     {
       "id": "implementation-audit",
       "status": "open",
-      "description": "No gameplay implementation was independently audited for this research ledger. Entries default to unimplemented until implementation links and runtime evidence are supplied."
+      "description": "The opening, northern rescue and companion hunt have inspected code and bounded independent state/player-control/presentation evidence, recorded as in progress. No source requirement is accepted. Full source, presentation, input, branches, recovery and later-dependency acceptance remain open; every other row requires its own inspected runtime evidence, and specifications alone do not change implementation status."
     },
     {
       "id": "presentation-polish",
