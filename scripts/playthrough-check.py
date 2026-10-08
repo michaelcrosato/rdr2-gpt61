@@ -168,7 +168,7 @@ async def run(url, output, engine):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("url", nargs="?", default="http://127.0.0.1:4173")
+    parser.add_argument("url", nargs="?", default="http://127.0.0.1:4173/?mode=mercy")
     parser.add_argument("--output", type=Path, default=Path("/tmp/dust-mercy-playthrough-check"))
     parser.add_argument("--engine", choices=["chromium", "firefox", "webkit"], default="chromium")
     options = parser.parse_args()

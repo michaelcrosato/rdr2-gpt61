@@ -118,7 +118,7 @@ export function createState() {
     player: {
       name: 'Mara Vale', x: 720, y: 680, vx: 0, vy: 0, hp: 100, stamina: 100,
       focus: 100, facing: 0, mounted: false, ammo: 6, reserve: 36, money: 40,
-      reloadTimer: 0, shotTimer: 0, invulnerable: 0, crouch: false,
+      reloadTimer: 0, shotTimer: 0, invulnerable: 0, crouch: false, holstered: false,
     },
     horse: { x: 755, y: 715, hp: 100, stamina: 100, bond: 1, name: 'Juniper', follow: false },
     npcs: [

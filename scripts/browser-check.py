@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-BASE_URL = os.environ.get('GAME_URL', 'http://127.0.0.1:4173')
+BASE_URL = os.environ.get('GAME_URL', 'http://127.0.0.1:4173/?mode=mercy')
 OUTPUT = Path(os.environ.get('BROWSER_OUTPUT', '/tmp/dust-mercy-browser-check'))
 OUTPUT.mkdir(parents=True, exist_ok=True)
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#242a22">
-  <meta name="description" content="Dust & Mercy. Ride into Mercy Vale, where a railroad owns the water and every choice leaves a mark.">
+  <meta name="description" content="Dust & Mercy. An original western about a displaced community, a railroad syndicate, and choices that leave a mark.">
   <title>Dust & Mercy — An original western</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='8' fill='%23242a22'/%3E%3Ctext x='20' y='29' text-anchor='middle' fill='%23e5d5af' font-size='28' font-family='serif'%3ED%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
@@ -24,17 +24,19 @@
       </nav>
     </header>
     <section id="welcome" class="welcome" aria-labelledby="welcome-title">
-      <p class="eyebrow"><span></span> MERCY VALE, 1893</p>
+      <p class="eyebrow" id="welcome-place"><span></span> SNOWBOUND, 1893</p>
       <h1 id="welcome-title">Every drop<br>has a price.</h1>
       <p class="welcome-copy">A railroad owns the water.<br>A valley refuses to surrender.<br>And you still have a choice.</p>
       <button id="new-game" class="primary">Ride into Mercy Vale <span aria-hidden="true">→</span></button>
       <button id="continue-game" class="text-button" hidden>Continue your journey →</button>
-      <p class="welcome-foot">AN ORIGINAL STORY · A LIVING FRONTIER<br><span>FOUNDATION BUILD · WORK IN PROGRESS</span></p>
+      <button id="mercy-game" class="text-button">Explore Mercy Vale →</button>
+      <p class="welcome-foot">AN ORIGINAL STORY · A LIVING FRONTIER<br><span>CAMPAIGN BUILD · WORK IN PROGRESS</span></p>
     </section>
     <div id="hud" hidden>
-      <section class="objective" aria-label="Current objective"><p class="eyebrow">YOUR STORY <span id="mission-count">01 / 07</span></p><h1 id="mission-name">The Last Water</h1><p id="objective-text">Speak with Ada Reed at Reed Camp.</p><div class="objective-progress" id="mission-progress" aria-hidden="true"></div></section>
+      <section class="objective" aria-label="Current objective"><p class="eyebrow">YOUR STORY <span id="mission-count">01 / 09</span></p><h1 id="mission-name">The Last Warm Light</h1><p id="objective-text">Put on the wool coat and take the lantern.</p><p id="mission-detail" class="mission-detail" hidden></p><div class="objective-progress" id="mission-progress" aria-hidden="true"></div></section>
       <div id="wanted" class="wanted" hidden></div>
       <div id="notices" class="notices" aria-live="polite" aria-atomic="true"></div>
+      <div id="campaign-controls" class="campaign-controls" aria-label="Campaign actions" hidden><button data-story-action="holster"><kbd>Q</kbd><span id="holster-label">Holster</span></button><button data-story-action="block"><kbd>F</kbd>Block</button><button data-story-action="shove"><kbd>V</kbd>Shove</button><button data-story-action="restrain"><kbd>B</kbd>Restrain</button></div>
       <div class="location"><span aria-hidden="true">—</span> <span id="location-name">REED CAMP</span> <span aria-hidden="true">—</span></div>
       <footer class="bottom-hud">
         <div class="vitals"><div class="vital" id="health-ring" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100"><span aria-hidden="true">♥</span><small>HEALTH</small></div><div class="vital" id="stamina-ring" role="meter" aria-label="Stamina" aria-valuemin="0" aria-valuemax="100"><span aria-hidden="true">ϟ</span><small>STAMINA</small></div><div class="vital" id="focus-ring" role="meter" aria-label="Focus" aria-valuemin="0" aria-valuemax="100"><span aria-hidden="true">◎</span><small>FOCUS</small></div><div class="purse"><strong id="money">$40.00</strong><small id="honor">A NAME YET TO BE MADE</small></div></div>

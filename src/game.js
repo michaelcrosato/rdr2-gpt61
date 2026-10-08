@@ -1,31 +1,63 @@
-import * as Sim from './simulation.js';
+import * as Sim from './frontier.js';
 import { createWorldRenderer } from './world-renderer.js';
+import { createSnowboundRenderer } from './snowbound-renderer.js';
+import { resolvePointerAim } from './aiming.js';
+import { createSnowboundAudio } from './snowbound-audio.js';
+import { castPortrait } from './cast-portraits.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
 const escape = (value) => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SAVE_KEY = 'dust-mercy.journey.v1';
+const CAMPAIGN_SAVE_KEY = 'dust-mercy.campaign.v1';
+const MERCY_SAVE_KEY = 'dust-mercy.mercy.v1';
+const PREFERENCES_KEY = 'dust-mercy.preferences.v1';
+const requestedMode = new URLSearchParams(location.search).get('mode') === 'mercy' ? 'mercy' : 'campaign';
 const input = {
   up: ['KeyW', 'ArrowUp', 'Pad12'], down: ['KeyS', 'ArrowDown', 'Pad13'], left: ['KeyA', 'ArrowLeft', 'Pad14'], right: ['KeyD', 'ArrowRight', 'Pad15'],
   start: ['Enter', 'Pad9'], interact: ['KeyE', 'Pad0'], shoot: ['Mouse0', 'KeyJ', 'Pad7'], aim: ['Mouse2', 'Pad6'],
   sprint: ['ShiftLeft', 'ShiftRight', 'Pad10'], focus: ['Space', 'Pad5'], reload: ['KeyR', 'Pad2'], whistle: ['KeyH', 'Pad1'],
   crouch: ['KeyC', 'Pad11'], pause: ['Escape', 'KeyP', 'Pad8'], map: ['KeyM'], journal: ['KeyL'], satchel: ['KeyI'],
   tonic: ['Digit1'], coffee: ['Digit2'], oats: ['Digit3'],
+  holster: ['KeyQ', 'Pad3'], block: ['KeyF', 'Pad4'], shove: ['KeyV'], restrain: ['KeyB'],
 };
 const game = new E.Game({ canvas: 'screen', view: 'threequarter', views: ['threequarter'], minH: 400, minW: 360, maxW: 1600, maxH: 1200, input, bg: '#838849' });
-const world = createWorldRenderer(game);
-let state = Sim.createState(), started = false, activePanel = '', previousDialog = null;
+const snowboundAudio = createSnowboundAudio(game.audio);
+let state = Sim.createState(requestedMode), started = false, activePanel = '', previousDialog = null;
+const renderers = new Map();
+function rendererForState() {
+  const id = Sim.isCampaign(state) ? 'snowbound' : 'mercy';
+  if (!renderers.has(id)) renderers.set(id, id === 'snowbound' ? createSnowboundRenderer(game) : createWorldRenderer(game));
+  return renderers.get(id);
+}
+let world = rendererForState();
 let uiClock = 0, saveClock = 0, lastMissionStage = 0, noticeText = '', statusTimer, previousShopSnapshot = '';
 let muted = false, touchMove = [0, 0], touchHeld = new Set(), stickPointer = null;
 let pointerMode = false, padAim = null;
+try {
+  const preferences = JSON.parse(localStorage.getItem(PREFERENCES_KEY)) || {};
+  muted = preferences.muted === true;
+  if (typeof preferences.reduceMotion === 'boolean') game.reduceMotion = preferences.reduceMotion;
+  if (['1', '1.2', '1.4'].includes(preferences.textScale)) document.documentElement.style.setProperty('--dialogue-scale', preferences.textScale);
+} catch { /* Browser storage is optional; device defaults still apply. */ }
+function savePreferences() {
+  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ muted, reduceMotion: game.reduceMotion, textScale: document.documentElement.style.getPropertyValue('--dialogue-scale') || '1' })); } catch { /* Current preferences remain usable. */ }
+}
 const music = { bpm: 68, steps: 2, tracks: [
   { wave: 'triangle', vol: .12, notes: 'D3 - - . A3 - . . | F3 - - . C4 - . . | G3 - - . D4 - . . | A3 - - . E3 - . .' },
   { wave: 'sine', vol: .055, notes: 'D2 - - - - - . . | F2 - - - - - . . | G2 - - - - - . . | A2 - - - - - . .' },
 ] };
 document.body.classList.add('intro');
 
-function savedJourney() {
-  try { const raw = localStorage.getItem(SAVE_KEY); return raw ? Sim.restore(raw) : null; } catch { return null; }
+function savedJourney(mode = started ? Sim.isCampaign(state) ? 'campaign' : 'mercy' : requestedMode) {
+  try {
+    const specific = localStorage.getItem(mode === 'campaign' ? CAMPAIGN_SAVE_KEY : MERCY_SAVE_KEY);
+    const restoredSpecific = specific && Sim.restore(specific);
+    if (restoredSpecific) return restoredSpecific;
+    const raw = localStorage.getItem(SAVE_KEY);
+    const legacy = raw && Sim.restore(raw);
+    return legacy && (mode === 'campaign' || !Sim.isCampaign(legacy)) ? legacy : null;
+  } catch { return null; }
 }
 $('continue-game').hidden = !savedJourney();
 
@@ -36,15 +68,20 @@ function announce(text) {
 function saveJourney(manual = false) {
   if (!started) return false;
   try {
-    localStorage.setItem(SAVE_KEY, Sim.serialize(state));
+    const serialized = Sim.serialize(state);
+    const previous = localStorage.getItem(SAVE_KEY), oldJourney = previous && Sim.restore(previous);
+    const oldSlot = Sim.isCampaign(oldJourney) ? CAMPAIGN_SAVE_KEY : MERCY_SAVE_KEY;
+    if (oldJourney && !localStorage.getItem(oldSlot)) localStorage.setItem(oldSlot, previous);
+    localStorage.setItem(Sim.isCampaign(state) ? CAMPAIGN_SAVE_KEY : MERCY_SAVE_KEY, serialized);
+    localStorage.setItem(SAVE_KEY, serialized);
     announce(manual ? 'Journey saved on this device.' : 'Journey saved.');
     return true;
   } catch { announce('This browser cannot save locally. Export your journey in the menu.'); return false; }
 }
-function startJourney(continueSaved = false) {
-  let next = Sim.createState();
+function startJourney(continueSaved = false, mode = requestedMode) {
+  let next = Sim.createState(mode);
   if (continueSaved) {
-    const loaded = savedJourney();
+    const loaded = savedJourney(mode);
     if (!loaded) { announce('No valid journey was found.'); return; }
     next = loaded;
   }
@@ -52,11 +89,13 @@ function startJourney(continueSaved = false) {
 }
 function beginJourney(next) {
   state = next;
+  world = rendererForState();
   pointerMode = false; padAim = null; touchHeld.clear(); releaseStick();
   state.aiming = false; state.pointer = null; state.interactionTarget = null;
   started = true; lastMissionStage = state.mission.stage; saveClock = 0;
   document.body.classList.remove('intro'); $('welcome').hidden = true; $('hud').hidden = false;
-  game.cam.snap = true; game.input.clear(); game.audio.music(music);
+  game.cam.snap = true; game.input.clear();
+  if (Sim.isCampaign(state)) snowboundAudio.reset(state); else game.audio.music(music);
   $('screen').focus({ preventScroll: true }); updateUI();
 }
 
@@ -77,29 +116,38 @@ function panelRow(title, description, buttons = '') {
 function button(label, action, id, disabled = false) {
   return `<button data-command="${escape(action)}" data-id="${escape(id)}" ${disabled ? 'disabled' : ''}>${escape(label)}</button>`;
 }
+function renderSnowboundMap(region) {
+  const trail = [{ x: 320, y: 1100 }, ...region.trail].map(p => `${p.x},${p.y}`).join(' ');
+  const places = region.places.map(p => `<circle cx="${p.x}" cy="${p.y}" r="8" fill="#42535e"/><text x="${p.x + 20}" y="${p.y - 14}" class="map-small">${escape(p.name)}</text>`).join('');
+  const rooms = region.interiors.map(room => `<rect x="${room.x}" y="${room.y}" width="${room.w}" height="${room.h}" fill="#a99b79" fill-opacity=".45"/>`).join('');
+  const walls = region.obstacles.map(w => `<rect x="${w.x}" y="${w.y}" width="${w.w}" height="${w.h}" fill="#4d5b60" fill-opacity=".6"/>`).join('');
+  $('panel-body').innerHTML = `<svg class="map-art snow-map" viewBox="0 0 ${region.width} ${region.height}" role="img" aria-label="Snowbound mountain map with Mara, the switchback, refuge, station, interior door gaps and animal pen"><defs><pattern id="snow-grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="#657983" stroke-width="1" opacity=".2"/></pattern></defs><rect width="1800" height="1400" fill="url(#snow-grid)"/><path d="M30 300Q300 70 600 300T1100 170M40 400Q300 170 600 410T1050 280M50 500Q320 280 560 500" fill="none" stroke="#84939b" stroke-width="12" opacity=".25"/><polyline points="${trail}" fill="none" stroke="#667a82" stroke-width="10" stroke-dasharray="18 8"/>${rooms}${walls}${places}<circle class="player-marker" cx="${state.player.x}" cy="${state.player.y}" r="15"/><text x="${state.player.x + 25}" y="${state.player.y + 40}" class="map-small">MARA</text><text x="1650" y="100">N ↑</text><text class="map-small" x="70" y="1320">SNOWBOUND · FOLLOW THE WIRE</text></svg><div class="map-legend"><span>● Mara Vale</span><span>┄ Switchback trail</span><span>▣ Shelter & cover</span></div><p class="panel-copy">Follow the telegraph line from the kiln to the traveling hitch. The relay room opens to the south and west; the coal store opens to the north and east. The stone service walkway lies west of the station.</p>`;
+}
 function renderPanel() {
-  const titles = { map: ['THE COUNTRY AHEAD', 'Mercy Vale'], journal: ['THE MARKS WE LEAVE', 'Your journal'], satchel: ['READY FOR THE ROAD', 'Your satchel'], menu: ['TAKE A BREATH', 'Dust & Mercy'] };
+  const campaign = Sim.isCampaign(state), items = Sim.itemsFor(state), region = Sim.worldFor(state);
+  const titles = { map: ['THE COUNTRY AHEAD', campaign ? 'Snowbound' : 'Mercy Vale'], journal: ['THE MARKS WE LEAVE', 'Your journal'], satchel: ['READY FOR THE ROAD', 'Your satchel'], menu: ['TAKE A BREATH', 'Dust & Mercy'] };
   const [kicker, title] = titles[activePanel] || titles.menu;
   $('panel-title').textContent = title; $('panel-kicker').textContent = kicker;
   if (activePanel === 'map') {
+    if (campaign) { renderSnowboundMap(region); return; }
     const river = Array.from({ length: 31 }, (_, i) => `${Sim.riverX(i * 40)},${i * 40}`).join(' ');
     const places = Sim.WORLD.places.map(p => `<circle cx="${p.x}" cy="${p.y}" r="9" fill="#424b35"/><text x="${p.x + 24}" y="${p.y - 14}">${escape(p.name)}</text>`).join('');
     $('panel-body').innerHTML = `<svg class="map-art" viewBox="0 0 1600 1200" role="img" aria-label="Mercy Vale map with your position and named locations"><defs><pattern id="map-grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" fill="none" stroke="#a08e64" stroke-width="1" opacity=".35"/></pattern></defs><rect width="1600" height="1200" fill="url(#map-grid)"/><path d="M70 170Q300 30 580 140T900 100M60 230Q300 110 580 230T900 170M1170 160Q1430 80 1560 210M1100 220Q1390 150 1560 290" fill="none" stroke="#a18c61" stroke-width="9" opacity=".4"/><polyline points="${river}" fill="none" stroke="#66897e" stroke-width="55"/><path d="M0 655L320 605L720 690L1010 510L1600 800M760 675L1040 880L1160 930L1600 980M1010 280V660" fill="none" stroke="#9c8056" stroke-width="9" stroke-dasharray="15 8"/><path d="M935 949H1600" stroke="#5c654b" stroke-width="9"/><path d="M${Sim.riverX(605) - 60} 605h120" stroke="#514f38" stroke-width="24"/>${places}<circle class="player-marker" cx="${state.player.x}" cy="${state.player.y}" r="15"/><text class="map-small" x="${state.player.x + 23}" y="${state.player.y + 40}">MARA</text><text x="1450" y="90">N ↑</text><text class="map-small" x="70" y="1130">MERCY VALE · A COUNTRY UNDER CONTRACT</text></svg><div class="map-legend"><span>● Mara Vale</span><span>— River</span><span>┄ Trail</span></div><p class="panel-copy">Cross the river at the bridge near Juniper Woods. Cinder Pump lies southeast of Mercy Crossing. The world continues when you close the map.</p>`;
   } else if (activePanel === 'journal') {
-    const quests = Object.values(state.sideQuests).filter(q => q.stage > 0).map(q => `<li>${escape(q.name)}<small>${q.complete ? 'COMPLETED' : 'IN PROGRESS'}</small></li>`).join('');
+    const quests = Object.values(state.sideQuests).filter(q => q.stage > 0).map(q => `<li>${escape(q.name)}<small>${q.complete ? 'COMPLETED' : campaign && q.unlocked ? 'NEXT STORY · NOT AVAILABLE YET' : 'IN PROGRESS'}</small></li>`).join('');
     const log = state.log.slice().reverse().map(entry => `<div class="log-entry"><small>DAY ${entry.day} · ${formatTime(entry.time)}</small>${escape(entry.text)}</div>`).join('');
-    $('panel-body').innerHTML = `<p class="eyebrow">${state.mission.completed ? 'COMPLETED' : 'CURRENT STORY'}</p><h3>${escape(state.mission.name)}</h3><p class="panel-copy">${escape(state.mission.objective)}</p>${quests ? `<ul class="quest-list">${quests}</ul>` : ''}<p class="eyebrow" style="margin-top:24px">FROM MARA’S NOTEBOOK</p>${log}`;
+    $('panel-body').innerHTML = `<p class="eyebrow">${state.mission.completed ? 'COMPLETED' : 'CURRENT STORY'}</p><h3>${escape(state.mission.name)}</h3><p class="panel-copy">${escape(state.mission.objective)}</p>${quests ? `<ul class="quest-list">${quests}</ul>` : ''}${campaign && state.mission.completed ? `<div class="panel-copy"><h3>The marks of this journey</h3><p>${state.performance.noYardInjury ? '✓' : '○'} No injury in the boiler yard<br>${state.performance.allSixSupplies ? '✓' : '○'} All six supply objects recovered<br>${state.performance.accurate ? '✓' : '○'} At least 80% shooting accuracy · ${Math.round(state.performance.accuracy * 100)}%</p></div>` : ''}<p class="eyebrow" style="margin-top:24px">FROM MARA’S NOTEBOOK</p>${log}`;
   } else if (activePanel === 'satchel') {
-    let html = `<p class="panel-copy">$${state.player.money.toFixed(2)} · ${state.player.reserve} spare cartridges · Juniper’s bond ${state.horse.bond.toFixed(1)} / 4</p>`;
-    for (const [id, item] of Object.entries(Sim.ITEMS)) {
+    let html = `<p class="panel-copy">$${state.player.money.toFixed(2)} · ${state.player.reserve} spare cartridges · ${escape(state.horse.name)}’s bond ${state.horse.bond.toFixed(1)} / 4</p>`;
+    for (const [id, item] of Object.entries(items)) {
       if (id === 'ammo') continue;
       const count = state.inventory[id] || 0;
       if (!count && !['tonic', 'coffee', 'oats', 'meat', 'pelt', 'trout'].includes(id)) continue;
-      const usable = ['tonic', 'coffee', 'oats', 'meat', 'cookedMeat'].includes(id);
+      const usable = ['tonic', 'coffee', 'oats', 'meat', 'cookedMeat', 'bandages', 'broth'].includes(id);
       html += panelRow(`${item.name} × ${count}`, item.description || '', usable ? button('Use', 'use', id, !count) : '');
     }
     const campDist = Math.hypot(state.player.x - 690, state.player.y - 750);
-    if (Sim.RECIPES) {
+    if (!campaign && Sim.RECIPES) {
       html += '<h3>Fieldcraft</h3><p class="panel-copy">Gather along the trails. Prepare supplies by Reed Camp’s fire.</p>';
       for (const [id, recipe] of Object.entries(Sim.RECIPES)) {
         const needs = recipe.ingredients || recipe.cost || {};
@@ -107,16 +155,27 @@ function renderPanel() {
         html += panelRow(recipe.name || id, requirements, button('Craft', 'craft', id, campDist >= 160));
       }
     }
-    if (state.camp) {
+    if (!campaign && state.camp) {
       html += `<h3>Reed Camp</h3><p class="panel-copy">Food ${Math.floor(state.camp.food)} · Medicine ${Math.floor(state.camp.medicine)} · Materials ${Math.floor(state.camp.materials)} · Morale ${Math.floor(state.camp.morale)} / 100</p>`;
       for (const [id, count] of Object.entries(state.inventory)) {
         if (count > 0 && ['meat', 'trout', 'berries', 'cookedMeat', 'herbs', 'tonic', 'timber'].includes(id)) html += panelRow(`Give ${Sim.ITEMS[id]?.name || id}`, `${count} in your satchel`, button('Donate 1', 'donate', id, campDist >= 160));
       }
       for (const [id, up] of Object.entries(Sim.CAMP_UPGRADES || {})) html += panelRow(up.name || id, `$${up.price} · ${up.materials} materials${up.medicine ? ` · ${up.medicine} medicine` : ''}. ${up.description || ''}`, button(state.camp.upgrades?.[id] ? 'Built' : 'Build', 'upgrade', id, campDist >= 160 || !!state.camp.upgrades?.[id]));
     }
+    if (campaign) html += `<h3>The kiln community</h3><p class="panel-copy">Food ${Math.floor(state.camp.food)} · Medicine ${Math.floor(state.camp.medicine)} · Materials ${Math.floor(state.camp.materials)}. Bring recovered essentials to the stove store at the refuge. ${state.mission.completed ? 'Copper’s ownership and care are yours.' : 'Copper still needs a patient hand.'}</p>`;
+    if (campaign && state.horse.storageUnlocked) {
+      const pack = state.horse.pack, used = Object.values(pack).reduce((sum, count) => sum + count, 0);
+      const nearby = Math.hypot(state.player.x - state.horse.x, state.player.y - state.horse.y) < 80;
+      html += `<h3>Copper’s pack · ${used} / 12</h3><p class="panel-copy">Stand beside Copper to transfer supplies between her pack and your satchel. Take camp oats from the stove store to feed her.</p>`;
+      for (const [id, item] of Object.entries(items)) {
+        const count = state.inventory[id] || 0, stored = pack[id] || 0;
+        if (count || stored) html += panelRow(item.name, `${count} in satchel · ${stored} in pack`, button('Store 1', 'pack', `store:${id}`, !nearby || !count || used >= 12) + button('Take 1', 'pack', `withdraw:${id}`, !nearby || !stored));
+      }
+    }
     $('panel-body').innerHTML = html;
   } else {
-    $('panel-body').innerHTML = `<div class="menu-buttons">${button('Return to the trail', 'resume', '', !started)}${button('Save journey', 'save', '', !started)}${button('Load saved journey', 'load', '', !savedJourney())}${button('Export save file', 'export', '', !started)}${button('Import save file', 'import', '')}${button(started ? 'Start a new journey' : 'Ride into Mercy Vale', 'new', '')}</div><div class="menu-settings"><label><input type="checkbox" id="mute-audio" ${muted ? 'checked' : ''}> Mute music and sound</label><label><input type="checkbox" id="reduce-motion" ${game.reduceMotion ? 'checked' : ''}> Reduce motion and camera shake</label></div><div class="panel-copy"><h3>On the trail</h3><p>WASD or arrows to move · E to interact · Shift to run · H to call Juniper · C to crouch. Aim with the mouse and click to shoot. R reloads. Hold Space to focus. 1 / 2 / 3 use tonic, coffee or horse feed.</p><p>Controller: left stick to move, right stick to aim, A to interact, RT to shoot, LT to aim, X to reload, B to call your horse, RB to focus. Press the left stick to run. View opens this menu.</p><p>On touch screens, drag the left stick to move. Tap the world to choose an aim point. Fire, Focus, Run and Call are on the right.</p><p>Foundation build 0.1.0 · The Last Water and Mercy Vale are playable. The full campaign and source coverage remain in production.</p></div><input id="save-file" type="file" accept=".json,application/json" hidden>`;
+    $('panel-body').innerHTML = `<div class="menu-buttons">${button('Return to the trail', 'resume', '', !started)}${button('Save journey', 'save', '', !started)}${button('Load saved journey', 'load', '', !savedJourney())}${button('Export save file', 'export', '', !started)}${button('Import save file', 'import', '')}${button(started ? 'Start a new journey' : 'Begin the story', 'new', '')}${campaign && started ? button('Retry checkpoint', 'story', 'retry') : ''}${campaign && state.mission.completed ? button('Replay The Last Warm Light', 'story', 'replay') : ''}${state.replayCanonical ? button('Return to your saved world', 'story', 'finish-replay') : ''}</div><div class="menu-settings"><label><input type="checkbox" id="mute-audio" ${muted ? 'checked' : ''}> Mute music and sound</label><label><input type="checkbox" id="reduce-motion" ${game.reduceMotion ? 'checked' : ''}> Reduce motion and camera shake</label><label for="text-size">Dialogue text size <select id="text-size"><option value="1">Standard</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label></div><div class="panel-copy"><h3>On the trail</h3><p>WASD or arrows to move · E to interact · Shift to run · H to call your horse · C to crouch. Aim with the mouse and click to shoot. R reloads. Q draws/holsters. Hold Space to focus. 1 / 2 / 3 use tonic, coffee or horse feed.</p><p>In a close fight, F blocks, V shoves, and B restrains. The same actions are available as on-screen buttons.</p><p>Controller: left stick to move, right stick to aim, A to interact, RT to shoot, LT to aim, X to reload, B to call your horse, RB to focus, Y to holster, LB to block. Press the left stick to run. View opens this menu.</p><p>On touch screens, drag the left stick to move. Tap the world to choose an aim point. The right-side buttons act.</p><p>Campaign build 0.2.0 · The full campaign and source coverage remain in production.</p></div><input id="save-file" type="file" accept=".json,application/json" hidden>`;
+    $('text-size').value = document.documentElement.style.getPropertyValue('--dialogue-scale') || '1';
   }
 }
 
@@ -129,6 +188,7 @@ function updateConversation() {
   if (!d) { if ($('conversation').open) $('conversation').close(); previousDialog = null; previousShopSnapshot = ''; return; }
   if (previousDialog !== d) {
     $('speaker').textContent = d.speaker; $('dialogue-text').textContent = d.text;
+    document.querySelector('.dialogue-portrait').innerHTML = Sim.isCampaign(state) ? castPortrait(d.speaker, state) : '✦';
     $('choices').innerHTML = d.choices.map((c, i) => `<button data-choice="${escape(c.id)}"><kbd>${i + 1}</kbd>${escape(c.label)}</button>`).join('');
     previousDialog = d;
     if (!$('conversation').open) { game.input.clear(); $('conversation').showModal(); }
@@ -145,12 +205,31 @@ function updateConversation() {
 }
 
 function updateUI() {
+  const campaign = Sim.isCampaign(state), regionName = campaign ? 'SNOWBOUND' : 'MERCY VALE';
   $('clock').textContent = formatTime(state.time);
-  $('day-weather').textContent = `DAY ${state.day} · ${state.weather === 'rain' ? 'RAIN' : state.weather === 'overcast' ? 'OVERCAST' : 'MERCY VALE'}`;
+  $('day-weather').textContent = `DAY ${state.day} · ${state.weather === 'snow' ? 'SNOW' : state.weather === 'rain' ? 'RAIN' : state.weather === 'overcast' ? 'OVERCAST' : regionName}`;
+  document.body.dataset.region = campaign ? 'snowbound' : 'mercy';
+  $('screen').setAttribute('aria-label', `${regionName} game world. Move with WASD or arrow keys and interact with E. Q draws or holsters. F blocks, V shoves and B restrains in close combat.`);
+  if (!started) {
+    $('welcome-place').innerHTML = `<span></span> ${regionName}, 1893`;
+    $('welcome-title').innerHTML = campaign ? 'A last light<br>in the snow.' : 'Every drop<br>has a price.';
+    document.querySelector('.welcome-copy').innerHTML = campaign ? 'An evicted community.<br>A signal station in the mountains.<br>One more chance to bring them home.' : 'A railroad owns the water.<br>A valley refuses to surrender.<br>And you still have a choice.';
+    $('new-game').innerHTML = `${campaign ? 'Begin the story' : 'Ride into Mercy Vale'} <span aria-hidden="true">→</span>`;
+    $('mercy-game').hidden = !campaign;
+  }
   if (!started) return;
   $('mission-name').textContent = state.mission.name; $('objective-text').textContent = state.mission.objective;
-  $('mission-count').textContent = state.mission.completed ? 'COMPLETE' : `${String(state.mission.stage + 1).padStart(2, '0')} / 07`;
-  $('mission-progress').innerHTML = Array.from({ length: 7 }, (_, i) => `<span class="${i < state.mission.stage ? 'done' : ''}"></span>`).join('');
+  const stageCount = state.mission.stageCount || 7;
+  $('mission-count').textContent = state.mission.completed ? 'COMPLETE' : `${String(state.mission.stage + 1).padStart(2, '0')} / ${String(stageCount).padStart(2, '0')}`;
+  let detail = '';
+  if (campaign && state.replayCanonical) detail = 'MISSION REPLAY · PERMANENT WORLD PRESERVED';
+  if (campaign && state.mission.stage === 6) detail = `COPPER’S FEAR · ${Math.round(state.animals.find(a => a.id === 'copper').fear)} / 100`;
+  if (campaign && state.mission.stage === 7) {
+    const remaining = Math.max(0, Math.ceil(state.timers.crisis));
+    detail = `FUSE · ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')} · ${state.worldChanges.pressureReleased ? 'PRESSURE RELEASED' : 'OPEN THE WEST VALVE'}`;
+  }
+  $('mission-detail').hidden = !detail; $('mission-detail').textContent = detail;
+  $('mission-progress').innerHTML = Array.from({ length: stageCount }, (_, i) => `<span class="${i < state.mission.stage ? 'done' : ''}"></span>`).join('');
   for (const [key, id] of [['hp', 'health'], ['stamina', 'stamina'], ['focus', 'focus']]) {
     const value = Math.round(key === 'stamina' && state.player.mounted ? state.horse.stamina : state.player[key]);
     const el = $(`${id}-ring`); el.style.setProperty('--value', value); el.setAttribute('aria-valuenow', value);
@@ -160,11 +239,15 @@ function updateUI() {
   $('honor').textContent = state.honor > 15 ? 'A NAME THE VALLEY TRUSTS' : state.honor < -15 ? 'A NAME THE VALLEY FEARS' : 'A NAME YET TO BE MADE';
   $('ammo').textContent = state.player.ammo; $('reserve').textContent = `/ ${state.player.reserve}`;
   $('weapon-status').textContent = state.player.reloadTimer > 0 ? 'Reloading…' : state.player.focusActive ? 'FOCUS · TIME SLOWS' : 'Right click to aim · Click to fire';
-  $('weapon-name').textContent = state.player.mounted ? `RIDING ${state.horse.name.toUpperCase()}` : 'VALE REVOLVER';
+  $('weapon-name').textContent = state.player.carrying ? 'CARRYING GIDEON' : state.player.mounted ? `RIDING ${state.horse.name.toUpperCase()}` : state.player.weaponOwned === false ? 'DISARMED' : state.player.holstered ? 'REVOLVER HOLSTERED' : 'VALE REVOLVER';
+  $('campaign-controls').hidden = !campaign || !!state.dialog || !!activePanel;
+  document.body.classList.toggle('melee', campaign && state.mission.stage === 5);
+  $('holster-label').textContent = state.player.holstered ? 'Draw' : 'Holster';
+  document.querySelectorAll('[data-story-action]').forEach(el => { el.hidden = el.dataset.storyAction !== 'holster' && !(campaign && state.mission.stage === 5); el.disabled = el.dataset.storyAction === 'holster' && state.player.weaponOwned === false; });
   const interaction = Sim.getInteraction(state);
   $('interact').hidden = !interaction || !!state.dialog || !!activePanel;
   if (interaction) $('interaction-label').textContent = interaction.label;
-  const closest = Sim.WORLD.places.slice().sort((a, b) => Math.hypot(state.player.x - a.x, state.player.y - a.y) - Math.hypot(state.player.x - b.x, state.player.y - b.y))[0];
+  const closest = Sim.worldFor(state).places.slice().sort((a, b) => Math.hypot(state.player.x - a.x, state.player.y - a.y) - Math.hypot(state.player.x - b.x, state.player.y - b.y))[0];
   $('location-name').textContent = closest.name.toUpperCase();
   const wanted = state.wanted.pursuit || state.wanted.bounty > 0 || state.wanted.witnessTimer > 0;
   $('wanted').hidden = !wanted;
@@ -178,8 +261,11 @@ function updateUI() {
 
 function aimTarget(auto = false) {
   if (padAim) return [state.player.x + padAim[0] * 400, state.player.y + padAim[1] * 400];
-  if (!auto && pointerMode) { const p = game.mouseGround(); if (p) return p; }
-  const enemy = state.enemies.filter(e => e.hp > 0 && e.active && !e.surrendered).sort((a, b) => Math.hypot(a.x - state.player.x, a.y - state.player.y) - Math.hypot(b.x - state.player.x, b.y - state.player.y))[0];
+  if (!auto && pointerMode) {
+    const p = game.mouseGround(), screen = game.input.mouseScreen();
+    if (p) return resolvePointerAim(state, p, screen ? { x: screen[0] - game.r.ix, y: screen[1] - game.r.iy } : null, (x, y, z) => game.r.w(x, y, z));
+  }
+  const enemy = state.enemies.filter(e => e.hp > 0 && e.active && !e.hidden && !e.surrendered && !e.captured && !e.escaped).sort((a, b) => Math.hypot(a.x - state.player.x, a.y - state.player.y) - Math.hypot(b.x - state.player.x, b.y - state.player.y))[0];
   if (enemy && Math.hypot(enemy.x - state.player.x, enemy.y - state.player.y) < 450) return [enemy.x, enemy.y];
   return [state.player.x + Math.cos(state.player.facing) * 400, state.player.y + Math.sin(state.player.facing) * 400];
 }
@@ -187,11 +273,37 @@ function fire(auto = false) {
   const shots = state.stats.shots, target = aimTarget(auto); Sim.shoot(state, ...target);
   if (state.stats.shots > shots) { game.audio.sfx('shoot', { vol: .32, pitch: .7 }); game.shake(.8); game.particles.smoke(state.player.x, state.player.y, 24, 2); }
 }
+function performAction(id) {
+  const next = Sim.action(state, id);
+  if (next && next !== state) { state = next; world = rendererForState(); game.cam.snap = true; }
+  if (['retry', 'restart', 'replay', 'finish-replay'].includes(id)) {
+    game.cam.snap = true; game.input.clear(); touchHeld.clear(); releaseStick();
+    pointerMode = false; padAim = null; saveClock = 0; lastMissionStage = state.mission.stage;
+    if (Sim.isCampaign(state)) snowboundAudio.reset(state);
+    saveJourney();
+  }
+  updateUI();
+}
+function chooseOption(id) {
+  const reset = ['retry', 'restart', 'finish-replay'].includes(id) && state.dialog?.choices.some(choice => choice.id === id);
+  Sim.choose(state, id);
+  if (reset) {
+    game.cam.snap = true; game.input.clear(); touchHeld.clear(); releaseStick();
+    pointerMode = false; padAim = null; snowboundAudio.reset(state);
+    saveClock = 0; lastMissionStage = state.mission.stage; saveJourney();
+  }
+}
 function handleModalPad() {
   const modal = $('conversation').open ? $('conversation') : $('panel').open ? $('panel') : null;
   if (!modal) return;
-  const controls = [...modal.querySelectorAll('button:not(:disabled),input:not([hidden])')];
+  const controls = [...modal.querySelectorAll('button:not(:disabled),input:not([hidden]),select:not(:disabled)')];
   let index = controls.indexOf(document.activeElement);
+  const selected = document.activeElement;
+  if (selected?.tagName === 'SELECT' && (game.input.pressed('left') || game.input.pressed('right'))) {
+    selected.selectedIndex = Math.max(0, Math.min(selected.options.length - 1, selected.selectedIndex + (game.input.pressed('right') ? 1 : -1)));
+    selected.dispatchEvent(new Event('change', { bubbles: true }));
+    return;
+  }
   if (game.input.pressed('down') || game.input.pressed('right')) controls[(index + 1) % controls.length]?.focus();
   if (game.input.pressed('up') || game.input.pressed('left')) controls[(index - 1 + controls.length) % controls.length]?.focus();
   if (game.input.pressed('interact') || game.input.pressed('start')) document.activeElement?.click();
@@ -200,13 +312,13 @@ game.start({
   update(dt) {
     uiClock += dt;
     if (game.input.pressed('pause')) {
-      if (state.dialog) { if (state.dialog.choices.some(c => c.id === 'leave')) Sim.choose(state, 'leave'); }
+      if (state.dialog) { if (state.dialog.choices.some(c => c.id === 'leave')) chooseOption('leave'); }
       else if (activePanel) closePanel(); else openPanel('menu');
     }
     if (!started) {
       if (activePanel) handleModalPad();
       if (game.input.pressed('start') && !activePanel) startJourney(false);
-      game.focus(720, 680 - game.H * .1 / game.view.by); world.update(dt, state);
+      game.focus(state.player.x, state.player.y - game.H * .1 / game.view.by); world.update(dt, state);
     } else if (activePanel || state.dialog) handleModalPad();
     else {
       for (const name of ['map', 'journal', 'satchel']) if (game.input.pressed(name)) { openPanel(name); break; }
@@ -224,10 +336,15 @@ game.start({
         if (game.input.pressed('interact')) { Sim.interact(state); game.audio.sfx('select', { vol: .2 }); }
         if (game.input.pressed('reload')) Sim.reload(state);
         if (game.input.pressed('whistle')) { Sim.whistle(state); game.audio.sfx({ wave: 'sine', freq: 1400, to: 1900, dur: .25, vol: .1 }); }
+        for (const name of ['holster', 'block', 'shove', 'restrain']) if (game.input.pressed(name)) performAction(name);
         if (game.input.pressed('shoot') || game.input.down('shoot') || touchHeld.has('shoot')) fire(touchHeld.has('shoot') && !pointerMode);
         for (const [key, item] of [['tonic', 'tonic'], ['coffee', 'coffee'], ['oats', 'oats']]) if (game.input.pressed(key)) Sim.useItem(state, item);
         const hp = state.player.hp;
-        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch'), focus: game.input.down('focus') || touchHeld.has('focus') });
+        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch'), focus: game.input.down('focus') || touchHeld.has('focus'), block: game.input.down('block') || touchHeld.has('block') });
+        if (state.aiming && !state.player.mounted && !state.player.carrying && state.player.weaponOwned !== false) {
+          const target = aimTarget();
+          state.player.facing = Math.atan2(target[1] - state.player.y, target[0] - state.player.x);
+        }
         if (state.player.hp < hp) { game.shake(1.4); game.audio.sfx('hurt', { vol: .2 }); }
         state.interactionTarget = Sim.getInteraction(state);
         world.update(dt, state);
@@ -237,21 +354,23 @@ game.start({
     }
     const yOffset = game.H * .1 / game.view.by;
     game.focus(state.player.x, state.player.y - yOffset, state.player.mounted ? 10 : 0);
+    if (started && Sim.isCampaign(state)) snowboundAudio.update(dt, state, !!activePanel || !!state.dialog || !!state.failure);
     if (uiClock > .1) { uiClock = 0; updateUI(); }
   },
   draw(r) { world.draw(r, state); },
 });
 
 $('new-game').addEventListener('click', () => startJourney());
+$('mercy-game').addEventListener('click', () => startJourney(false, 'mercy'));
 $('continue-game').addEventListener('click', () => startJourney(true));
 document.querySelectorAll('[data-panel]').forEach(el => el.addEventListener('click', () => openPanel(el.dataset.panel)));
 $('close-panel').addEventListener('click', closePanel);
 $('panel').addEventListener('cancel', e => { e.preventDefault(); closePanel(); });
-$('conversation').addEventListener('cancel', e => { e.preventDefault(); if (state.dialog?.choices.some(c => c.id === 'leave')) { Sim.choose(state, 'leave'); updateUI(); } });
+$('conversation').addEventListener('cancel', e => { e.preventDefault(); if (state.dialog?.choices.some(c => c.id === 'leave')) { chooseOption('leave'); updateUI(); } });
 $('conversation').addEventListener('click', e => {
   const choice = e.target.closest('[data-choice]');
   if (!choice) return;
-  Sim.choose(state, choice.dataset.choice); game.audio.sfx('confirm', { vol: .2 }); updateUI(); saveJourney();
+  chooseOption(choice.dataset.choice); game.audio.sfx('confirm', { vol: .2 }); updateUI(); saveJourney();
   if (!state.dialog) $('screen').focus({ preventScroll: true });
 });
 $('interact').addEventListener('click', () => { Sim.interact(state); updateUI(); });
@@ -259,7 +378,7 @@ $('reload').addEventListener('click', () => { Sim.reload(state); updateUI(); });
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-command]'); if (!el || el.disabled) return;
   const id = el.dataset.id;
-  const commands = { buy: Sim.buy, sell: Sim.sell, use: Sim.useItem, craft: Sim.craft, donate: Sim.donate, upgrade: Sim.upgradeCamp };
+  const commands = { buy: Sim.buy, sell: Sim.sell, use: Sim.useItem, craft: Sim.craft, donate: Sim.donate, upgrade: Sim.upgradeCamp, pack: Sim.action };
   if (commands[el.dataset.command]) {
     commands[el.dataset.command](state, id); updateUI();
     if (activePanel) {
@@ -276,10 +395,11 @@ document.addEventListener('click', e => {
     case 'new':
       if (started) {
         $('panel-kicker').textContent = 'A FRESH START'; $('panel-title').textContent = 'Leave this journey?';
-        $('panel-body').innerHTML = `<p class="panel-copy">Your current journey stays saved until you save the new one. Start again in Mercy Vale?</p><div class="menu-buttons">${button('Keep riding', 'resume', '')}${button('Start again', 'confirm-new', '')}</div>`;
+        $('panel-body').innerHTML = `<p class="panel-copy">Your current journey stays saved until you save the new one. Begin a new story in Snowbound?</p><div class="menu-buttons">${button('Keep riding', 'resume', '')}${button('Start again', 'confirm-new', '')}</div>`;
       } else { closePanel(); startJourney(); }
       break;
-    case 'confirm-new': closePanel(); startJourney(); break;
+    case 'confirm-new': closePanel(); startJourney(false, 'campaign'); break;
+    case 'story': { closePanel(); performAction(id); break; }
     case 'export': { const url = URL.createObjectURL(new Blob([Sim.serialize(state)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'dust-and-mercy-journey.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); announce('Journey exported.'); break; }
     case 'import': $('save-file').click(); break;
   }
@@ -287,6 +407,8 @@ document.addEventListener('click', e => {
 document.addEventListener('change', async e => {
   if (e.target.id === 'mute-audio') { muted = e.target.checked; game.audio.setVolume(muted ? 0 : .65); }
   if (e.target.id === 'reduce-motion') game.reduceMotion = e.target.checked;
+  if (e.target.id === 'text-size') document.documentElement.style.setProperty('--dialogue-scale', e.target.value);
+  if (['mute-audio', 'reduce-motion', 'text-size'].includes(e.target.id)) savePreferences();
   if (e.target.id === 'save-file') {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.size > 1024 * 1024) { announce('This save file is too large.'); return; }
@@ -301,7 +423,7 @@ document.addEventListener('keydown', e => {
   const modal = $('conversation').open ? $('conversation') : $('panel').open ? $('panel') : null;
   if (!modal) return;
   if (['Space', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(e.code)) e.stopPropagation();
-  if ($('conversation').open && /^Digit[1-9]$/.test(e.code)) { e.stopPropagation(); e.preventDefault(); const choice = state.dialog?.choices[Number(e.code.slice(-1)) - 1]; if (choice) { Sim.choose(state, choice.id); updateUI(); saveJourney(); } }
+  if ($('conversation').open && /^Digit[1-9]$/.test(e.code)) { e.stopPropagation(); e.preventDefault(); const choice = state.dialog?.choices[Number(e.code.slice(-1)) - 1]; if (choice) { chooseOption(choice.id); updateUI(); saveJourney(); } }
 }, true);
 $('screen').addEventListener('pointermove', e => { if (e.pointerType !== 'touch') pointerMode = true; });
 $('screen').addEventListener('pointerdown', e => {
@@ -323,9 +445,19 @@ document.querySelectorAll('[data-action]').forEach(el => {
   el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); const action = el.dataset.action; if (action === 'whistle') { Sim.whistle(state); updateUI(); } else touchHeld.add(action); });
   for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(event, () => touchHeld.delete(el.dataset.action));
 });
+document.querySelectorAll('[data-story-action]').forEach(el => {
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    performAction(el.dataset.storyAction);
+    if (el.dataset.storyAction === 'block') touchHeld.add('block');
+    updateUI();
+  });
+  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(name, () => touchHeld.delete('block'));
+  el.addEventListener('click', e => { if (e.detail === 0) performAction(el.dataset.storyAction); });
+});
 addEventListener('blur', () => { touchHeld.clear(); releaseStick(); if (started) saveJourney(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { touchHeld.clear(); releaseStick(); if (started) { saveJourney(); if (!activePanel && !state.dialog) openPanel('menu'); } } });
 addEventListener('pagehide', () => { if (started) saveJourney(); });
-game.audio.setVolume(.65);
+game.audio.setVolume(muted ? 0 : .65);
 if (new URLSearchParams(location.search).has('play')) startJourney(!!savedJourney());
 updateUI();
