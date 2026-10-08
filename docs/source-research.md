@@ -2,7 +2,7 @@
 
 The requested end state is a finished, original game covering variations of every mission, battle, side quest, character, item, job, progression system, creature and other described beat in the supplied RDR2 wiki. A vertical slice is an intermediate quality proof. It does not clear that goal.
 
-This research establishes an expandable source inventory. It does **not** establish complete source extraction, complete design, or implemented gameplay. The machine-readable record is [content/source-coverage.json](../content/source-coverage.json); implementation statuses remain `unimplemented` until source-specific runtime evidence is independently audited for this ledger.
+This research establishes an expandable source inventory. It does **not** establish complete source extraction, complete design, or implemented gameplay. The machine-readable record is [content/source-coverage.json](../content/source-coverage.json); entries remain `unimplemented` until source-specific code and runtime are independently inspected. The opening now records `in_progress` implementation evidence; full source/presentation/input acceptance remains open.
 
 ## Evidence and source access
 
@@ -272,7 +272,7 @@ This remains an open inventory. The article's prose says seven mission-specific 
 
 ### First original campaign specification
 
-[The Last Warm Light](missions/the-last-warm-light.md) is an original authoring specification for the opening source obligation. It identifies separate playable stages, companions and adversaries, interactions, choices, checkpoints, failure recovery, persistent aftermath, assets and acceptance requirements. Its original situation is a community restoring an occupied mountain signal station during a lethal freeze. It is authored design, with source-specific implementation and runtime acceptance still pending. Other opening chapter missions remain distinct obligations.
+[The Last Warm Light](missions/the-last-warm-light.md) is an original authoring specification for the opening source obligation. It identifies separate playable stages, companions and adversaries, interactions, choices, checkpoints, failure recovery, persistent aftermath, assets and acceptance requirements. Its original situation is a community restoring an occupied mountain signal station during a lethal freeze. Its nine-stage runtime now has independent simulation and player-control evidence in [Snowbound verification](snowbound-evidence.md). Full live-source reconciliation, bespoke presentation, complete input parity and later dependencies remain pending, so its requirement is in progress. Other opening chapter missions remain distinct obligations.
 
 ## Weapons, equipment and items
 
@@ -305,7 +305,7 @@ The prominent source cast is recorded as individual requirements rather than col
 - **geography:** Major locations are inventoried; every smaller locality, interior, business, landmark, shack, grave, encounter area and point of interest remains in scope.
 - **cast:** The prominent cast is inventoried; stranger patrons, debtors, bounty targets, gang members, merchants, service staff, lawmen, named ambient figures and mentioned/deceased personalities require separate expansion.
 - **progression:** The entire campaign and post-story state graph, moral outcomes, attribute levels, focus abilities, equipment perks, economies and completion trackers require implemented-and-played evidence.
-- **implementation-audit:** No gameplay implementation was independently audited for this research ledger. Entries default to unimplemented until implementation links and runtime evidence are supplied.
+- **implementation-audit:** The opening now supplies code and targeted independent runtime evidence, recorded as in progress. It is not accepted: full source/presentation/input and later-dependency gates remain open. Other entries default to unimplemented until their own evidence exists.
 - **presentation-polish:** Original assets, animations, environmental and musical direction, sound, readable UI, input parity, camera work, performance, accessibility and cross-browser/mobile verification remain completion gates.
 - **final-presentation:** The requested final boardroom report requires evidence from the finished game: approach, design choices, effort allocation, engine assessment, technology rationale, validation and full coverage reconciliation.
 

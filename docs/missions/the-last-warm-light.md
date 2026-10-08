@@ -1,6 +1,6 @@
 # The Last Warm Light — original campaign specification
 
-Stable original mission ID: `snowbound-the-last-warm-light`. Source requirement: `campaign-outlaws-from-the-west`. Chapter destination: I — Snowbound. Authoring status: specification ready for implementation review; source inventory unsealed, runtime implementation and acceptance pending.
+Stable original mission ID: `snowbound-the-last-warm-light`. Source requirement: `campaign-outlaws-from-the-west`. Chapter destination: I — Snowbound. Authoring status: nine-stage runtime implemented and under independent verification; source inventory remains unsealed and complete source/presentation/input acceptance is pending. Implementation and evidence: [Snowbound verification](../snowbound-evidence.md).
 
 ## Experience and source evidence
 
@@ -67,4 +67,4 @@ Create original mountain trail and refuge/station architecture, interior clutter
 - Play with keyboard/mouse, touch and controller. Inspect phone/foldable/tablet/wide-screen captures and Chromium, Firefox and WebKit behavior using the installed testing toolkit; record console errors and overflow results.
 - Review original staging, character identities, animation, dialogue, music and changed-world presentation. A state transition test alone cannot establish mission quality.
 
-No acceptance evidence is attached yet. This specification does not close the source requirement.
+Runtime verification is recorded in [Snowbound evidence](../snowbound-evidence.md). The source requirement remains open until the live source, every authored beat, presentation quality and complete input acceptance are reconciled.

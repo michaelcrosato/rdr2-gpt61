@@ -14,7 +14,7 @@
   },
   "inventory_status": "open",
   "completion_claim": false,
-  "implementation_status_policy": "Unimplemented until independently inspected with implementation and runtime evidence; this inventory is not gameplay.",
+  "implementation_status_policy": "Unimplemented until independently inspected with implementation and runtime evidence; in_progress records verified partial work and open gates. Accepted/completed requires every source-specific obligation and its runtime/presentation/input audit. This inventory is not gameplay.",
   "row_count_interpretation": "Requirement rows mix titles, multipart parent entries, cinematics, variants and taxonomy parents. Do not equate row counts with a source mission total or a completion percentage.",
   "excluded_from_unqualified_story_inventory": [
     "Online-only weapons, horse breeds, roles and multiplayer content",
@@ -25,7 +25,7 @@
     {
       "source_chapter": "Chapter 1: Colter",
       "proposed_original_chapter": "I — Snowbound",
-      "implementation_status": "unimplemented",
+      "implementation_status": "in_progress",
       "inventory_sealed": false
     },
     {
@@ -78,21 +78,29 @@
       "source_title": "Outlaws from the West",
       "source_url": "https://reddead.fandom.com/wiki/Outlaws_from_the_West",
       "research_status": "indexed_objectives_story_failure_and_reward",
-      "implementation_status": "unimplemented",
+      "implementation_status": "in_progress",
       "original_counterpart": {
         "id": "snowbound-the-last-warm-light",
         "title": "The Last Warm Light",
         "specification_path": "docs/missions/the-last-warm-light.md"
       },
-      "implementation_evidence": [],
+      "implementation_evidence": [
+        "content/campaign/snowbound.js",
+        "src/campaign.js",
+        "src/snowbound-renderer.js",
+        "src/game.js",
+        "tests/campaign.test.mjs",
+        "scripts/campaign-playthrough.py"
+      ],
       "acceptance_evidence": [],
       "source_chapter": "Chapter 1: Colter",
       "proposed_original_chapter": "I — Snowbound",
-      "original_design_status": "authored_specification_pending_source_and_play_review",
+      "original_design_status": "runtime_implemented_pending_full_source_presentation_and_input_acceptance",
       "beat_decomposition_status": "sampled_and_mapped_unsealed",
       "prerequisite_audit_status": "initial_mission_and_next_unlock_indexed",
-      "notes": "The original specification maps indexed opening beats and distinct consequences. Live revision, incidental responses and full dialogue/participant inventory remain unsealed. No gameplay acceptance claimed.",
-      "research_date": "2026-10-08"
+      "notes": "Nine distinct original stages have runtime implementation and independent simulation/player-control evidence. Full source inventory/revision, bespoke choreography, complete input parity and actual later dependencies remain open. This requirement is not accepted; evidence does not claim full-game completion.",
+      "research_date": "2026-10-08",
+      "runtime_evidence_path": "docs/snowbound-evidence.md"
     },
     {
       "id": "campaign-enter-pursued-by-a-memory",
