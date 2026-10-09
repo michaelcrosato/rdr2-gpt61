@@ -5,6 +5,8 @@ Imports untouched game-generated files through the visible Import menu. Uses
 ordinary controls, with read-only UI/camera/menu-Save observations. This is
 responsive presentation evidence, not a complete mobile/input playthrough.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import json
@@ -71,7 +73,7 @@ async def check(playwright, args, profile):
     async def save():
         await page.locator('[data-panel="menu"]').click()
         await page.locator('[data-command="save"]').click()
-        raw = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+        raw = await observed_save(page)
         await page.locator('[data-command="resume"]').click()
         await page.wait_for_timeout(120)
         assert raw['version'] == 3 and raw['failure'] is None

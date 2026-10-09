@@ -1,0 +1,7 @@
+{
+  "fixture": "rival-v4-before-narrative-native.json.gz",
+  "sha256OfUncompressedOriginalBytes": "7c806a5deebc36607595fa586c73132e3ac41752569620378a8efe403b4f7778",
+  "sourceKind": "native simulation route with explicitly staged initial camp proximity; not public-control provenance",
+  "generatedFrom": "/tmp/dust-mercy-rival-narrative-base-20261008",
+  "bytes": 1933429
+}

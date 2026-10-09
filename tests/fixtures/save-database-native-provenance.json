@@ -1,0 +1,20 @@
+{
+  "kind": "actual-native-four-story-and-replay-sizes",
+  "limits": "Explicit initial camp proximity fixtures from actual unmodified v3 completed-Rescue source; all Rival/Hunt movement, verbs, projectiles, body work and completion are earned. Replay uses the ordinary native replay API. No stage, HP, inventory, kill or large outcome assignment.",
+  "fixtures": [
+    {
+      "fixture": "save-v4-four-stories-complete-native.json.gz",
+      "sha256OfUncompressedOriginalBytes": "5d9fd657e6e9f08d751b68c65c3a1cd44a43dd16af4a92dac22475f247fb1cb7",
+      "bytes": 3513245,
+      "codeUnits": 3509851,
+      "sourcePath": "/tmp/dust-mercy-indexeddb-native-fixtures/four-stories-complete.json"
+    },
+    {
+      "fixture": "save-v4-four-stories-opening-replay-native.json.gz",
+      "sha256OfUncompressedOriginalBytes": "7064ee01f4ad970fda68e78a1943da766ae95ae65bc7a09cb513eac4f17a6757",
+      "bytes": 3758421,
+      "codeUnits": 3754821,
+      "sourcePath": "/tmp/dust-mercy-indexeddb-native-fixtures/four-stories-opening-replay.json"
+    }
+  ]
+}

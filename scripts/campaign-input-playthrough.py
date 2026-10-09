@@ -15,6 +15,8 @@ Observers read camera/UI and saves produced through the ordinary Save journey
 menu. Neither mode writes simulation objects or saves, calls simulation verbs,
 or teleports actors. Artifacts go to /tmp by default.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import json
@@ -192,7 +194,7 @@ async def run(url, output, engine, pavel_outcome="bind", rescue_priority="carry-
             assert not observed["engineErrors"], observed["engineErrors"]
             await open_menu()
             await tap('[data-command="save"]')
-            snapshot = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+            snapshot = await observed_save(page)
             (output / f"{label}.json").write_text(json.dumps(snapshot, indent=2) + "\n")
             snapshot = normalize_campaign_save(snapshot)
             await tap('[data-command="resume"]')

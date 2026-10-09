@@ -1,0 +1,11 @@
+{
+  "kind": "original-native-earned-questioning-shortage",
+  "sourceArtifact": "/tmp/dust-mercy-current-native-questioning/10-real-no-food-shortage.json",
+  "creatorProvenance": "/tmp/dust-mercy-current-native-questioning/provenance.json",
+  "fixture": "rival-v4-native-shortage.json.gz",
+  "sha256OfUncompressedOriginalBytes": "a731c64b8104a911500c4f6e79f0804ff2f8c4f2df9c08cdf906801f212856de",
+  "uncompressedBytes": 1928155,
+  "originalQuestioningModuleSHA256": "4c7030f8bef7825021f021001964e9f14ef1e122ec8d9102d1dd40a207d8d924",
+  "scope": "Current native earned Rival route, actual three camp:oats servings consumed before acceptance; food0/blanket1 shortage",
+  "limits": "Explicit initial camp proximity fixtures. Subsequent actual movement/offers/projectiles/resource consumption/dialogue; no positive stage/health/grant/outcome assignments. Not a whole public-input mission proof. Original raw bytes preserve older plural wire text without normalization."
+}

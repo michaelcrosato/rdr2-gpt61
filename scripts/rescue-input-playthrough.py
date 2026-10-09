@@ -18,6 +18,8 @@ This proves rescue continuation after import, not a fresh two-mission journey.
 --journal-only is a separate UI check from an untouched completed-rescue Save;
 it never claims to complete the rescue again. Browser file upload is setup only.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import copy
@@ -231,7 +233,7 @@ async def run(url, output, engine, source_save, case="recover", mode="pointer", 
             assert not seen["engineErrors"], seen["engineErrors"]
             await open_menu()
             await tap('[data-command="save"]')
-            raw=await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+            raw=await observed_save(page)
             (output/f"{label}.json").write_text(json.dumps(raw,indent=2)+"\n")
             snapshot=normalize_campaign_save(raw)
             await tap('[data-command="resume"]')

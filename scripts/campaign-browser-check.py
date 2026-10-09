@@ -3,6 +3,8 @@
 Nine-stage keyboard/mouse playthroughs run separately in campaign-playthrough.py.
 Artifacts stay outside the repository. No runtime state globals are modified.
 """
+
+from campaign_save import observed_save, wait_for_save_commit
 import asyncio
 import json
 import os
@@ -27,6 +29,7 @@ async def check(engine, name, mobile=False):
     await page.wait_for_function('globalThis.My3D2dge?.current?._running')
     assert await page.locator('#welcome-place').inner_text() == 'SNOWBOUND, 1893'
     await click(page.locator('#new-game'))
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.locator('#mission-name').inner_text() == 'The Last Warm Light'
     assert await page.locator('#mission-count').inner_text() == '01 / 09'
     if mobile:
@@ -56,10 +59,14 @@ async def check(engine, name, mobile=False):
     assert await page.locator('.dialogue-portrait svg').count() == 1
     await page.screenshot(path=str(OUTPUT / f'{name}-tomas-dialogue.png'))
     await click(page.locator('[data-choice="accept-journey"]'))
-    await page.wait_for_timeout(200)
+    await page.wait_for_function('document.querySelector("#mission-count").textContent==="02 / 09"')
     assert await page.locator('#mission-count').inner_text() == '02 / 09', 'Coat, lantern and Tomas are required before the trail'
-    saved = normalize_campaign_save(await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))'))
+    await click(page.locator('[data-panel="menu"]'))
+    await click(page.locator('[data-command="save"]'))
+    await wait_for_save_commit(page)
+    saved = normalize_campaign_save(await observed_save(page))
     assert saved['region'] == 'snowbound' and saved['mission']['stage'] == 1
+    await click(page.locator('[data-command="resume"]'))
     if mobile:
         before = await page.evaluate('My3D2dge.current.cam.tx')
         stick = await page.locator('#joystick').bounding_box()
@@ -87,37 +94,46 @@ async def check(engine, name, mobile=False):
     await page.locator('#reduce-motion').check()
     assert await page.evaluate('document.documentElement.style.getPropertyValue("--dialogue-scale")') == '1.4'
     await click(page.locator('[data-command="save"]'))
+    await wait_for_save_commit(page)
     await click(page.locator('[data-command="resume"]'))
     await page.reload()
     await click(page.locator('#continue-game'))
-    await page.wait_for_timeout(200)
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.evaluate('document.documentElement.style.getPropertyValue("--dialogue-scale")') == '1.4'
     assert await page.evaluate('My3D2dge.current.reduceMotion'), 'Accessibility preferences survive reload'
     assert await page.locator('#mission-count').inner_text() == '02 / 09'
     assert await page.locator('#mission-name').inner_text() == 'The Last Warm Light'
     # Exploring the earlier foundation region must preserve the story save.
     await click(page.locator('.wordmark'))
+    await page.locator('#welcome').wait_for(state='visible')
     await click(page.locator('#mercy-game'))
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.locator('#mission-name').inner_text() == 'The Last Water'
     await click(page.locator('[data-panel="menu"]'))
     await click(page.locator('[data-command="save"]'))
-    mercy = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.mercy.v1"))')
+    await wait_for_save_commit(page)
+    mercy = await observed_save(page)
     await page.reload()
     await click(page.locator('#continue-game'))
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.locator('#mission-name').inner_text() == 'The Last Warm Light'
     assert await page.locator('#mission-count').inner_text() == '02 / 09'
     await click(page.locator('[data-panel="menu"]'))
     await click(page.locator('[data-command="save"]'))
+    await wait_for_save_commit(page)
     await page.goto(URL + ('&' if '?' in URL else '?') + 'mode=mercy')
     await click(page.locator('#continue-game'))
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.locator('#mission-name').inner_text() == 'The Last Water'
     await click(page.locator('[data-panel="menu"]'))
     await click(page.locator('[data-command="save"]'))
-    restored_mercy = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.mercy.v1"))')
+    await wait_for_save_commit(page)
+    restored_mercy = await observed_save(page)
     for key in ['mission', 'inventory', 'horse', 'honor']:
         assert restored_mercy[key] == mercy[key], f'Campaign save preserves Mercy {key}'
     await page.goto(URL)
     await click(page.locator('#continue-game'))
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.locator('#mission-name').inner_text() == 'The Last Warm Light'
     assert not await page.evaluate('My3D2dge.current.errors')
     assert not errors, errors
@@ -152,6 +168,7 @@ async def check_controller(engine):
         await page.evaluate('(i)=>campaignPad.buttons[i]={pressed:false,value:0}', index)
         await page.wait_for_timeout(150)
     await press(9)
+    await page.locator('#welcome').wait_for(state='hidden')
     for _ in range(3):
         await press(0)
     assert 'Tomas Reed' in await page.locator('#speaker').inner_text()
@@ -188,7 +205,8 @@ async def check_controller(engine):
     else:
         raise AssertionError('Controller cannot reach Save journey')
     await press(0)
-    saved = normalize_campaign_save(await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))'))
+    await wait_for_save_commit(page)
+    saved = normalize_campaign_save(await observed_save(page))
     assert saved['horse']['follow'] and saved['mission']['stage'] == 1
     for name in ['map', 'journal', 'satchel']:
         selector = f'[data-command="panel"][data-id="{name}"]'

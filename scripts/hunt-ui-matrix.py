@@ -5,6 +5,8 @@ Public Import menus and ordinary pointer/touch/button controls only. Browser
 evaluations read UI, renderer errors and actual menu Saves. This is responsive
 presentation and draw cancellation evidence, not a complete touch playthrough.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import json
@@ -52,7 +54,7 @@ async def check(p,args,profile):
     async def raw_save():
         await page.locator('[data-panel="menu"]').click()
         await page.locator('[data-command="save"]').click()
-        raw=await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+        raw=await observed_save(page)
         await page.locator('[data-command="resume"]').click()
         await page.wait_for_timeout(120)
         assert raw['version']==3 and raw['failure'] is None

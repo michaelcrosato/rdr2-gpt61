@@ -6,6 +6,8 @@ ordinary Save journey menu. It never writes runtime objects or saves, calls
 simulation functions, or teleports actors. Screenshots/state evidence goes to
 /tmp by default. State tests cover alternative branches separately.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import json
@@ -67,7 +69,7 @@ async def run(url, output, engine, pavel_outcome="bind", rescue_priority="preser
             assert not (await observe())["dialog"], await observe()
             await hold(["Escape"])
             await page.locator('[data-command="save"]').click()
-            snapshot = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+            snapshot = await observed_save(page)
             (output / f"{label}.json").write_text(json.dumps(snapshot, indent=2) + "\n")
             snapshot = normalize_campaign_save(snapshot)
             await page.locator('[data-command="resume"]').click()

@@ -27,16 +27,16 @@
       <p class="eyebrow" id="welcome-place"><span></span> SNOWBOUND, 1893</p>
       <h1 id="welcome-title">Every drop<br>has a price.</h1>
       <p class="welcome-copy">A railroad owns the water.<br>A valley refuses to surrender.<br>And you still have a choice.</p>
-      <button id="new-game" class="primary">Ride into Mercy Vale <span aria-hidden="true">→</span></button>
-      <button id="continue-game" class="text-button" hidden>Continue your journey →</button>
-      <button id="mercy-game" class="text-button">Explore Mercy Vale →</button>
+      <button id="new-game" class="primary" disabled>Ride into Mercy Vale <span aria-hidden="true">→</span></button>
+      <button id="continue-game" class="text-button" hidden disabled>Continue your journey →</button>
+      <button id="mercy-game" class="text-button" disabled>Explore Mercy Vale →</button>
       <p class="welcome-foot">AN ORIGINAL STORY · A LIVING FRONTIER<br><span>CAMPAIGN BUILD · WORK IN PROGRESS</span></p>
     </section>
     <div id="hud" hidden>
       <section class="objective" aria-label="Current objective"><p class="eyebrow">YOUR STORY <span id="mission-count">01 / 09</span></p><h1 id="mission-name">The Last Warm Light</h1><p id="objective-text">Put on the wool coat and take the lantern.</p><p id="mission-detail" class="mission-detail" hidden></p><div class="objective-progress" id="mission-progress" aria-hidden="true"></div></section>
       <div id="wanted" class="wanted" hidden></div>
       <div id="notices" class="notices" aria-live="polite" aria-atomic="true"></div>
-      <div id="campaign-controls" class="campaign-controls" aria-label="Campaign actions" hidden><button data-story-action="holster"><kbd>Q</kbd><span id="holster-label">Holster</span></button><button class="touch-crouch" data-action="crouch" aria-label="Toggle crouching" aria-pressed="false">Crouch</button><button data-story-action="cancel-bow" hidden><kbd>X</kbd>Cancel draw</button><button data-story-action="block"><kbd>F</kbd>Block</button><button data-story-action="shove"><kbd>V</kbd>Shove</button><button data-story-action="restrain"><kbd>B</kbd>Restrain</button></div>
+      <div id="campaign-controls" class="campaign-controls" aria-label="Campaign actions" hidden><button data-story-action="nearby-actions" hidden>Nearby actions</button><button data-story-action="scope:zoom-in" hidden>Zoom in</button><button data-story-action="scope:zoom-out" hidden>Zoom out</button><button data-story-action="holster"><kbd>Q</kbd><span id="holster-label">Holster</span></button><button class="touch-crouch" data-action="crouch" aria-label="Toggle crouching" aria-pressed="false">Crouch</button><button data-story-action="cancel-rope" hidden>Release loop</button><button data-story-action="cancel-bow" hidden><kbd>X</kbd>Cancel draw</button><button data-story-action="block"><kbd>F</kbd>Block</button><button data-story-action="shove"><kbd>V</kbd>Shove</button><button data-story-action="restrain"><kbd>B</kbd>Restrain</button></div>
       <div class="location"><span aria-hidden="true">—</span> <span id="location-name">REED CAMP</span> <span aria-hidden="true">—</span></div>
       <footer class="bottom-hud">
         <div class="vitals"><div class="vital" id="health-ring" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100"><span aria-hidden="true">♥</span><small>HEALTH</small></div><div class="vital" id="stamina-ring" role="meter" aria-label="Stamina" aria-valuemin="0" aria-valuemax="100"><span aria-hidden="true">ϟ</span><small>STAMINA</small></div><div class="vital" id="focus-ring" role="meter" aria-label="Focus" aria-valuemin="0" aria-valuemax="100"><span aria-hidden="true">◎</span><small>FOCUS</small></div><div class="purse"><strong id="money">$40.00</strong><small id="honor">A NAME YET TO BE MADE</small></div></div>

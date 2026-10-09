@@ -7,6 +7,8 @@ This script reads the engine camera and localStorage; it does not modify game
 objects, call simulation methods, teleport actors, or inject saved state.
 """
 
+from campaign_save import observed_save
+
 import argparse
 import asyncio
 import json
@@ -87,7 +89,7 @@ async def run(url, output, engine):
         async def manually_save(label):
             await hold(["Escape"], 70)
             await page.locator('[data-command="save"]').click()
-            snapshot = await page.evaluate("JSON.parse(localStorage.getItem('dust-mercy.journey.v1'))")
+            snapshot = await observed_save(page)
             (output / f"{label}.json").write_text(json.dumps(snapshot, indent=2) + "\n")
             await page.locator('[data-command="resume"]').click()
             return snapshot

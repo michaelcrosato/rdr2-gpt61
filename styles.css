@@ -521,6 +521,11 @@ dialog::backdrop{
   backdrop-filter:blur(4px)
 }
 .panel-heading{
+  position:sticky;
+  top:0;
+  z-index:3;
+  background:#242b23;
+  box-shadow:0 -32px 0 #242b23;
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
@@ -1308,6 +1313,18 @@ body.intro .vignette{
     padding:7px 10px;
     font-size:11px
   }
+}
+@media(pointer:coarse) and (max-width:400px){
+  body.expanded-actions .campaign-controls{top:105px;right:18px;max-width:90px;}
+}
+@media(pointer:coarse) and (max-width:360px){
+  body.expanded-actions .objective{width:calc(100vw - 136px);max-width:184px;}
+  body.expanded-actions .campaign-controls{max-width:86px;}
+  body.expanded-actions .campaign-controls button{font-size:9px;padding:5px 6px;}
+}
+@media(pointer:coarse) and (max-height:580px) and (min-width:601px){
+  body.expanded-actions .campaign-controls{top:68px;right:20px;display:grid;grid-template-columns:repeat(2,minmax(70px,1fr));max-width:200px;gap:5px;}
+  body.expanded-actions .campaign-controls button{min-height:36px;font-size:9px;padding:6px 8px;}
 }
 .modal-feedback{
   font:12px/1.6 Arial,sans-serif;

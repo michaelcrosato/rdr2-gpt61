@@ -6,6 +6,8 @@ The imported artifact must come from an actual game run. No simulation writes,
 teleports or injected mission progress. This is a prelude continuation check,
 not evidence of a complete connected campaign or a complete hunt playthrough.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import copy
@@ -88,7 +90,7 @@ async def check(p, engine, args):
         assert not (await observe())['dialog']
         await page.locator('[data-panel="menu"]').click()
         await page.locator('[data-command="save"]').click()
-        raw = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+        raw = await observed_save(page)
         (out/f'{label}.json').write_text(json.dumps(raw, indent=2)+'\n')
         await page.locator('[data-command="resume"]').click()
         assert raw['version']==3 and raw['failure'] is None

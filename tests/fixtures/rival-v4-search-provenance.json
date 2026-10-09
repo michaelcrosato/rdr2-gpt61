@@ -1,0 +1,25 @@
+{
+  "fixtures": [
+    {
+      "fixture": "rival-v4-search-before-supplies.json.gz",
+      "sourcePath": "/tmp/dust-mercy-rival-chromium-eleventh/09-personal-belonging-state.json",
+      "sha256OfUncompressedOriginalBytes": "581b76d97ec77c5b1ef680f5bd47cef4e058228a54c1fe544b807c1633bd4ae5",
+      "bytes": 1319290,
+      "scope": "Actual public stage-8 prefix from a terminal failed full attempt; not full-story proof."
+    },
+    {
+      "fixture": "rival-v4-search-complete-partial.json.gz",
+      "sourcePath": "/tmp/dust-mercy-rival-chase-navigation-fourth/14-complete-state.json",
+      "sha256OfUncompressedOriginalBytes": "c40d4005d53f7dd3fe716e88c6de32541ffe82832ccdd8ac44cd22d3d4a2f8e9",
+      "bytes": 1905864,
+      "scope": "Actual public chase continuation completed without retry; explicitly partial-story receipt."
+    },
+    {
+      "fixture": "rival-v4-search-reloaded-partial.json.gz",
+      "sourcePath": "/tmp/dust-mercy-rival-chase-navigation-fourth/15-reloaded-state.json",
+      "sha256OfUncompressedOriginalBytes": "e4ae6596651b08a0c1f4071ff6949581b26b943ac0c3b121604612f2431eeddf",
+      "bytes": 1905864,
+      "scope": "Actual public reload of the same partial chase continuation; not a fresh full-story proof."
+    }
+  ]
+}

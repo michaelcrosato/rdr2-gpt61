@@ -1,0 +1,222 @@
+{
+  "capturedOn": "2026-10-08",
+  "provenance": "Unmodified ordinary-menu Saves from the passed original eleven-scene WebKit keyboard/mouse hunt continuation. The run imported the actual completed Rescue through the visible file chooser, then used public keyboard movement, proximity E actions, dialog choices and ordinary mouse bow aim/draw/release. Read-only camera projection guided geometry-based mouse aim; no runtime writes, teleports, injected Saves or simulation calls. These are authored-game public-control artifacts, not source-game evidence, fresh connected journey proof or real iOS/hardware evidence.",
+  "storage": "Deterministic gzip of untouched source Save bytes; hashes identify decompressed bytes. No JSON field or value has been rewritten.",
+  "validation": "All original v3 fixtures validated in the pre-rival native v3 codec; source report passed.",
+  "sourceReport": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/report.json",
+  "sourceReportSHA256": "a962493af1babd73d8041eef6d3beb14d205752155f07d7ab17678fee327c677",
+  "fixtures": [
+    {
+      "fixture": "journey-v3-rescue-complete.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/00-imported-rescue-state.json",
+      "sha256OfUncompressedOriginalBytes": "ab719f63128e6cf87d1da8fb237e8fa3657867927ce10feea083b2ae157c7e06",
+      "uncompressedBytes": 902787,
+      "compressedBytes": 135237,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-voice-under-ice",
+      "stage": 9,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-invitation.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/01-invitation-state.json",
+      "sha256OfUncompressedOriginalBytes": "dcee4980100306b00c4528dd376bd08043cd61a275e289f259b7f10b0ac1b07f",
+      "uncompressedBytes": 1033335,
+      "compressedBytes": 155803,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 0,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-equipped.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/02-equipped-state.json",
+      "sha256OfUncompressedOriginalBytes": "7f32392d13842264bb1e30d61a5ba6fef067d35f52f3fb895f60288e668e94d0",
+      "uncompressedBytes": 1170552,
+      "compressedBytes": 177106,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 1,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-bank.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/04-bank-state.json",
+      "sha256OfUncompressedOriginalBytes": "a59128fe35f2cd367266a41bf25ad99676b1d4feffa01c6c67f5379543bbce6c",
+      "uncompressedBytes": 1240901,
+      "compressedBytes": 188196,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 3,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-first-arrow.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/05-first-arrow-state.json",
+      "sha256OfUncompressedOriginalBytes": "669cebf1fb112347b913ab0d5c9cac8ebadbc080e3536d66ab3f8bdfd492405a",
+      "uncompressedBytes": 1401030,
+      "compressedBytes": 212791,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 5,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-carried.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/07-carried-state.json",
+      "sha256OfUncompressedOriginalBytes": "231ea7427c016292e46b35459eed8b89fc611e6e3754927988f34b08005748ed",
+      "uncompressedBytes": 1476684,
+      "compressedBytes": 224567,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 6,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": "willow-creek-doe"
+    },
+    {
+      "fixture": "journey-v3-hunt-loaded.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/07-loaded-state.json",
+      "sha256OfUncompressedOriginalBytes": "e2f31c7a6fafb40528cf261f314749c25e63da6a54ae68ac5cd2b74d5d97aff0",
+      "uncompressedBytes": 1551261,
+      "compressedBytes": 236061,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 7,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-benches.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/10-benches-state.json",
+      "sha256OfUncompressedOriginalBytes": "270123ef87e7141f8a07f11cda83fac3af02fcf1ebbb4b3f20ba87ac887651be",
+      "uncompressedBytes": 1703193,
+      "compressedBytes": 260107,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 9,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-processed.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/11-processed-state.json",
+      "sha256OfUncompressedOriginalBytes": "f435988f9a41df2f49ad910b5cddd30e827475afb0dbf99101531fb8bda4e7d5",
+      "uncompressedBytes": 1781667,
+      "compressedBytes": 272447,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 10,
+      "huntCompleted": false,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-hunt-complete.json.gz",
+      "sourceSave": "/tmp/dust-mercy-hunt-webkit-rereview-corrected/12-complete-state.json",
+      "sha256OfUncompressedOriginalBytes": "c25f0899d721e15d89fc585fde6d87c1484c7a9eb7e675d2312707046d7fe8bb",
+      "uncompressedBytes": 1938599,
+      "compressedBytes": 296670,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "stage": 10,
+      "huntCompleted": true,
+      "silasAttachment": {
+        "type": "rest",
+        "targetId": "silas-bed",
+        "regionId": "snowbound"
+      },
+      "playerCarrying": null
+    },
+    {
+      "fixture": "journey-v3-opening-replay.json.gz",
+      "sourceSave": "/tmp/dust-mercy-v3-public-replays/opening-replay.json",
+      "sourceReport": "/tmp/dust-mercy-v3-public-replays/report.json",
+      "sourceReportSHA256": "7ec660aaff3dc8fbc39c044f84ad5a313f3d0c01942594f339aea553d94fdae9",
+      "provenance": "Genuine public Import of preserved complete Hunt Save, normal menu Replay story button and normal Save menu. The replay entry is game-generated without state writes or simulation injection. Canonical branch retains all three completed prior stories.",
+      "sha256OfUncompressedOriginalBytes": "aed34a0a378d6befbc292f1d832bb89b1eedfa9c219af437225df75c10deffaf",
+      "uncompressedBytes": 1049039,
+      "compressedBytes": 165586,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-the-last-warm-light",
+      "replayMissionId": "snowbound-the-last-warm-light",
+      "stage": 0
+    },
+    {
+      "fixture": "journey-v3-rescue-replay.json.gz",
+      "sourceSave": "/tmp/dust-mercy-v3-public-replays/rescue-replay.json",
+      "sourceReport": "/tmp/dust-mercy-v3-public-replays/report.json",
+      "sourceReportSHA256": "7ec660aaff3dc8fbc39c044f84ad5a313f3d0c01942594f339aea553d94fdae9",
+      "provenance": "Genuine public Import of preserved complete Hunt Save, normal menu Replay story button and normal Save menu. The replay entry is game-generated without state writes or simulation injection. Canonical branch retains all three completed prior stories.",
+      "sha256OfUncompressedOriginalBytes": "1e36d358c281345a7b78dbbb3b247293eddb6037999d7f9b850e45187ccc27a6",
+      "uncompressedBytes": 1065315,
+      "compressedBytes": 168637,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-voice-under-ice",
+      "replayMissionId": "snowbound-a-voice-under-ice",
+      "stage": 0
+    },
+    {
+      "fixture": "journey-v3-hunt-replay.json.gz",
+      "sourceSave": "/tmp/dust-mercy-v3-public-replays/hunt-replay.json",
+      "sourceReport": "/tmp/dust-mercy-v3-public-replays/report.json",
+      "sourceReportSHA256": "7ec660aaff3dc8fbc39c044f84ad5a313f3d0c01942594f339aea553d94fdae9",
+      "provenance": "Genuine public Import of preserved complete Hunt Save, normal menu Replay story button and normal Save menu. The replay entry is game-generated without state writes or simulation injection. Canonical branch retains all three completed prior stories.",
+      "sha256OfUncompressedOriginalBytes": "57f601bdc00d21e16d2c15e935117979f114237c306b8f1accd794bb3189abff",
+      "uncompressedBytes": 1083525,
+      "compressedBytes": 179350,
+      "sourceVersion": 3,
+      "activeMissionId": "snowbound-a-quiet-table",
+      "replayMissionId": "snowbound-a-quiet-table",
+      "stage": 0
+    }
+  ]
+}

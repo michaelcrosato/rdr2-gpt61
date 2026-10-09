@@ -9,7 +9,8 @@ export const itemsFor = state => isCampaign(state) ? Campaign.campaignItems : IT
 export const createState = (mode = 'campaign') => mode === 'mercy' ? Mercy.createState() : Campaign.createCampaignState();
 export const step = (s, dt, input) => isCampaign(s) ? Campaign.stepCampaign(s, dt, input) : Mercy.step(s, dt, input);
 export const getInteraction = s => isCampaign(s) ? Campaign.getCampaignInteraction(s) : Mercy.getInteraction(s);
-export const interact = s => isCampaign(s) ? Campaign.interactCampaign(s) : Mercy.interact(s);
+export const interact = (s,id=null) => isCampaign(s) ? Campaign.interactCampaign(s,id) : Mercy.interact(s);
+export const getInteractions = s => isCampaign(s) ? Campaign.getCampaignInteractions(s) : [Mercy.getInteraction(s)].filter(Boolean);
 export const choose = (s, id) => isCampaign(s) ? Campaign.chooseCampaign(s, id) : Mercy.choose(s, id);
 export const reload = s => isCampaign(s) ? Campaign.reloadCampaign(s) : Mercy.reload(s);
 export const useItem = (s, id) => isCampaign(s) ? Campaign.useCampaignItem(s, id) : Mercy.useItem(s, id);

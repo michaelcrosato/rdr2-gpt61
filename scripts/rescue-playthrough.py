@@ -7,6 +7,8 @@ connected two-mission journey. Evaluations read only camera/UI and normal-menu
 Saves. No runtime writes, teleports, injected saves or simulation calls. J is the
 game's ordinary nearest-hostile keyboard aiming action; report that limitation.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import copy
@@ -84,7 +86,7 @@ async def run(url, output, engine, source_save, case="recover"):
             assert not (await observe())["dialog"], await observe()
             await hold(["Escape"])
             await page.locator('[data-command="save"]').click()
-            raw = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+            raw = await observed_save(page)
             (output / f"{label}.json").write_text(json.dumps(raw, indent=2) + "\n")
             snapshot = normalize_campaign_save(raw)
             await page.locator('[data-command="resume"]').click()

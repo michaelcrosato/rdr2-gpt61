@@ -2,9 +2,13 @@
 import * as Opening from './campaign.js';
 import * as Rescue from './rescue-mission.js';
 import * as Hunt from './hunt-mission.js';
+import * as Rival from './rival-mission.js';
+import {advanceRivalHolding} from './rival-aftermath.js';
+import {recordCustodyShot} from './rival-weapon-custody.js';
 import { SNOWBOUND_WORLD, SNOWBOUND_CAST, CAMPAIGN_ITEMS } from '../content/campaign/snowbound.js';
 import { NORTH_CUTTING_WORLD, RESCUE_CAST, RESCUE_ITEMS } from '../content/campaign/north-cutting.js';
 import { WILLOW_RUN_WORLD, HUNT_CAST, HUNT_ANIMALS, HUNT_ITEMS, HUNT_BOW } from '../content/campaign/willow-run.js';
+import { RIVAL_WORLD, RIVAL_CAST, RIVAL_ENEMIES, RIVAL_ITEMS, RIVAL_CARBINE } from '../content/campaign/bellwether-works.js';
 
 const OPENING_ID = 'snowbound-the-last-warm-light';
 const GAME_ID = 'dust-and-mercy';
@@ -13,7 +17,7 @@ const object = value => value && typeof value === 'object' && !Array.isArray(val
 const finite = value => Number.isFinite(value);
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const adapters = new WeakMap();
-const regions = { snowbound: SNOWBOUND_WORLD, 'north-cutting': NORTH_CUTTING_WORLD, 'willow-run': WILLOW_RUN_WORLD };
+const regions = { snowbound: SNOWBOUND_WORLD, 'north-cutting': NORTH_CUTTING_WORLD, 'willow-run': WILLOW_RUN_WORLD, 'bellwether-works': RIVAL_WORLD };
 const huntPreyIds = new Set(HUNT_ANIMALS.filter(actor => actor.kind === 'deer').map(actor => actor.id));
 const isDeadPrey = actor => actor && huntPreyIds.has(actor.id) && actor.kind === 'deer' && actor.hp === 0 && actor.dead === true;
 const isCarcass = actor => isDeadPrey(actor) && !actor.processed;
@@ -29,15 +33,22 @@ const huntCampWorld = { ...rescueCampWorld,
   props: [...rescueCampWorld.props, ...WILLOW_RUN_WORLD.camp.props],
   places: [...rescueCampWorld.places, { id: 'drying-shed-kitchen', name: 'Orla’s Kitchen', ...WILLOW_RUN_WORLD.camp.doorway }],
 };
-const ROOT_VIEWS = ['player', 'horse', 'npcs', 'enemies', 'animals', 'mounts', 'mission', 'flags', 'timers', 'performance', 'worldChanges', 'supplies', 'dropped', 'checkpoint', 'traversal', 'rescue', 'tracks', 'predators', 'hunt', 'bow', 'processing'];
+const rivalCampWorld = { ...huntCampWorld,
+  interiors: [...huntCampWorld.interiors, ...RIVAL_WORLD.camp.interiors],
+  obstacles: [...huntCampWorld.obstacles, ...RIVAL_WORLD.camp.obstacles],
+  props: [...huntCampWorld.props, ...RIVAL_WORLD.camp.props],
+  places: [...huntCampWorld.places, {id:'rival-stove-room',name:'Cooperative Stove Room',...RIVAL_WORLD.camp.briefing}, {id:'rival-tack-room',name:'Guarded Tack Room',...RIVAL_WORLD.camp.holding}, {id:'bellwether-camp-gate',name:'Bellwether Cart Trail',...RIVAL_WORLD.travelGate}],
+};
+const ROOT_VIEWS = ['player', 'horse', 'npcs', 'enemies', 'animals', 'mounts', 'mission', 'flags', 'timers', 'performance', 'worldChanges', 'supplies', 'dropped', 'checkpoint', 'traversal', 'rescue', 'tracks', 'predators', 'hunt', 'bow', 'processing', 'rival', 'focus', 'scope', 'captivity', 'rope'];
 const CORE_KEYS = ['seed', 'elapsed', 'day', 'time', 'weather', 'inventory', 'companions', 'camp', 'sideQuests', 'wanted', 'honor', 'stats', 'failure', 'dialog', 'log', 'notices', 'bullets', 'lastSave'];
 const openingShape = Opening.createCampaignState();
 const openingNpcIds = new Set(SNOWBOUND_CAST.map(actor => actor.id));
 const openingEnemyIds = new Set(openingShape.enemies.map(actor => actor.id));
 
-export const worldForCampaign = s => s.region === 'snowbound' && s.campaign?.missions[Hunt.HUNT_ID]?.status !== 'locked' && s.campaign?.missions[Hunt.HUNT_ID] ? huntCampWorld : s.region === 'snowbound' && s.campaign?.missions[Rescue.RESCUE_ID]?.status !== 'locked' ? rescueCampWorld : regions[s.region];
+export const worldForCampaign = s => s.region === 'snowbound' && s.campaign?.missions[Rival.RIVAL_ID] && s.campaign.missions[Rival.RIVAL_ID].status !== 'locked' ? rivalCampWorld : s.region === 'snowbound' && s.campaign?.missions[Hunt.HUNT_ID]?.status !== 'locked' && s.campaign?.missions[Hunt.HUNT_ID] ? huntCampWorld : s.region === 'snowbound' && s.campaign?.missions[Rescue.RESCUE_ID]?.status !== 'locked' ? rescueCampWorld : regions[s.region];
 const version2Items = { ...CAMPAIGN_ITEMS, ...RESCUE_ITEMS };
-export const campaignItems = { ...version2Items, ...HUNT_ITEMS };
+const version3Items = { ...version2Items, ...HUNT_ITEMS };
+export const campaignItems = { ...version3Items, ...RIVAL_ITEMS };
 const recordFor = s => s.campaign.missions[s.campaign.activeMissionId];
 function notice(s, text) { s.notices.push({ text, time: 6 }); s.notices = s.notices.slice(-5); }
 function log(s, text) { s.log.push({ day: s.day, time: s.time, text }); s.log = s.log.slice(-100); }
@@ -67,6 +78,7 @@ function bind(s) {
   // Owned Copper still appears in the compatibility animal view, by identity.
   view('animals', () => [...actors(s, 'animal'), ...(s.party.mountId === 'copper' && entityRegion(s, s.horse) === s.region ? [s.horse] : [])]);
   for (const key of ['mission', 'flags', 'timers', 'performance', 'traversal', 'rescue', 'tracks', 'predators', 'hunt', 'bow', 'processing']) view(key, () => recordFor(s)[key], value => { recordFor(s)[key] = value; });
+  for (const key of ['rival', 'focus', 'scope', 'captivity', 'rope']) view(key, () => s.campaign.missions[Rival.RIVAL_ID]?.[key], value => { if(s.campaign.missions[Rival.RIVAL_ID]) s.campaign.missions[Rival.RIVAL_ID][key] = value; });
   for (const key of ['worldChanges', 'supplies', 'dropped']) view(key, () => s.regions[s.region][key], value => { s.regions[s.region][key] = value; });
   view('checkpoint', () => s.checkpoints?.[recordFor(s).checkpointId] || null);
   for (const [id, key] of [['mara', 'player'], ['inez', 'inez']]) {
@@ -96,7 +108,7 @@ function addEntity(s, body, regionId, category) {
 }
 function anchor(s, attachment) {
   const world = regions[attachment.regionId || s.region];
-  return [...(world.anchors || []), ...(world.props || []), ...(world.restPads || []), ...(world.id === 'snowbound' ? [...NORTH_CUTTING_WORLD.camp.props, ...WILLOW_RUN_WORLD.camp.props] : [])].find(point => point.id === attachment.targetId);
+  return [...(world.anchors || []), ...(world.props || []), ...(world.restPads || []), ...(world.id === 'snowbound' ? [...NORTH_CUTTING_WORLD.camp.props, ...WILLOW_RUN_WORLD.camp.props, ...(s.version >= 4 ? RIVAL_WORLD.camp.props : [])] : [])].find(point => point.id === attachment.targetId);
 }
 function syncAttachments(s) {
   const resolved = new Set();
@@ -140,9 +152,9 @@ function setAttachment(s, id, attachment) {
     if (next && visited.has(next.id)) return false;
     actor.attachment = { ...copy(attachment), ...(attachment.type === 'rest' ? { regionId: attachment.regionId || s.region } : {}) };
     actor.regionId = null;
-    if (isDeadPrey(actor)) {
-      actor.route = []; delete actor.routeTarget; delete actor.goal;
-    }
+    // Attached people and bodies cannot keep navigating a previous region.
+    // Their movement/capture history belongs to the owning mission record.
+    actor.route = []; delete actor.routeTarget; delete actor.goal;
     for (const region of Object.values(s.regions)) region.residentIds = region.residentIds.filter(value => value !== id);
   } else {
     actor.attachment = null; actor.regionId = oldRegion;
@@ -196,8 +208,9 @@ function fail(s, reason) {
 function startMission(s, id) {
   const target = s.campaign.missions[id];
   if (!target || target.mission.completed || s.replayCanonical && s.campaign.replayMissionId !== id) return false;
+  if (s.campaign.activeMissionId !== id && !recordFor(s).mission.completed) { notice(s, 'Finish the current expedition before accepting another.'); return false; }
   if (id === Rescue.RESCUE_ID && !s.campaign.missions[OPENING_ID].mission.completed) return false;
-  if (id === Hunt.HUNT_ID && !s.campaign.missions[Rescue.RESCUE_ID].mission.completed) return false;
+  if ([Hunt.HUNT_ID,Rival.RIVAL_ID].includes(id) && !s.campaign.missions[Rescue.RESCUE_ID].mission.completed) return false;
   if (!s.missionEntries[id]) s.missionEntries[id] = encodeBody(s);
   s.campaign.activeMissionId = id; target.status = 'active'; s.failure = null; s.dialog = null;
   Opening.resetCampaignPresentation(s);
@@ -211,9 +224,17 @@ function complete(s, unlockIDs = []) {
     s.campaign.missions[Hunt.HUNT_ID].status = 'unstarted';
     s.campaign.unlocks['campaign-the-aftermath-of-genesis'] = { available: true, requirementKnown: true };
     Hunt.ensureHuntCast(s, context);
-    current.mission.objective = 'Silas is home and healing. Speak with Orla in the drying-shed kitchen about fresh food.';
+    const rival=s.campaign.missions[Rival.RIVAL_ID];
+    if(rival&&rival.status==='locked') { rival.status='unstarted'; s.campaign.unlocks['campaign-old-friends']={available:true,requirementKnown:true}; Rival.ensureRivalCast(s,context); }
+    current.mission.objective = 'Silas is home and healing. Orla’s food journey and the Bellwether expedition are both available at camp.';
   }
+  if([Hunt.HUNT_ID,Rival.RIVAL_ID].includes(current.mission.id)) updateOnwardPrerequisite(s);
   checkpoint(s, 'complete', `${current.mission.name} completed`);
+}
+function updateOnwardPrerequisite(s) {
+  const hunt=s.campaign.missions[Hunt.HUNT_ID],rival=s.campaign.missions[Rival.RIVAL_ID];
+  if(!hunt?.mission.completed&&!rival?.mission.completed) return;
+  s.campaign.unlocks['campaign-who-the-hell-is-leviticus-cornwall']={available:false,requirementKnown:true,prerequisitesComplete:!!(hunt?.mission.completed&&rival?.mission.completed),equipmentSecured:!!rival?.flags.chargesStored};
 }
 function postpone(s) {
   const record = s.campaign.missions[Rescue.RESCUE_ID], loan = s.weapons['coach-gun'];
@@ -262,14 +283,16 @@ const context = {
 };
 
 function convertBody(legacy) {
-  const s = { version: 3, itemInstances: {}, campaignId: GAME_ID, region: 'snowbound', entities: {}, weapons: {}, party: { playerId: 'mara', mountId: legacy.horse.id },
+  const s = { version: 4, itemInstances: {}, campaignId: GAME_ID, region: 'snowbound', entities: {}, weapons: {}, party: { playerId: 'mara', mountId: legacy.horse.id },
     regions: { snowbound: { residentIds: [], worldChanges: copy(legacy.worldChanges), supplies: copy(legacy.supplies), dropped: copy(legacy.dropped) },
       'north-cutting': { residentIds: [], worldChanges: {}, supplies: [], dropped: {} },
-      'willow-run': { residentIds: [], worldChanges: {}, supplies: [], dropped: {} } },
+      'willow-run': { residentIds: [], worldChanges: {}, supplies: [], dropped: {} },
+      'bellwether-works': { residentIds: [], worldChanges: {}, supplies: [], dropped: {} } },
     campaign: { chapter: 'snowbound', activeMissionId: OPENING_ID, unlocks: {}, missions: {
       [OPENING_ID]: { mission: copy(legacy.mission), flags: copy(legacy.flags), timers: copy(legacy.timers), performance: copy(legacy.performance), status: legacy.mission.completed ? 'completed' : 'active', retryCount: 0, checkpointId: null },
       [Rescue.RESCUE_ID]: Rescue.createRescueRecord(),
       [Hunt.HUNT_ID]: Hunt.createHuntRecord(),
+      [Rival.RIVAL_ID]: Rival.createRivalRecord(),
     } }, checkpoints: {}, missionEntries: {}, replayCanonical: null };
   for (const key of CORE_KEYS) s[key] = copy(legacy[key] ?? (key === 'notices' || key === 'bullets' ? [] : null));
   const player = addEntity(s, legacy.player, 'snowbound', 'player');
@@ -369,41 +392,53 @@ function runOpening(s, method, ...args) {
 }
 const rescueActive = s => s.campaign.activeMissionId === Rescue.RESCUE_ID;
 const huntActive = s => s.campaign.activeMissionId === Hunt.HUNT_ID;
+const rivalActive = s => s.campaign.activeMissionId === Rival.RIVAL_ID;
+function huntOffers(s) {
+  const record=s.campaign.missions[Hunt.HUNT_ID];
+  return record?.status==='unstarted'&&!recordFor(s).mission.completed&&!huntActive(s)?[]:Hunt.getHuntInteractions(s,context);
+}
+function rivalOffers(s) { return Rival.getRivalInteractions(s,context); }
 export function stepCampaign(s, dt, input = {}) {
+  const beforeElapsed=s.elapsed;
   const progressing = !s.dialog && !s.failure && finite(dt) && dt > 0;
-  if (huntActive(s)) Hunt.stepHunt(s, dt, input, context);
+  if (rivalActive(s)) Rival.stepRival(s, dt, input, context);
+  else if (huntActive(s)) Hunt.stepHunt(s, dt, input, context);
   else if (rescueActive(s)) Rescue.stepRescue(s, dt, input, context); else runOpening(s, 'stepCampaign', dt, input);
   if (!rescueActive(s) && progressing) Rescue.advanceRescueClinical(s, Math.min(dt, .1), context);
+  if(progressing&&s.elapsed>beforeElapsed)advanceRivalHolding(s,s.elapsed-beforeElapsed,{...context,acceptedWorldStep:true});
   syncAttachments(s); return s;
 }
 export function getCampaignInteractions(s) {
   if (s.dialog || s.failure) return [];
-  if (huntActive(s)) {
+  if (huntActive(s)||rivalActive(s)) {
     const care = Rescue.getRescueInteractions(s, context).map(action => action.id.startsWith('aftermath:') ? { ...action, priority: action.priority + 10 } : action);
-    return [...Hunt.getHuntInteractions(s, context), ...care].sort((a, b) => a.priority - b.priority || a.distance - b.distance);
+    return [...huntOffers(s), ...rivalOffers(s), ...care].sort((a, b) => a.priority - b.priority || a.distance - b.distance);
   }
-  if (rescueActive(s)) return [...Hunt.getHuntInteractions(s, context), ...Rescue.getRescueInteractions(s, context)].sort((a, b) => a.priority - b.priority || a.distance - b.distance);
+  if (rescueActive(s)) return [...huntOffers(s),...rivalOffers(s), ...Rescue.getRescueInteractions(s, context)].sort((a, b) => a.priority - b.priority || a.distance - b.distance);
   const opening = Opening.getCampaignInteractions(legacyView(s));
   const next = s.mission.completed ? Rescue.getRescueInteractions(s, context) : [];
   // Opening offers are already ordered by its higher-first priorities. The
   // rescue uses lower-first priorities internally; preserve both orderings.
-  return [...Hunt.getHuntInteractions(s, context), ...next, ...opening];
+  return [...huntOffers(s),...rivalOffers(s), ...next, ...opening];
 }
 export const getCampaignInteraction = s => getCampaignInteractions(s)[0] || null;
 export function interactCampaign(s, requestedId = null) {
   const offered = requestedId ? getCampaignInteractions(s).find(value => value.id === requestedId) : getCampaignInteraction(s);
   if (!offered) { notice(s, 'Move closer to the marked person or object.'); return s; }
   const rescueOffers = s.mission.completed || rescueActive(s) ? Rescue.getRescueInteractions(s, context) : [];
-  if (Hunt.getHuntInteractions(s, context).some(value => value.id === offered.id)) Hunt.interactHunt(s, offered.id, context);
-  else if (rescueOffers.some(value => value.id === offered.id) || huntActive(s) && Rescue.getRescueInteractions(s, context).some(value => value.id === offered.id)) Rescue.interactRescue(s, offered.id, context);
+  if (rivalOffers(s).some(value => value.id === offered.id)) Rival.interactRival(s,offered.id,context);
+  else if (huntOffers(s).some(value => value.id === offered.id)) Hunt.interactHunt(s, offered.id, context);
+  else if (rescueOffers.some(value => value.id === offered.id) || (huntActive(s)||rivalActive(s)) && Rescue.getRescueInteractions(s, context).some(value => value.id === offered.id)) Rescue.interactRescue(s, offered.id, context);
   else runOpening(s, 'interactCampaign', offered.id);
   syncAttachments(s); return s;
 }
 export function chooseCampaign(s, id) {
   if (!s.dialog?.choices.some(choice => choice.id === id)) return s;
   if (['retry', 'restart', 'finish-replay'].includes(id)) return campaignAction(s, id);
-  if (s.dialog.id.startsWith('rescue') || s.dialog.speaker === 'Elin Orr') Rescue.chooseRescue(s, id, context);
+  if (s.dialog.id.startsWith('rival-')) Rival.chooseRival(s,id,context);
+  else if (s.dialog.id.startsWith('rescue') || s.dialog.speaker === 'Elin Orr') Rescue.chooseRescue(s, id, context);
   else if (huntActive(s) || s.dialog.id.startsWith('hunt')) Hunt.chooseHunt(s, id, context);
+  else if (rivalActive(s)) Rival.chooseRival(s,id,context);
   else if (rescueActive(s)) Rescue.chooseRescue(s, id, context);
   else runOpening(s, 'chooseCampaign', id);
   syncAttachments(s); return s;
@@ -412,7 +447,14 @@ function replace(s, body, checkpoints, entries, canonical = null) {
   adapters.delete(s);
   for (const key of [...Object.keys(s), ...ROOT_VIEWS]) delete s[key];
   Object.assign(s, copy(body), { checkpoints: copy(checkpoints), missionEntries: copy(entries), replayCanonical: canonical && copy(canonical) });
-  bind(s); Hunt.cancelHuntDraw(s, context); Opening.resetCampaignPresentation(s); return s;
+  bind(s); clearTransientActions(s); Opening.resetCampaignPresentation(s); return s;
+}
+function clearTransientActions(s) {
+  Hunt.cancelHuntDraw(s,context);
+  // Saving keeps rope position/tension and captive custody. Restoring discards
+  // pending focus fire without firing or spending a restored chamber twice.
+  if(s.campaign.missions[Rival.RIVAL_ID]) Rival.cancelRivalFocus(s);
+  if(Object.hasOwn(s.player,'focusActive')) s.player.focusActive=false;
 }
 function retry(s) {
   const saved = s.checkpoint;
@@ -421,7 +463,7 @@ function retry(s) {
   const checkpoints = s.checkpoints, entries = s.missionEntries, canonical = s.replayCanonical;
   replace(s, saved.data, checkpoints, entries, canonical);
   s.stats.deaths = deaths; recordFor(s).retryCount = attempts; s.failure = null; s.dialog = null;
-  if (huntActive(s)) recordFor(s).performance.eligible = false;
+  if (huntActive(s)||rivalActive(s)) recordFor(s).performance.eligible = false;
   notice(s, `Retry · ${saved.label}. Regions, people, mounts, equipment and supplies restored.`); return s;
 }
 function restart(s) {
@@ -456,18 +498,43 @@ export function campaignAction(s, action) {
   if (action.startsWith('store:')) return storeCampaignItem(s, action.slice(6));
   if (action.startsWith('take:')) return takeCampaignItem(s, action.slice(5));
   if (action.startsWith('withdraw:')) return takeCampaignItem(s, action.slice(9));
-  if (huntActive(s)) Hunt.actionHunt(s, action, context);
+  if (rivalActive(s)) Rival.actionRival(s,action,context);
+  else if (huntActive(s)) Hunt.actionHunt(s, action, context);
   else if (rescueActive(s)) Rescue.actionRescue(s, action, context); else runOpening(s, 'campaignAction', action);
   syncAttachments(s); return s;
 }
 export const restartCampaign = restart;
-export function shootCampaign(s, x, y, aim = {}) { if (huntActive(s)) { Hunt.shootHunt(s, x, y, context, aim); return s; } return rescueActive(s) ? (Rescue.shootRescue(s, x, y, context), s) : runOpening(s, 'shootCampaign', x, y); }
+export function shootCampaign(s, x, y, aim = {}) {
+  if(rivalActive(s))return (Rival.shootRival(s,x,y,context,aim),s);
+  const id=s.player.equippedWeaponId,before=s.weapons[id]?.ammo||0;
+  if(huntActive(s))Hunt.shootHunt(s,x,y,context,aim);
+  else if(rescueActive(s))Rescue.shootRescue(s,x,y,context);
+  else runOpening(s,'shootCampaign',x,y);
+  const consumed=before-(s.weapons[id]?.ammo||0);if(consumed>0)recordCustodyShot(s,'mara',id,consumed);
+  return s;
+}
 export const beginCampaignDraw = (s, x, y, aim = {}) => huntActive(s) ? Hunt.beginHuntDraw(s, x, y, context, aim) : s;
 export const releaseCampaignDraw = (s, x, y, aim = {}) => huntActive(s) ? Hunt.releaseHuntDraw(s, x, y, context, aim) : s;
 export const cancelCampaignDraw = s => huntActive(s) ? Hunt.cancelHuntDraw(s, context) : s;
-export function reloadCampaign(s) { return huntActive(s) ? (Hunt.reloadHunt(s, context), s) : rescueActive(s) ? (Rescue.reloadRescue(s, context), s) : runOpening(s, 'reloadCampaign'); }
-export function useCampaignItem(s, id) { return huntActive(s) ? (Hunt.useHuntItem(s, id, context), s) : rescueActive(s) ? (Rescue.useRescueItem(s, id, context), s) : runOpening(s, 'useCampaignItem', id); }
-export function whistleCampaign(s) { return huntActive(s) ? (Hunt.whistleHunt(s, context), s) : rescueActive(s) ? (Rescue.whistleRescue(s, context), s) : runOpening(s, 'whistleCampaign'); }
+export function reloadCampaign(s) { return rivalActive(s)?(Rival.reloadRival(s,context),s):huntActive(s) ? (Hunt.reloadHunt(s, context), s) : rescueActive(s) ? (Rescue.reloadRescue(s, context), s) : runOpening(s, 'reloadCampaign'); }
+export function useCampaignItem(s, id) {
+  const huntOwned=['quietRation','quiet-ration','eat:quiet-ration','warmCider'].includes(id);
+  const rescueOwned=['warmRation','warm-ration'].includes(id);
+  if(huntOwned||rescueOwned){
+    const item=id==='warmCider'?'warmCider':huntOwned?'quietRation':'warmRation';
+    const stock=()=>item==='warmCider'?(s.camp.pantry?.warmCider||0):(s.inventory[item]||0);
+    const before=stock();
+    if(huntOwned)Hunt.useHuntItem(s,id,context);else Rescue.useRescueItem(s,id,context);
+    const consumed=before-stock();
+    if(rivalActive(s)&&!s.campaign.missions[Rival.RIVAL_ID].mission.completed&&consumed>0){
+      const performance=s.campaign.missions[Rival.RIVAL_ID].performance;
+      performance.healingUses+=consumed;performance.noHealingItems=false;
+    }
+    return s;
+  }
+  return rivalActive(s)?(Rival.useRivalItem(s,id,context),s):huntActive(s)?(Hunt.useHuntItem(s,id,context),s):rescueActive(s)?(Rescue.useRescueItem(s,id,context),s):runOpening(s,'useCampaignItem',id);
+}
+export function whistleCampaign(s) { return rivalActive(s)?(Rival.whistleRival(s,context),s):huntActive(s) ? (Hunt.whistleHunt(s, context), s) : rescueActive(s) ? (Rescue.whistleRescue(s, context), s) : runOpening(s, 'whistleCampaign'); }
 export function storeCampaignItem(s, id, amount = 1) {
   amount = Math.floor(amount);
   if (!Object.hasOwn(campaignItems, id) || !finite(amount) || amount < 1 || !(s.inventory[id] >= amount) || s.failure) return s;
@@ -512,16 +579,17 @@ function validateItemInstances(s) {
   return true;
 }
 function validateBody(s) {
-  if (!object(s) || ![2, 3].includes(s.version) || s.campaignId !== GAME_ID || !regions[s.region] || !object(s.entities) || !object(s.weapons) || !object(s.party) || !object(s.regions) || !object(s.campaign?.missions) || !object(s.campaign.unlocks)) return false;
-  const expanded = s.version === 3, expectedMissions = expanded ? [OPENING_ID, Rescue.RESCUE_ID, Hunt.HUNT_ID] : [OPENING_ID, Rescue.RESCUE_ID];
-  const expectedRegions = expanded ? ['snowbound', 'north-cutting', 'willow-run'] : ['snowbound', 'north-cutting'];
-  const items = expanded ? campaignItems : version2Items;
+  if (!object(s) || ![2, 3, 4].includes(s.version) || s.campaignId !== GAME_ID || !regions[s.region] || !object(s.entities) || !object(s.weapons) || !object(s.party) || !object(s.regions) || !object(s.campaign?.missions) || !object(s.campaign.unlocks)) return false;
+  const expanded = s.version >= 3, rivalExpanded=s.version>=4;
+  const expectedMissions = [OPENING_ID,Rescue.RESCUE_ID,...(expanded?[Hunt.HUNT_ID]:[]),...(rivalExpanded?[Rival.RIVAL_ID]:[])];
+  const expectedRegions = ['snowbound','north-cutting',...(expanded?['willow-run']:[]),...(rivalExpanded?['bellwether-works']:[])];
+  const items = rivalExpanded?campaignItems:expanded?version3Items:version2Items;
   if (expectedMissions.some(id => !s.campaign.missions[id]) || !expectedMissions.includes(s.campaign.activeMissionId) || Object.keys(s.campaign.missions).length !== expectedMissions.length) return false;
-  const sourceIds = { [OPENING_ID]: 'campaign-outlaws-from-the-west', [Rescue.RESCUE_ID]: 'campaign-enter-pursued-by-a-memory', [Hunt.HUNT_ID]: 'campaign-the-aftermath-of-genesis' };
+  const sourceIds = { [OPENING_ID]: 'campaign-outlaws-from-the-west', [Rescue.RESCUE_ID]: 'campaign-enter-pursued-by-a-memory', [Hunt.HUNT_ID]: 'campaign-the-aftermath-of-genesis', [Rival.RIVAL_ID]:'campaign-old-friends' };
   if (Object.entries(s.campaign.missions).some(([id, record]) => record.sourceRequirementId !== undefined && record.sourceRequirementId !== sourceIds[id])) return false;
   if (!expectedRegions.includes(s.region) || expectedRegions.some(id => !s.regions[id])) return false;
   if (expanded ? !object(s.itemInstances) : s.itemInstances !== undefined) return false;
-  const allowed = new Set(['mara', 'juniper', 'copper', 'tomas-mount', ...openingNpcIds, ...openingEnemyIds, ...RESCUE_CAST.map(actor => actor.id), ...(Rescue.RESCUE_ENTITY_IDS || []), ...(NORTH_CUTTING_WORLD.predators || []).map(actor => actor.id), ...(expanded ? [...HUNT_CAST, ...HUNT_ANIMALS].map(actor => actor.id) : [])]);
+  const allowed = new Set(['mara', 'juniper', 'copper', 'tomas-mount', ...openingNpcIds, ...openingEnemyIds, ...RESCUE_CAST.map(actor => actor.id), ...(Rescue.RESCUE_ENTITY_IDS || []), ...(NORTH_CUTTING_WORLD.predators || []).map(actor => actor.id), ...(expanded ? [...HUNT_CAST, ...HUNT_ANIMALS].map(actor => actor.id) : []), ...(rivalExpanded?[...RIVAL_CAST,...RIVAL_ENEMIES].map(actor=>actor.id):[])]);
   const expectedCategories = new Map([
     ['mara', 'player'], ['juniper', 'mount'], ['tomas-mount', 'mount'],
     ...[...openingNpcIds].map(id => [id, 'npc']), ...[...openingEnemyIds].map(id => [id, 'enemy']),
@@ -529,11 +597,13 @@ function validateBody(s) {
     ...NORTH_CUTTING_WORLD.predators.map(actor => [actor.id, 'enemy']),
     ...(expanded ? HUNT_CAST.map(actor => [actor.id, actor.kind === 'horse' ? 'mount' : 'npc']) : []),
     ...(expanded ? HUNT_ANIMALS.map(actor => [actor.id, 'animal']) : []),
+    ...(rivalExpanded?RIVAL_CAST.map(actor=>[actor.id,actor.kind==='horse'?'mount':'npc']):[]),
+    ...(rivalExpanded?RIVAL_ENEMIES.map(actor=>[actor.id,'enemy']):[]),
   ]);
   if (!s.entities.mara || !s.entities[s.party.mountId] || s.party.playerId !== 'mara' || !['juniper', 'copper'].includes(s.party.mountId)) return false;
   if ([...openingNpcIds, ...openingEnemyIds, 'copper', 'tomas-mount'].some(id => !s.entities[id])) return false;
   for (const [id, actor] of Object.entries(s.entities)) {
-    if (!allowed.has(id) || !object(actor) || actor.id !== id || !['player', 'npc', 'enemy', 'animal', 'mount'].includes(actor.category) || !finite(actor.hp) || actor.hp < 0 || actor.hp > Math.max(100, expanded ? HUNT_ANIMALS.find(body => body.id === id)?.hp || 0 : 0)) return false;
+    if (!allowed.has(id) || !object(actor) || actor.id !== id || !['player', 'npc', 'enemy', 'animal', 'mount'].includes(actor.category) || !finite(actor.hp) || actor.hp < 0 || actor.hp > Math.max(100, expanded ? HUNT_ANIMALS.find(body => body.id === id)?.hp || 0 : 0, rivalExpanded?[...RIVAL_CAST,...RIVAL_ENEMIES].find(body=>body.id===id)?.hp||0:0)) return false;
     if (expectedCategories.has(id) && actor.category !== expectedCategories.get(id) || id === 'copper' && actor.category !== (s.party.mountId === 'copper' ? 'mount' : 'animal')) return false;
     if (Object.prototype.propertyIsEnumerable.call(actor, 'traversal') || Object.prototype.propertyIsEnumerable.call(actor, 'largeLoad')) return false;
     if (!['vx', 'vy', 'facing', 'fireTimer', 'shotTimer', 'invulnerable'].every(key => actor[key] === undefined || finite(actor[key]))) return false;
@@ -566,12 +636,14 @@ function validateBody(s) {
     if (env.residentIds.some(actorId => !s.entities[actorId] || s.entities[actorId].attachment || s.entities[actorId].regionId !== id)) return false;
   }
   if (Object.keys(s.regions).length !== expectedRegions.length || Object.values(s.entities).some(actor => !actor.attachment && !s.regions[actor.regionId].residentIds.includes(actor.id))) return false;
-  if (Object.keys(s.weapons).length < 1 || Object.keys(s.weapons).length > (expanded ? 3 : 2) || !s.weapons[s.entities.mara.equippedWeaponId]) return false;
+  if (Object.keys(s.weapons).length < 1 || Object.keys(s.weapons).length > (rivalExpanded?6:expanded ? 3 : 2) || !s.weapons[s.entities.mara.equippedWeaponId]) return false;
   for (const [id, weapon] of Object.entries(s.weapons)) {
-    const kinds = { 'mara-revolver': ['revolver', 6, 'revolver-round'], 'coach-gun': ['coach-gun', 2, 'coach-shell'], ...(expanded ? { [HUNT_BOW.id]: ['bow', 1, 'arrow'] } : {}) };
-    if (!kinds[id] || !object(weapon) || weapon.id !== id || weapon.kind !== kinds[id][0] || weapon.capacity !== kinds[id][1] || typeof weapon.ammoType !== 'string' || !Number.isInteger(weapon.ammo) || weapon.ammo < 0 || weapon.ammo > weapon.capacity || !Number.isInteger(weapon.reserve) || weapon.reserve < 0 || weapon.reserve > 999 || !finite(weapon.condition) || weapon.condition < 0 || weapon.condition > 1 || !['carried', 'saddle', 'chest'].includes(weapon.location)) return false;
+    const kinds = { 'mara-revolver': ['revolver', 6, 'revolver-round'], 'coach-gun': ['coach-gun', 2, 'coach-shell'], ...(expanded ? { [HUNT_BOW.id]: ['bow', 1, 'arrow'] } : {}), ...(rivalExpanded?{[RIVAL_CARBINE.id]:['carbine',7,'tern-cartridge'],'working-lariat':['lariat',0,'rope'],'bastian-engraved-revolver':['revolver',6,'engraved-round']}: {}) };
+    if (!kinds[id] || !object(weapon) || weapon.id !== id || weapon.kind !== kinds[id][0] || weapon.capacity !== kinds[id][1] || typeof weapon.ammoType !== 'string' || !Number.isInteger(weapon.ammo) || weapon.ammo < 0 || weapon.ammo > weapon.capacity || !Number.isInteger(weapon.reserve) || weapon.reserve < 0 || weapon.reserve > 999 || !finite(weapon.condition) || weapon.condition < 0 || weapon.condition > 1 || !(rivalExpanded&&id==='bastian-engraved-revolver'?['carried','dropped']:['carried', 'saddle', 'chest']).includes(weapon.location)) return false;
     if (weapon.ammoType !== kinds[id][2]) return false;
-    if (!['mara', 'community-rescue-chest'].includes(weapon.owner) || ![null, Rescue.RESCUE_ID].includes(weapon.loanMissionId)) return false;
+    if (!(rivalExpanded&&id==='bastian-engraved-revolver'?['mara','bastian','bellwether-revolver-thief']:['mara', 'community-rescue-chest']).includes(weapon.owner) || ![null, Rescue.RESCUE_ID].includes(weapon.loanMissionId)) return false;
+    if(rivalExpanded&&[RIVAL_CARBINE.id,'working-lariat'].includes(id)&&(weapon.owner!=='mara'||weapon.loanMissionId!==null||id==='working-lariat'&&(weapon.ammo!==0||weapon.reserve!==0))) return false;
+    if(id==='bastian-engraved-revolver'&&weapon.location==='dropped'&&(!object(weapon.dropPoint)||!validPoint(weapon.dropPoint,weapon.dropPoint.regionId)))return false;
     if (weapon.rackMountId !== undefined && !s.entities[weapon.rackMountId]) return false;
   }
   for (const key of ['elapsed', 'time', 'day', 'seed', 'honor']) if (!finite(s[key])) return false;
@@ -593,7 +665,7 @@ function validateBody(s) {
   if (!typed(winter.worldChanges, openingShape.worldChanges) || winter.supplies.length !== SNOWBOUND_WORLD.supplies.length || new Set(winter.supplies.map(item => item.id)).size !== winter.supplies.length) return false;
   if (SNOWBOUND_WORLD.supplies.some(item => !winter.supplies.some(saved => saved.id === item.id && typeof saved.collected === 'boolean' && typeof saved.lost === 'boolean' && Number.isInteger(saved.delivered) && saved.delivered >= 0 && saved.delivered <= item.amount))) return false;
   if (opening.mission.completed && (!winter.worldChanges.boilerDestroyed || !winter.worldChanges.relayCircuitOff || !winter.worldChanges.pressureReleased)) return false;
-  if (s.campaign.activeMissionId !== OPENING_ID && !opening.mission.completed || s.region === 'north-cutting' && s.campaign.activeMissionId !== Rescue.RESCUE_ID || s.region === 'willow-run' && s.campaign.activeMissionId !== Hunt.HUNT_ID) return false;
+  if (s.campaign.activeMissionId !== OPENING_ID && !opening.mission.completed || s.region === 'north-cutting' && s.campaign.activeMissionId !== Rescue.RESCUE_ID || s.region === 'willow-run' && s.campaign.activeMissionId !== Hunt.HUNT_ID || s.region==='bellwether-works'&&s.campaign.activeMissionId!==Rival.RIVAL_ID) return false;
   const rescue = s.campaign.missions[Rescue.RESCUE_ID], summary = s.sideQuests.silas;
   if (!object(rescue.mission) || rescue.mission.id !== Rescue.RESCUE_ID || rescue.mission.stageCount !== 10 || !Number.isInteger(rescue.mission.stage) || rescue.mission.stage < 0 || rescue.mission.stage > 9 || typeof rescue.mission.completed !== 'boolean' || typeof rescue.mission.rewardPaid !== 'boolean' || !['locked', 'unstarted', 'active', 'completed'].includes(rescue.status) || !Number.isInteger(rescue.retryCount) || rescue.retryCount < 0 || rescue.retryCount > 100000) return false;
   if (rescue.mission.completed !== (rescue.status === 'completed') || rescue.mission.completed !== rescue.mission.rewardPaid || !opening.mission.completed && rescue.status !== 'locked') return false;
@@ -603,19 +675,27 @@ function validateBody(s) {
   if (s.campaign.activeMissionId === OPENING_ID) {
     const view = legacyView(s);
     const plain = copy({ ...view, player: { ...view.player, ammo: view.player.ammo, reserve: view.player.reserve }, replayCanonical: null, checkpoint: null });
-    if (plain.dialog?.id === 'rescue-briefing') plain.dialog = null;
+    if (plain.dialog?.id === 'rescue-briefing'||rivalExpanded&&plain.dialog?.id.startsWith('rival-')) plain.dialog = null;
     if (plain.dialog?.id === 'mission-failed') plain.dialog.choices = plain.dialog.choices.filter(choice => choice.id !== 'finish-replay');
     plain.checkpoint = { label: 'Validation of active opening', data: copy(plain) };
     if (!Opening.restoreCampaign(plain)) return false;
   }
   if (typeof Rescue.validateRescueRecord === 'function' && !Rescue.validateRescueRecord(s)) return false;
   if (expanded && (!validateItemInstances(s) || !Hunt.validateHuntRecord(s))) return false;
+  if(rivalExpanded&&!Rival.validateRivalRecord(s)) return false;
+  if(rivalExpanded) {
+    const rival=s.campaign.missions[Rival.RIVAL_ID],ids=[...RIVAL_CAST,...RIVAL_ENEMIES].map(actor=>actor.id);
+    if(rival.status==='locked'?ids.some(id=>s.entities[id]):ids.some(id=>!s.entities[id])) return false;
+    if(rival.flags.carbineGranted!==Object.hasOwn(s.weapons,RIVAL_CARBINE.id)||rival.flags.lariatGranted!==Object.hasOwn(s.weapons,'working-lariat')) return false;
+    const onward=s.campaign.unlocks['campaign-who-the-hell-is-leviticus-cornwall'];
+    if(onward?.available||onward?.prerequisitesComplete!==undefined&&onward.prerequisitesComplete!==!!(s.campaign.missions[Hunt.HUNT_ID].mission.completed&&rival.mission.completed)) return false;
+  }
   if (s.dialog && (!object(s.dialog) || typeof s.dialog.id !== 'string' || typeof s.dialog.speaker !== 'string' || typeof s.dialog.text !== 'string' || s.dialog.text.length > 10000 || !Array.isArray(s.dialog.choices) || s.dialog.choices.length > 20 || s.dialog.choices.some(choice => !object(choice) || typeof choice.id !== 'string' || typeof choice.label !== 'string') || new Set(s.dialog.choices.map(choice => choice.id)).size !== s.dialog.choices.length)) return false;
   if (s.failure !== null && (!object(s.failure) || typeof s.failure.reason !== 'string')) return false;
   return true;
 }
 function validateFull(s, nested = false) {
-  if (!validateBody(s) || !object(s.checkpoints) || !object(s.missionEntries) || Object.keys(s.checkpoints).length > 100 || Object.keys(s.missionEntries).length > (s.version === 3 ? 3 : 2)) return false;
+  if (!validateBody(s) || !object(s.checkpoints) || !object(s.missionEntries) || Object.keys(s.checkpoints).length > 100 || Object.keys(s.missionEntries).length > (s.version>=4?4:s.version === 3 ? 3 : 2)) return false;
   for (const [id, saved] of Object.entries(s.checkpoints)) {
     if (!object(saved) || id !== saved.id || !s.campaign.missions[saved.missionId] || !Number.isInteger(saved.stage) || typeof saved.label !== 'string' || saved.label.length > 200 || saved.data?.version !== s.version || !validateBody(saved.data) || saved.data.checkpoints || saved.data.missionEntries || saved.data.replayCanonical || saved.data.campaign.activeMissionId !== saved.missionId || saved.data.mission.stage !== saved.stage) return false;
     if (saved.stage > s.campaign.missions[saved.missionId].mission.stage) return false;
@@ -633,7 +713,7 @@ function validateFull(s, nested = false) {
 }
 function reconcile(s) {
   const authored = new Map([
-    openingShape.player, openingShape.horse, ...openingShape.npcs, ...openingShape.enemies, ...openingShape.animals, ...openingShape.mounts, ...RESCUE_CAST, ...HUNT_CAST, ...HUNT_ANIMALS,
+    openingShape.player, openingShape.horse, ...openingShape.npcs, ...openingShape.enemies, ...openingShape.animals, ...openingShape.mounts, ...RESCUE_CAST, ...HUNT_CAST, ...HUNT_ANIMALS, ...RIVAL_CAST, ...RIVAL_ENEMIES,
     ...NORTH_CUTTING_WORLD.predators.map(wolf => ({ ...wolf, name: 'Timber wolf', kind: 'wolf', faction: 'wild' })),
   ].map(actor => [actor.id, actor]));
   for (const actor of Object.values(s.entities)) {
@@ -649,6 +729,7 @@ function reconcile(s) {
   s.campaign.missions[Rescue.RESCUE_ID].mission.name = 'A Voice Under Ice';
   s.sideQuests.silas.name = 'A Voice Under Ice';
   if (s.campaign.missions[Hunt.HUNT_ID]) s.campaign.missions[Hunt.HUNT_ID].mission.name = 'A Quiet Table';
+  if (s.campaign.missions[Rival.RIVAL_ID]) s.campaign.missions[Rival.RIVAL_ID].mission.name = 'The Names They Took';
   for (const saved of Object.values(s.checkpoints || {})) reconcile(saved.data);
   for (const entry of Object.values(s.missionEntries || {})) reconcile(entry);
   if (s.replayCanonical) reconcile(s.replayCanonical);
@@ -669,6 +750,24 @@ function upgradeVersion2(s) {
   if (s.replayCanonical) upgradeVersion2(s.replayCanonical);
   bind(s);
 }
+function upgradeVersion3(s) {
+  // Called only after the complete old graph has passed its own schema. Each
+  // history independently gains an unstarted/locked sibling; no gift or custody
+  // transaction follows from adding the operation to an earlier journey.
+  s.version=4;
+  s.regions['bellwether-works']={residentIds:[],worldChanges:{},supplies:[],dropped:{}};
+  s.campaign.missions[Rival.RIVAL_ID]=Rival.createRivalRecord();
+  if(s.campaign.missions[Rescue.RESCUE_ID].mission.completed) {
+    s.campaign.missions[Rival.RIVAL_ID].status='unstarted';
+    s.campaign.unlocks['campaign-old-friends']={available:true,requirementKnown:true};
+    bind(s); Rival.ensureRivalCast(s,context);
+    s.campaign.missions[Rescue.RESCUE_ID].mission.objective='Silas is home and healing. Orla’s food journey and the Bellwether expedition are both available at camp.';
+  }
+  for(const saved of Object.values(s.checkpoints||{})) upgradeVersion3(saved.data);
+  for(const entry of Object.values(s.missionEntries||{})) upgradeVersion3(entry);
+  if(s.replayCanonical) upgradeVersion3(s.replayCanonical);
+  bind(s);
+}
 export function restoreCampaign(raw) {
   let parsed;
   try { parsed = typeof raw === 'string' ? JSON.parse(raw) : copy(raw); } catch { return null; }
@@ -679,9 +778,10 @@ export function restoreCampaign(raw) {
   try {
     if (!validateFull(parsed)) return null;
     if (parsed.version === 2) { upgradeVersion2(parsed); if (!validateFull(parsed)) return null; }
+    if (parsed.version === 3) { upgradeVersion3(parsed); if (!validateFull(parsed)) return null; }
     reconcile(parsed);
     parsed.notices = []; parsed.bullets = [];
-    bind(parsed); Hunt.cancelHuntDraw(parsed, context); Opening.resetCampaignPresentation(parsed);
+    bind(parsed); clearTransientActions(parsed); Opening.resetCampaignPresentation(parsed);
     notice(parsed, 'Campaign journey restored.'); return parsed;
   } catch { return null; }
 }
