@@ -615,6 +615,23 @@ test('scheduled care spends one bandage, respects its six-hour wait and preserve
   assert.ok(Journey.restoreCampaign(Journey.serializeCampaign(state)));
 });
 
+test('actual final-hours dressing finishes the natural recovery transition once without healing or stock assignments',()=>{
+  const state=completedState();
+  // Existing native Rescue route/proximity fixture above. Every remaining
+  // healing hour here passes through the actual accepted world-step owner.
+  // No patient HP, healing hours, inventory, stage or outcome is assigned.
+  for(let frame=0;record(state).rescue.silas.healingHours>1.5&&frame<30000;frame++)Journey.stepCampaign(state,.1);
+  const patient=state.entities.silas,clinical=record(state).rescue.silas;
+  assert.ok(clinical.healingHours>0&&clinical.healingHours<=1.5);assert.equal(patient.injured,true);
+  place(state,{...patient,z:0});assert.ok((state.inventory.bandages||0)+state.camp.medicine>0,'an actual owned original dressing remains');
+  const before={hp:patient.hp,scars:patient.scars,bandages:state.inventory.bandages,medicine:state.camp.medicine},dressingCount=Object.keys(record(state).transactions).filter(id=>id.includes('care:dressing-')).length;
+  interact(state,'care:silas');assert.equal(clinical.healingHours,0);assert.equal(patient.injured,false);assert.equal(state.sideQuests.silas.status,'recovering-strength');assert.equal(patient.scars,before.scars);assert.equal(patient.hp,Math.min(100,before.hp+8));
+  assert.equal(before.bandages-state.inventory.bandages+before.medicine-state.camp.medicine,1);assert.equal(Object.keys(record(state).transactions).filter(id=>id.includes('care:dressing-')).length,dressingCount+1);
+  const after=clone({hp:patient.hp,inventory:state.inventory,camp:state.camp,transactions:record(state).transactions});Journey.interactCampaign(state,'care:silas');
+  assert.deepEqual({hp:patient.hp,inventory:state.inventory,camp:state.camp,transactions:record(state).transactions},after);
+  const restored=Journey.restoreCampaign(Journey.serializeCampaign(state));assert.ok(restored);tick(restored,1);assert.equal(restored.entities.silas.injured,false);assert.equal(record(restored).rescue.silas.healingHours,0);assert.equal(restored.entities.silas.scars,before.scars);
+});
+
 const completedMutations = {
   'missing clinical bed attachment': data => { data.entities.silas.attachment = null; data.entities.silas.regionId = 'snowbound'; data.regions.snowbound.residentIds.push('silas'); },
   'wrong patient rest anchor': data => { data.entities.silas.attachment = { type: 'rest', targetId: 'silas-rest-pad', regionId: 'north-cutting' }; },

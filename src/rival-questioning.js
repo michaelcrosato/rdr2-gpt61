@@ -3,6 +3,7 @@
  */
 import {RIVAL_ID,RIVAL_WORLD as W,RIVAL_DIALOGUE as D,RIVAL_STAGES} from '../content/campaign/bellwether-works.js';
 import {followActor} from './campaign-navigation.js';
+import {usesRivalContinuation,validateRivalContinuation,rivalHistoricalValidationState} from './rival-continuation.js';
 const record=s=>s.campaign?.missions?.[RIVAL_ID],player=s=>s.entities?.[s.party?.playerId||'mara'],actor=(s,id)=>s.entities?.[id];
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value),finite=Number.isFinite;
 const point=a=>({x:a.x,y:a.y,z:a.z||0}),validPoint=p=>object(p)&&['x','y','z'].every(key=>finite(p[key]));
@@ -120,6 +121,7 @@ export function validateQuestioningDialog(s){
   return q.cursor===line&&body?.hp>0&&body.name===D[line]?.speaker&&near(player(s),body,65)&&d.speaker===D[line].speaker&&exactText&&Array.isArray(d.choices)&&d.choices.length===expected.length&&d.choices.every((choice,index)=>choice.id===expected[index][0]&&choice.label===expected[index][1]);
 }
 export function validateQuestioning(s){
+  if(usesRivalContinuation(s)&&record(s).rival.continuation?.initializedAt!==null){if(!validateRivalContinuation(s))return false;s=rivalHistoricalValidationState(s);}
   const r=record(s),q=r.rival.questioning,transactions=Object.entries(r.transactions).filter(([id])=>id.startsWith(key('question:')));
   if(!object(r.captivity))return false;
   const guardPresent=Object.hasOwn(r.captivity,'guardId'),ordered=r.transactions[key('question:temporaryHold')]?.completed===true;

@@ -69,7 +69,7 @@ function suspendedFailure() {
 for (const name of ['departure', 'copper-owned', 'gideon-carried', 'complete']) {
   test(`current graph migrates the actual v1 ${name} Save with durable actor, inventory and branch state`, () => {
     const { raw, state } = migrate(name);
-    assert.equal(state.version, 4);
+    assert.equal(state.version, 5);
     assert.equal(state.campaignId, 'dust-and-mercy');
     assertLegacyCore(raw, state);
     assertSingleResidence(state);

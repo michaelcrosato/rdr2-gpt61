@@ -1,0 +1,26 @@
+{
+  "kind": "unchanged-pre-fix-native-v4-final-dressing-boundary",
+  "recordedDate": "2026-10-09",
+  "fixture": "rescue-v4-zero-hours-native.json.gz",
+  "sha256OfUncompressedOriginalBytes": "6b0efa185eb2d999220c94adf0917f0b08105b9f91ab110260bf04b612f7783b",
+  "uncompressedBytes": 3204177,
+  "frozenRuntimeCommit": "873949c163a7cdfe19b2b913728d4ce9432c3e50",
+  "frozenRuntimeSHA256": {
+    "src/campaign-journey.js": "00597e34db861b6643e730dfebc68550e6235b34b0181285759dc70a1a66c7f6",
+    "src/rescue-mission.js": "36d805bd2dc47b1ef652f478a9446e6013e075313fa10b80206922af93ee705c",
+    "src/rival-mission.js": "8b87819e6a96133d51bc5092b8ea92f082438bd2646ce8041c4e6b9d337ed347",
+    "src/rival-aftermath.js": "f229bd97eda80b8ff1370d3285c97d1f7aa61eb7e41fc3d90e371a089816703a",
+    "src/rival-questioning.js": "8e001a313cd7673ea35df2d6f444dc161ae005e11237c6bbf65a6e3584b055d6",
+    "content/campaign/north-cutting.js": "1248d24c1f367600475ae585e5293941c392e89e53efba61bf25aa47b8adc404",
+    "content/campaign/bellwether-works.js": "fe76eec7a10cdf80e853360479ab8e65551007aff21f0fa947c51bd2f87f4e25"
+  },
+  "input": "journey-v4-rival-webkit-current-reloaded.json.gz",
+  "inputSHA256": "46aaacc22c2f89ab21f1b00d3b8ab1269f3cc206185bc2246c79922a397ce9a3",
+  "acceptedIdle": {
+    "steps": 20624,
+    "acceptedDt": 0.1
+  },
+  "generationArtifact": "/tmp/dust-mercy-rescue-zero-hours-legacy-20261009/actual-full-v4-zero-hours.json",
+  "generationLog": "/tmp/dust-mercy-rescue-zero-hours-legacy-20261009/full-generation.log",
+  "scope": "Native continuation from genuine unchanged full Rival public reload using the frozen merged v4 game, actual accepted idle steps and one actually offered finite dressing. Initial bedside proximity fixture only (20 units from patient). No patient HP, healing hours, inventory, stage, grant or outcome assignments. Original graph bytes gzip-preserved without normalization. This is not public-control care, a fresh connected campaign, a full train route or source acceptance."
+}

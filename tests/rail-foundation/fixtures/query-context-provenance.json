@@ -1,0 +1,6 @@
+{
+  "referenceSource": "/tmp/dust-mercy-rail-query-context-base-20261009/src/rail-foundation/rail-consist.js",
+  "referenceSourceSHA256": "6637727d465910d433d1d9d321b7e5af28a15bd9de54aa186b7b908171296661",
+  "reference": "placeConsist body copied verbatim except export name/import path;60iterations unchanged",
+  "purpose": "Exact old/new placement-bit comparison for floating-point stagnation stop; no tolerance relaxation"
+}

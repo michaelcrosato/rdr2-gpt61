@@ -1,6 +1,6 @@
 """Read observed campaign Saves without changing any browser or simulation state.
 
-Version 2, 3 and 4 saves contain authoritative registries. These helpers deep-copy parsed
+Version 2, 3, 4 and 5 saves contain authoritative registries. These helpers deep-copy parsed
 Python data and derive the legacy-style active aliases used by browser drivers.
 They are not a game save validator or encoder. Historical checkpoint/entry/replay
 bodies stay in their original wire format; normalize one explicitly if needed.
@@ -92,7 +92,7 @@ def normalize_campaign_save(data: dict[str, Any]) -> dict[str, Any]:
     state = copy.deepcopy(data)
     if state.get("version") == 1:
         return state
-    if state.get("version") not in (2, 3, 4):
+    if state.get("version") not in (2, 3, 4, 5):
         raise ValueError("Unsupported observed campaign Save version")
 
     entities = state.get("entities")
@@ -152,7 +152,7 @@ def normalize_campaign_save(data: dict[str, Any]) -> dict[str, Any]:
     state["animals"] = [actor for actor in present if actor.get("category") == "animal"]
     if horse.get("id") == "copper" and entity_region(horse) == region_id:
         state["animals"].append(horse)
-    for key in ("mission", "flags", "timers", "performance", "traversal", "rescue", "tracks", "predators", "hunt", "bow", "processing", "rival", "scope", "focus", "rope", "captivity"):
+    for key in ("mission", "flags", "timers", "performance", "traversal", "rescue", "tracks", "predators", "hunt", "bow", "processing", "rival", "scope", "focus", "rope", "captivity", "train"):
         if key in active:
             state[key] = active[key]
     for key in ("worldChanges", "supplies", "dropped"):

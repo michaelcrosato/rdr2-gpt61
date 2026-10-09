@@ -267,20 +267,49 @@
       "source_title": "Who the Hell is Leviticus Cornwall?",
       "source_url": "https://reddead.fandom.com/wiki/Who_the_Hell_is_Leviticus_Cornwall%3F",
       "research_status": "indexed_mission_dialogue_items_population_with_conditional_revision_gaps",
-      "implementation_status": "unimplemented",
+      "implementation_status": "in_progress",
       "original_counterpart": {
         "id": "snowbound-what-the-line-carries",
         "title": "What the Line Carries",
         "specification_path": "docs/missions/what-the-line-carries.md"
       },
-      "implementation_evidence": [],
+      "implementation_evidence": [
+        "content/campaign/brass-cutting.js",
+        "content/campaign/brass-dialogue.js",
+        "content/campaign/train-equipment.js",
+        "src/train-mission.js",
+        "src/train-prelude.js",
+        "src/train-camp-motion.js",
+        "src/train-motion.js",
+        "src/train-combat.js",
+        "src/train-blast.js",
+        "src/train-powder.js",
+        "src/train-terrain.js",
+        "src/train-runtime-schema.js",
+        "src/rival-continuation.js",
+        "src/rival-weapon-loan.js",
+        "src/custody-contact.js",
+        "src/campaign-journey.js",
+        "tests/train-clinic.test.mjs",
+        "tests/train-powder.test.mjs",
+        "tests/train-native/prelude.test.mjs",
+        "tests/train-native/blast-effects.test.mjs",
+        "content/campaign/train-camp.js",
+        "src/train-briefing.js",
+        "src/train-camp-work.js",
+        "src/train-camp-presentation.js",
+        "src/train-portraits.js",
+        "tests/train-briefing.test.mjs",
+        "tests/train-camp-presentation.test.mjs",
+        "tests/train-terrain.test.mjs"
+      ],
       "acceptance_evidence": [],
       "source_chapter": "Chapter 1: Colter",
       "proposed_original_chapter": "I — Snowbound",
-      "original_design_status": "full_twenty_scene_original_specification_runtime_unimplemented",
+      "original_design_status": "twenty_scene_contract_native_clinic_briefing_prefix_and_physical_components_in_progress_public_operation_unavailable",
       "beat_decomposition_status": "sampled_and_mapped_unsealed",
       "prerequisite_audit_status": "hunt_and_rival_permanent_completion_with_actual_papers_and_charge_custody",
-      "notes": "Twenty continuous original scenes specify clinical/camp preparation and readiness, seven distinct party roles, real wire/circuit failure, a moving articulated train, boarding/rescue/self-climb and both engineer-victim branches, two finite battles/reunion, paired individually owned charges and persistent stock, three independent worker fates/witnesses, private-car searches and two distinct letters, unsold securities, engine departure and lasting industrial conflict. This is authoring only: runtime and all source, art, input, balancing and acceptance gates remain open; the separate relocation and later arcs require their own implementation. Indexed source evidence is unsealed and original population/time/cap proposals are not exact source claims. The separate indexed child audit identifies the named worker conversation and driverless newspaper aftermath, distinguishing source90s from original110s and source neutral credit from the original hostile-only goal. Staged authoring now uses18 stopped guards and requires separate named-clerk dialogue and autonomous rail intervention/report variants. Revision, exact conditional populations, quantities, timers and later letter/community arcs remain unsealed; no runtime or accepted coverage follows from this research.",
+      "notes": "The complete twenty-scene original specification and thirteen open source child obligations remain required. The native clinic/briefing prefix has real API entry, actual arrivals, separate bedside/family and employer/worker/holding exchanges, unchanged prior-world resources, owned patient care, native bottle/table/paper hands, both genuine original-paper ownership routes, paused and mid-work restores, decline/wait and explicit acceptance into scene3. Bounded imported clinic UI checks pass in WebKit phone/tablet and wide Chromium with stable sources and actual IndexedDB Save/Continue. This is not public mission entry or a full train playthrough. Moving-car physics, rendering, strict v5 migration, finite custody, weapon loans, wire/fuse and blast effects have separately labelled native/component evidence; full scene integration, controls, combat/AI, dynamic hazards, held volumes, workers/documents/aftermath, full player paths and source reconciliation remain open. No source requirement is accepted.",
       "research_date": "2026-10-09",
       "research_evidence_paths": [
         "docs/train-source-audit.md"
@@ -299,7 +328,8 @@
         "checkpoint-retry-and-build-specific-replay-policy",
         "real-driverless-intervention-and-newspaper-aftermath",
         "separate-relocation-and-temporary-camp-windows"
-      ]
+      ],
+      "runtime_evidence_path": "docs/train-evidence.md"
     },
     {
       "id": "campaign-eastward-bound",

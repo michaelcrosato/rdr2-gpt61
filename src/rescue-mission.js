@@ -3,6 +3,8 @@ import { NORTH_CUTTING_WORLD as WORLD, RESCUE_CAST, RESCUE_STAGES, RESCUE_ITEMS 
 import { SNOWBOUND_WORLD } from '../content/campaign/snowbound.js';
 import { RIVAL_WORLD } from '../content/campaign/bellwether-works.js';
 import { WILLOW_RUN_WORLD } from '../content/campaign/willow-run.js';
+import {activeRivalWeaponLoan,weaponLoanHistoricalState} from './rival-weapon-loan.js';
+import {validateRivalContinuation} from './rival-continuation.js';
 export { NORTH_CUTTING_WORLD, NORTH_WORLD, RESCUE_ITEMS } from '../content/campaign/north-cutting.js';
 export const RESCUE_ID = 'snowbound-a-voice-under-ice';
 export const RESCUE_ENTITY_IDS = [...RESCUE_CAST.map(a => a.id), ...WORLD.predators.map(a => a.id)];
@@ -247,8 +249,8 @@ export function interactRescue(s, requestedId = null, ctx) {
   } else if (id === 'care:silas') {
     const next = Array.from({ length: 6 }, (_, n) => `care:dressing-${n + 1}`).find(id => !r.transactions[`${RESCUE_ID}:${id}`]);
     if (!next || !((s.inventory.bandages || 0) > 0 || s.camp.medicine > 0)) { ctx.notice(s, 'Elin needs one clean personal bandage or medicine in the camp store for this care visit.'); return s; }
-    tx(s, next, 1, () => { if (!consume(s, 'bandages')) s.camp.medicine--; silas.hp = Math.min(100, silas.hp + 8); r.rescue.silas.healingHours = Math.max(0, r.rescue.silas.healingHours - 2); r.rescue.silas.injury = Math.max(0, r.rescue.silas.injury - 0.15); });
-    r.timers.helper = 6 * 80; emit(s, ctx, 'care', silas, 'silas'); ctx.notice(s, 'A clean dressing helps, but frostbite needs time. Elin will check him again in six world hours.');
+    tx(s, next, 1, () => { if (!consume(s, 'bandages')) s.camp.medicine--; silas.hp = Math.min(100, silas.hp + 8); r.rescue.silas.healingHours = Math.max(0, r.rescue.silas.healingHours - 2); r.rescue.silas.injury = Math.max(0, r.rescue.silas.injury - 0.15); if(r.rescue.silas.healingHours===0)finishSilasHealing(s,silas); });
+    r.timers.helper = 6 * 80; emit(s, ctx, 'care', silas, 'silas'); ctx.notice(s, r.rescue.silas.healingHours===0?'Silas’s dressing has held through the healing schedule. His scars remain; strength and trust still take time.':'A clean dressing helps, but frostbite needs time. Elin will check him again in six world hours.');
   } else if (id === 'repair:silas-coat') {
     ctx.talk(s, 'rescue-repair-request', 'Elin Orr', 'His shoulder cannot bear the old seam. Give me one camp material and I can line the torn coat; his jaw scars and injured hands will still need time.', s.camp.materials > 0 ? [['repair-coat', 'Use one camp material to repair his coat.'], ['leave', 'Return when the camp has cloth.']] : [['leave', 'The camp needs cloth first.']]);
   } else if (id === 'brief:tomas') {
@@ -753,9 +755,14 @@ function campHelperStep(s, dt, ctx) {
     ctx.notice(s, 'Moss and Vera have placed Silas in the warm bed. Elin and Fin can see him now.');
   }
 }
+function finishSilasHealing(s,patient){patient.injured=false;s.sideQuests.silas.status='recovering-strength';}
 function healingStep(s, dt, ctx) {
-  const r = rec(s); if (!r.mission.completed || !r.rescue.silas.careScheduled || r.rescue.silas.healingHours <= 0) return;
+  const r = rec(s); if (!r.mission.completed || !r.rescue.silas.careScheduled) return;
   const patient = entity(s, ctx, 'silas'), elin = entity(s, ctx, 'elin');
+  // Genuine older care could already exhaust the schedule while leaving this
+  // bit true. Preserve it on restore, then complete the natural transition on
+  // the next accepted world step, without adding health or spending supplies.
+  if(r.rescue.silas.healingHours<=0){if(r.rescue.silas.healingHours===0&&patient.injured){finishSilasHealing(s,patient);ctx.notice(s,'Silas’s dressing has held through the healing schedule. His scars remain; strength and trust still take time.');}return;}
   r.rescue.silas.healingHours = Math.max(0, r.rescue.silas.healingHours - dt / 80);
   r.rescue.silas.injury = Math.max(0, r.rescue.silas.injury - dt / (80 * 18));
   patient.hp = Math.min(100, patient.hp + dt / (80 * 2));
@@ -764,7 +771,7 @@ function healingStep(s, dt, ctx) {
     if (!near(elin, WORLD.camp.bed, 50)) summon(s, ctx, 'elin', { x: 400, y: 1270, z: 0 });
     else tx(s, `care:watch-${phase}`, 1, () => { emit(s, ctx, 'care', patient, 'silas', elin, 'elin'); ctx.log(s, 'Elin checked Silas’s dressing and warmed his frostbitten hands at the scheduled bedside watch.'); });
   }
-  if (r.rescue.silas.healingHours === 0) { patient.injured = false; s.sideQuests.silas.status = 'recovering-strength'; ctx.notice(s, 'Silas’s dressing has held through the healing schedule. His scars remain; strength and trust still take time.'); }
+  if (r.rescue.silas.healingHours === 0) { finishSilasHealing(s,patient); ctx.notice(s, 'Silas’s dressing has held through the healing schedule. His scars remain; strength and trust still take time.'); }
 }
 /** Advance the existing bedside schedule while another mission owns the world clock.
  * The caller supplies its elapsed step; this helper never changes elapsed/time or
@@ -883,6 +890,7 @@ export function stepRescue(s, dt, input = {}, ctx) {
 /** Strict mission-local validation; global identities/residence/attachments/weapons are journey-owned. */
 export function validateRescueRecord(s) {
   try {
+    if(activeRivalWeaponLoan(s,'coach-gun')){if(!validateRivalContinuation(s))return false;s=weaponLoanHistoricalState(s);}
     const r = rec(s), object = v => v && typeof v === 'object' && !Array.isArray(v), number = (v, lo = 0, hi = 1e7) => Number.isFinite(v) && v >= lo && v <= hi;
     const integer = (v, lo = 0, hi = 1e7) => Number.isInteger(v) && v >= lo && v <= hi;
     const p = v => object(v) && number(v.x, 0, WORLD.width) && number(v.y, 0, WORLD.height) && number(v.z, 0, 108);
