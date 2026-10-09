@@ -20,6 +20,7 @@ const OPENING_ID = 'snowbound-the-last-warm-light';
 const RESCUE_ID = 'snowbound-a-voice-under-ice';
 const HUNT_ID = 'snowbound-a-quiet-table';
 const RIVAL_ID = 'snowbound-the-names-they-took';
+const TRAIN_ID = 'snowbound-what-the-line-carries';
 const PREFERENCES_KEY = 'dust-mercy.preferences.v1';
 const requestedMode = new URLSearchParams(location.search).get('mode') === 'mercy' ? 'mercy' : 'campaign';
 const input = {
@@ -232,7 +233,7 @@ function renderPanel() {
         const rack = state.entities[weapon.rackMountId];
         const withinReach = weapon.location === 'carried' || weapon.location === 'saddle' && rack && Math.hypot(state.player.x - rack.x, state.player.y - rack.y) <= 58 && Math.abs((state.player.z || 0) - (rack.z || 0)) < 6;
         const needsInspection = weapon.kind === 'bow' && state.mission.id === HUNT_ID && !state.flags.bowInspected || weapon.kind === 'carbine' && state.mission.id === RIVAL_ID && !state.flags.carbineInspected;
-        const canSelect = [RESCUE_ID, HUNT_ID, RIVAL_ID].includes(state.mission.id) && withinReach && !needsInspection && !state.player.carrying && !state.traversal?.player;
+        const canSelect = [RESCUE_ID, HUNT_ID, RIVAL_ID, TRAIN_ID].includes(state.mission.id) && withinReach && !needsInspection && !state.player.carrying && !state.player.toolHeld && !state.traversal?.player;
         html += panelRow(weapon.name || (weapon.kind === 'coach-gun' ? 'Short coach gun' : 'Vale revolver'), `${weapon.kind === 'lariat' ? 'Reusable working rope' : `${weapon.ammo} loaded · ${weapon.reserve} spare ${weapon.kind === 'bow' ? 'arrows' : weapon.kind === 'coach-gun' ? 'shells' : 'rounds'}`} · ${weapon.loanMissionId ? 'Community loan' : 'Owned'}${weapon.location === 'saddle' ? ` · On ${rack?.name || 'the horse'}’s rack` : ''}${needsInspection ? ` · Inspect the ${weapon.kind === 'carbine' ? 'carbine' : 'bow'} beside Copper before equipping it.` : ''}`, button(selected ? 'Equipped' : needsInspection ? 'Inspect at rack' : 'Equip', 'equipment', `equip:${weapon.id}`, selected || !canSelect));
       }
     }

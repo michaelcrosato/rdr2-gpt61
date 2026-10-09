@@ -1,6 +1,7 @@
 /** The Names They Took: a separate quarry operation and a persistent captive. */
 import {RIVAL_ID,RIVAL_CAST,RIVAL_ENEMIES,RIVAL_WORLD as W,RIVAL_STAGES,RIVAL_CARBINE,RIVAL_ITEMS} from '../content/campaign/bellwether-works.js';
 import {QUARRY_POCKET_OBJECTS} from '../content/campaign/quarry-papers.js';
+import {usesRivalContinuation,validateRivalContinuation,rivalHistoricalValidationState} from './rival-continuation.js';
 import {blockedAt,moveActor,clearLine,followActor,insideRect} from './campaign-navigation.js';
 import {createRivalQuestioning,usesQuestioningContract,getQuestioningInteractions,interactQuestioning,chooseQuestioning,advanceQuestioning,validateQuestioning,questioningVisitText,QUESTIONING_TRANSACTION_KEYS,QUESTIONING_CHOICES} from './rival-questioning.js';
 import {validateRivalDialog} from './rival-dialogue-validation.js';
@@ -345,7 +346,9 @@ function validateYardOpening(s){
   if(opening.firedAt===null)return opening.shotSerial===null&&r.mission.stage===5&&r.performance.shots===opening.shotsBefore&&yard(s).every(e=>!e.active);
   return Number.isFinite(opening.firedAt)&&opening.firedAt>=opening.startedAt&&opening.firedAt<=s.elapsed&&opening.shotSerial===opening.shotsBefore+1&&r.rival.shots[opening.shotSerial-1]?.serial===opening.shotSerial;
 }
-export function validateRivalRecord(s){const r=s?.campaign?.missions?.[RIVAL_ID];if(!object(r))return false;const template=createRivalRecord(),m=r.mission,integer=(v,max=100000)=>Number.isInteger(v)&&v>=0&&v<=max;
+export function validateRivalRecord(s){
+  if(usesRivalContinuation(s)&&s.campaign.missions[RIVAL_ID].rival.continuation?.initializedAt!==null){if(!validateRivalContinuation(s))return false;s=rivalHistoricalValidationState(s);}
+  const r=s?.campaign?.missions?.[RIVAL_ID];if(!object(r))return false;const template=createRivalRecord(),m=r.mission,integer=(v,max=100000)=>Number.isInteger(v)&&v>=0&&v<=max;
   if(!object(m)||m.id!==RIVAL_ID||m.name!=='The Names They Took'||m.stageCount!==14||!integer(m.stage,13)||typeof m.completed!=='boolean'||m.rewardPaid!==m.completed||!['locked','unstarted','active','completed'].includes(r.status)||m.completed!==(r.status==='completed')||r.sourceRequirementId!==template.sourceRequirementId||!integer(r.retryCount)||r.status==='active'&&!active(s)||active(s)&&!['active','completed'].includes(r.status))return false;
   if(r.status!=='locked'&&!s.campaign.missions[RESCUE].mission.completed)return false;
   for(const section of ['flags','timers','performance'])if(!object(r[section])||Object.keys(r[section]).length!==Object.keys(template[section]).length||Object.entries(template[section]).some(([key,v])=>typeof v==='boolean'?typeof r[section][key]!=='boolean':!Number.isFinite(r[section][key])||r[section][key]<0||r[section][key]>1e8))return false;

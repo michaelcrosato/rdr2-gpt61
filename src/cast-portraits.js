@@ -1,5 +1,6 @@
 import { RIVAL_CAST } from '../content/campaign/bellwether-works.js';
 import { rivalPortrait } from './rival-portraits.js';
+import { trainPortrait } from './train-portraits.js';
 // Hand-authored portrait silhouettes share the winter cast's costume colors.
 const CAST = [
   ['Tomas Reed', '#a68a6b', '#ada58a', '#675a45', '#7c7a5b', 'beard'],
@@ -19,6 +20,7 @@ const CAST = [
   ['Hob Jarrow', '#b99b7d', '#75624c', '#6d4350', '#765744', 'cobbler'],
 ];
 export function castPortrait(speaker, state) {
+  const clinic=trainPortrait(speaker,state);if(clinic)return clinic;
   const original=rivalPortrait(speaker,state);if(original)return original;
   const added = RIVAL_CAST.filter(a=>a.rig&&a.kind!=='horse').map(a=>[a.name,a.rig.skin,a.rig.hair,a.rig.coat,a.rig.hat,a.id==='calder'?'mustache':a.id==='levi'?'scar':'scarf']);
   const cast = [...CAST,...added].find(c => speaker.startsWith(c[0]));

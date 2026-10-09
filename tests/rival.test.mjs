@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
+import {createWeaponLoanFixture} from './helpers/train-weapon-loan-fixture.mjs';
+import {validateRivalContinuation} from '../src/rival-continuation.js';
+import {validateRivalWeaponLoans} from '../src/rival-weapon-loan.js';
+import {emitTrainShot,requestTrainReload,stepTrainReload} from '../src/train-combat.js';
 
 const project = process.env.DUST_MERCY_REPO_ROOT
   ? new URL(`file://${process.env.DUST_MERCY_REPO_ROOT.replace(/\/$/, '')}/`)
@@ -34,6 +38,12 @@ function durableMission(value) {
   delete result.mission.name; delete result.mission.objective;
   return result;
 }
+function priorRivalHistory(value){
+  const result=clone(value);
+  assert.equal(result.continuationVersion,1);
+  assert.deepEqual(result.continuation,{schema:1,initializedAt:null,baseline:null,requestSerial:0,requests:{},events:[]},'v5 adds only an explicitly empty continuation declaration');
+  delete result.continuationVersion;delete result.continuation;return result;
+}
 function assertMigratedRelationships(previous,current,description) {
   for(const [id,before]of Object.entries(previous.companions))assert.deepEqual(current.companions[id],before,`${description}: ${id} prior relationship unchanged`);
   for(const id of Object.keys(current.companions).filter(id=>!Object.hasOwn(previous.companions,id))){
@@ -43,7 +53,7 @@ function assertMigratedRelationships(previous,current,description) {
   }
 }
 function assertBodyMigration(previous, current, description) {
-  assert.equal(current.version, 4, `${description}: fourth-mission schema declared`);
+  assert.equal(current.version, 5, `${description}: current schema declared`);
   assert.equal(current.region, previous.region);
   assert.equal(current.campaign.activeMissionId, previous.campaign.activeMissionId);
   assert.deepEqual(current.party, previous.party, 'Mara/Copper authority stays intact');
@@ -149,7 +159,7 @@ function walk(state, target, input={}) {
 
 for (const provenance of manifest.fixtures) {
   const name = provenance.fixture.slice('journey-v3-'.length, -'.json.gz'.length);
-  test(`v4 validates and migrates untouched public v3 ${name} plus every historical/canonical body`, () => {
+  test(`v5 validates and migrates untouched public v3 ${name} plus every historical/canonical body`, () => {
     const previous=fixture(name), state=Journey.restoreCampaign(previous);
     assert.ok(state, 'the actual old public Save restores');
     assertFullMigration(previous, encode(state));
@@ -185,7 +195,7 @@ for (const name of ['departure','gideon-carried','copper-owned','complete','bind
     const previous=JSON.parse(fs.readFileSync(new URL(`opening-v1-${name}.json`,fixtureDir),'utf8'));
     assert.equal(previous.version,1);
     const state=Journey.restoreCampaign(previous);assert.ok(state,'genuine old public opening Save restores');
-    const current=encode(state);assert.equal(current.version,4);
+    const current=encode(state);assert.equal(current.version,5);
     const rival=current.campaign.missions[RIVAL];assert.equal(rival.status,'locked');assert.equal(rival.mission.stage,0);assert.equal(rival.mission.completed,false);
     assert.deepEqual(rival.transactions,{});assert.deepEqual(current.regions['bellwether-works'].residentIds,[]);
     for(const key of ['inventory','camp','companions','sideQuests','wanted','honor','stats','elapsed','day','time'])assert.deepEqual(current[key],previous[key],`v1 ${key} has no rival grant or clock tick`);
@@ -193,7 +203,7 @@ for (const name of ['departure','gideon-carried','copper-owned','complete','bind
     assert.equal(current.campaign.missions[OPENING].flags.rescuePriority,previous.flags.rescuePriority);
     assert.equal(current.entities['tomas-mount'].name,'Moth');assert.notEqual(current.entities['tomas-mount'].id,current.entities[current.party.mountId].id);
     assert.equal(current.weapons[RIVAL_CARBINE.id],undefined);assert.equal(current.entities.levi,undefined);
-    roundTrip(state,`v1 ${name} through fourth schema`);
+    roundTrip(state,`v1 ${name} through current schema`);
   });
 }
 for (const name of ['opening-departure','opening-carried','opening-complete','rescue-prepared','rescue-resting','rescue-carried','rescue-passenger','rescue-complete']) {
@@ -203,7 +213,7 @@ for (const name of ['opening-departure','opening-carried','opening-complete','re
     const state=Journey.restoreCampaign(original);assert.ok(state);
     const current=encode(state);
     function inspect(before,after) {
-      assert.equal(after.version,4);
+      assert.equal(after.version,5);
       for(const key of ['inventory','camp','sideQuests','wanted','honor','stats','elapsed','day','time'])assert.deepEqual(after[key],before[key],`${key} is not earned by migration`);
       assertMigratedRelationships(before,after,'v2 branch');
       for(const [id,weapon]of Object.entries(before.weapons))assert.deepEqual(after.weapons[id],weapon,`${id} old weapon/rounds/owner survives`);
@@ -215,7 +225,7 @@ for (const name of ['opening-departure','opening-carried','opening-complete','re
       for(const [id,body]of Object.entries(before.missionEntries||{}))inspect(body,after.missionEntries[id]);
       if(before.replayCanonical)inspect(before.replayCanonical,after.replayCanonical);
     }
-    inspect(original,current);roundTrip(state,`v2 ${name} through fourth schema`);
+    inspect(original,current);roundTrip(state,`v2 ${name} through current schema`);
   });
 }
 
@@ -572,13 +582,16 @@ function battle(state=ready(),first='player-first') {
       const candidates=[];
       for(const radius of [85,150,250,380])for(let angle=0;angle<Math.PI*2;angle+=Math.PI/8){
         const p={x:target.x+Math.cos(angle)*radius,y:target.y+Math.sin(angle)*radius,z:0};
+        p.z=(world.elevationZones||[]).find(zone=>p.x>zone.x+1e-7&&p.x<zone.x+zone.w-1e-7&&p.y>zone.y+1e-7&&p.y<zone.y+zone.h-1e-7)?.z||0;
         if(!solid(world,p.x,p.y)&&shotClear(world,p,aim,state,target.id))candidates.push(p);
       }
       assert.ok(candidates.length,`${target.id} has at least one actual shot angle around authored cover`);
       const destination=candidates.sort((a,b)=>distance(state.player,a)-distance(state.player,b))[0];
       routedWalk(state,destination,{crouch:false,sprint:true,focus:state.player.focus>40});
     }
-    if(!resolved(target))shot(state,target);
+    // Candidate planning must use the real terrain height and recheck the
+    // observed firing position after movement, especially beside ridge mounts.
+    if(!resolved(target)&&shotClear(world,state.player,{x:target.x,y:target.y,z:(target.z||0)+44},state,target.id))shot(state,target);
   }
   assert.equal(state.mission.stage,6,'real finite defenders resolve the first battle');
   assert.ok(population.every(resolved));
@@ -1115,6 +1128,48 @@ test('earned first projectile permits the timed optional disarm and one acquired
   assert.equal(Object.keys(state.weapons).filter(id=>id===gunId).length,0,'return does not retain a duplicate registry copy');
 });
 
+test('actual Hunt-first Rival route can finish with its earned claimed engraved gun and disarmed Bastian intact',()=>{
+  const state=ready(recon(ridge(equipment(accepted(Journey.restoreCampaign(fixture('hunt-complete'))))))),r=record(state),gunId=RIVAL_ENCOUNTER_WEAPON.id;
+  interact(state,'choose-first');choose(state,'player-first');Journey.shootCampaign(state,state.player.x,state.player.y+900,{z:120});assert.ok(r.rival.yardOpening.firedAt!==null);
+  // Explicit contact-proximity fixture only, after the real opening projectile.
+  // No stage, HP, inventory, grant, life, custody phase or outcome is assigned.
+  const thief=state.entities['bellwether-revolver-thief'],bastian=state.entities.bastian;
+  Object.assign(bastian,{x:1160,y:1440,z:0});delete bastian.goal;bastian.route=[];
+  Object.assign(thief,{x:1182,y:1440,z:0});thief.route=[];delete thief.routeTarget;
+  Object.assign(state.player,{x:1182,y:1464,z:0,mounted:false});tick(state,.05);
+  interact(state,'weapon:disarm-grappler');until(state,()=>r.rival.weaponCustody.disarmedAt!==null,3,'actual optional disarm before claimed gun route');
+  until(state,()=>!!state.weapons[gunId],6,'actual grapple drops the only engraved gun');interact(state,'weapon:collect-engraved');interact(state,'weapon:keep-engraved');
+  assert.equal(r.rival.weaponCustody.choice,'claimed');assert.equal(state.weapons[gunId].owner,'mara');assert.equal(bastian.weapon,null);assert.equal(bastian.gunDisarmed,true);
+  battle(state);reinforcements(state);searches(state);chase(state);capture(state);transport(state);questioning(state);completed(state);
+  const restored=roundTrip(state,'earned Hunt-first completed Rival with claimed engraved gun');assert.equal(record(restored).rival.weaponCustody.choice,'claimed');assert.equal(restored.entities.bastian.gunDisarmed,true);assert.equal(restored.entities.bastian.weapon,null);
+  assert.equal(restored.weapons[gunId].owner,'mara');assert.equal(restored.campaign.missions[HUNT].mission.completed,true);
+  if(process.env.DUST_MERCY_TRAIN_CLAIM_FIXTURE)fs.writeFileSync(process.env.DUST_MERCY_TRAIN_CLAIM_FIXTURE,Journey.serializeCampaign(restored));
+  // Explicitly limited EMPTY Train component dispatch/hand-pose boundary, not
+  // a playable Train start or full Train Save. The prior claim/three guns were
+  // earned above; no ammunition, HP, stage, reward or outcome is assigned here.
+  for(const weaponId of ['mara-revolver','coach-gun',RIVAL_CARBINE.id]){
+    const f=createWeaponLoanFixture(restored,weaponId),gun=f.s.weapons[weaponId],before=gun.ammo+gun.reserve,oldPerformance=clone(record(f.s).performance),oldTrust=clone(f.s.companions.bastian),selected=f.s.entities.mara.equippedWeaponId;
+    // Negative selection fixture only: refusal cannot silently switch Mara's
+    // primary or transfer the selected gun. Restore before the positive route.
+    f.s.entities.mara.equippedWeaponId=weaponId;assert.equal(f.request('lend-weapon'),null);assert.equal(f.s.entities.mara.equippedWeaponId,weaponId);assert.equal(gun.owner,'mara');f.s.entities.mara.equippedWeaponId=selected;
+    assert.equal(f.request('lend-weapon').requiredSeconds,1);for(let i=0;i<12&&Object.keys(record(f.s).rival.continuation.requests).length;i++)f.tick(.1);
+    assert.equal(gun.owner,'bastian');assert.equal(gun.ammo+gun.reserve,before);assert.equal(f.s.entities.mara.equippedWeaponId,selected);assert.equal(validateRivalContinuation(f.s),true);
+    assert.equal(f.request('lend-weapon'),null,'only one active original gun loan is allowed');
+    assert.equal(f.s.entities.bastian.ammo,0);assert.equal(f.s.entities.bastian.reserve,0);assert.equal(f.s.entities.bastian.weapon.registryOwned,true);
+    // Only draw/holster input poses are staged at this component boundary.
+    const borrower=f.s.entities.bastian;borrower.holstered=false;
+    assert.ok(emitTrainShot(f.s,'bastian',{x:borrower.x+100,y:borrower.y,z:borrower.z+44},{faction:'ally'}));
+    assert.equal(gun.ammo+gun.reserve,before-1);assert.equal(f.s.bullets.at(-1).weaponId,weaponId);assert.equal(validateRivalContinuation(f.s),true);
+    if(gun.reserve>0&&gun.ammo<gun.capacity){assert.equal(requestTrainReload(f.s,'bastian'),true);for(let i=0;i<30&&borrower.reloadTimer>0;i++){f.tick(.1);stepTrainReload(f.s,'bastian',.1);}assert.equal(borrower.reloadTimer,0);assert.equal(gun.ammo+gun.reserve,before-1);}
+    borrower.holstered=true;f.complete(f.request('return-weapon'));assert.equal(gun.owner,'mara');assert.equal(gun.ammo+gun.reserve,before-1);assert.equal(borrower.weapon,null);assert.equal(borrower.gunDisarmed,true);
+    f.complete(f.request('lend-weapon'));assert.equal(gun.owner,'bastian');assert.equal(gun.ammo+gun.reserve,before-1);f.complete(f.request('return-weapon'));assert.equal(gun.owner,'mara');assert.equal(gun.ammo+gun.reserve,before-1,'a real second loan cycle never refills the gun');
+    const oldLoanEvents=record(f.s).rival.continuation.events.length;f.settings.throwPhysical=true;f.complete(f.request('lend-weapon'),{success:false});
+    assert.equal(gun.owner,'mara');assert.equal(gun.ammo+gun.reserve,before-1);assert.equal(borrower.weapon,null);assert.equal(borrower.gunDisarmed,true);assert.equal(record(f.s).rival.continuation.events.length,oldLoanEvents,'a failed owning physical result rolls the canonical weapon handoff back');
+    assert.equal(validateRivalContinuation(f.s),true);assert.deepEqual(record(f.s).performance,oldPerformance);assert.deepEqual(f.s.companions.bastian,oldTrust,'later temporary loan preserves the earlier engraved claim cost');
+    const bad=JSON.parse(JSON.stringify(f.s));bad.campaign.missions[RIVAL].rival.continuation.events.find(event=>event.kind==='return-weapon').weaponChange.stock.reserve++;assert.equal(validateRivalWeaponLoans(bad,bad.campaign.missions[RIVAL].rival.continuation.events),false,'a forged return cannot invent remaining ammunition');
+  }
+});
+
 test('an untouched completed-Hunt ration heals during active Rival with its original once-only custody and a lawful full Save',()=>{
   const original=fixture('hunt-complete');assert.equal(original.inventory.quietRation,1);
   assert.equal(original.campaign.missions[HUNT].flags.rationUsed,false);
@@ -1326,7 +1381,7 @@ for(const provenance of oldSearchManifest.fixtures)test(`untouched original ${pr
   assert.equal(original.version,4);assert.equal(original.campaign.missions[RIVAL].rival.contractVersion,undefined);
   function noInventedWork(before,after){
     const old=before.campaign.missions[RIVAL],current=after.campaign.missions[RIVAL];
-    assert.deepEqual(current.rival,old.rival,'all prior operation history remains unchanged');
+    assert.deepEqual(priorRivalHistory(current.rival),old.rival,'all prior operation history remains unchanged');
     assert.deepEqual(current.objects,old.objects,'actual previous tin, paper, charge and personal-object custody remains unchanged');
     assert.deepEqual(current.transactions,old.transactions,'no contact receipt is inferred from already-held equipment');
     for(const [id,c]of Object.entries(before.checkpoints||{}))noInventedWork(c.data,after.checkpoints[id].data);
@@ -1616,7 +1671,7 @@ for(const order of['rival-first','hunt-first'])test(`convoy challenge names real
 
 test('unchanged native earned contract-2 pre-narrative Save keeps all past history without inventing missing conversations',()=>{
  const provenance=JSON.parse(fs.readFileSync(new URL('rival-narrative-provenance.json',fixtureDir),'utf8')),bytes=gunzipSync(fs.readFileSync(new URL(provenance.fixture,fixtureDir)));assert.equal(createHash('sha256').update(bytes).digest('hex'),provenance.sha256OfUncompressedOriginalBytes);
- const original=JSON.parse(bytes),state=Journey.restoreCampaign(original);assert.ok(state);assert.equal(original.campaign.missions[RIVAL].rival.contractVersion,2);assert.equal(original.campaign.missions[RIVAL].rival.narrative,undefined);assert.deepEqual(record(state).rival,original.campaign.missions[RIVAL].rival);roundTrip(state,'native pre-narrative completed operation with no inferred past conversations');
+ const original=JSON.parse(bytes),state=Journey.restoreCampaign(original);assert.ok(state);assert.equal(original.campaign.missions[RIVAL].rival.contractVersion,2);assert.equal(original.campaign.missions[RIVAL].rival.narrative,undefined);assert.deepEqual(priorRivalHistory(record(state).rival),original.campaign.missions[RIVAL].rival);roundTrip(state,'native pre-narrative completed operation with no inferred past conversations');
 });
 
 

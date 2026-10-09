@@ -62,7 +62,7 @@ function noHuntGift(body, previous) {
   }
 }
 function assertMigratedBody(previous, current) {
-  assert.equal(current.version, 4);
+  assert.equal(current.version, 5);
   assert.equal(current.region, previous.region);
   assert.equal(current.campaign.activeMissionId, previous.campaign.activeMissionId);
   assert.deepEqual(current.party, previous.party);
@@ -199,7 +199,7 @@ function equipment(state=acceptTable()) {
 }
 
 for (const name of ['opening-departure', 'opening-carried', 'opening-complete', 'rescue-prepared', 'rescue-resting', 'rescue-carried', 'rescue-passenger', 'rescue-complete']) {
-  test(`version 4 migrates the unmodified public version-2 ${name} Save and every historical graph`, () => {
+  test(`version 5 migrates the unmodified public version-2 ${name} Save and every historical graph`, () => {
     const old = fixture(name);
     const state = Journey.restoreCampaign(old);
     assert.ok(state, 'the authentic older public Save restores');

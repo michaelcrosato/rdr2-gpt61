@@ -1,0 +1,19 @@
+{
+  "kind": "unchanged-earned-native-v4-rival-first-borrowed-paper-and-hunt-prerequisites",
+  "recordedDate": "2026-10-09",
+  "fixture": "train-briefing-borrowed-prerequisites-v4-native.json.gz",
+  "sha256OfUncompressedOriginalBytes": "56c811fae1aa814f24ed692dda4ffc04dff9c44d834dd0220c5096bce80f5a73",
+  "uncompressedBytes": 3554984,
+  "frozenRuntimeCommit": "873949c163a7cdfe19b2b913728d4ce9432c3e50",
+  "frozenRuntimeSHA256": {
+    "src/campaign-journey.js": "00597e34db861b6643e730dfebc68550e6235b34b0181285759dc70a1a66c7f6",
+    "src/rescue-mission.js": "36d805bd2dc47b1ef652f478a9446e6013e075313fa10b80206922af93ee705c",
+    "src/hunt-mission.js": "fba229353e84a69765355277f07ebe20bee4a14f6f49e7efd80b76470e60e90d",
+    "src/rival-mission.js": "8b87819e6a96133d51bc5092b8ea92f082438bd2646ce8041c4e6b9d337ed347",
+    "src/rival-aftermath.js": "f229bd97eda80b8ff1370d3285c97d1f7aa61eb7e41fc3d90e371a089816703a",
+    "src/rival-questioning.js": "8e001a313cd7673ea35df2d6f444dc161ae005e11237c6bbf65a6e3584b055d6"
+  },
+  "generationArtifact": "/tmp/dust-mercy-rescue-zero-hours-legacy-20261009/actual-v4-borrowed-both-stories.json",
+  "generationLog": "/tmp/dust-mercy-rescue-zero-hours-legacy-20261009/borrowed-generation.log",
+  "scope": "Frozen merged v4 native continuation from genuine unchanged public Rescue-complete input. Full actual Rival route, both real holding visits/borrow/read/compare, then full actual sibling Hunt. Existing labelled initial camp proximity fixtures only. No stage, HP, kill, inventory, grant, borrowing or completion assignments. Both original papers actually remain with Mara. Original Save bytes gzip-preserved without normalization. Native-prefix evidence, not a connected fresh public run, train completion or source acceptance."
+}

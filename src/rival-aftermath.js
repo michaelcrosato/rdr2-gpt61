@@ -1,6 +1,7 @@
 /** Persistent original holding-room visits. Source camp-window acceptance is open. */
 import {RIVAL_ID,RIVAL_WORLD as W} from '../content/campaign/bellwether-works.js';
 import {initialQuestioningCare} from './rival-questioning.js';
+import {usesRivalContinuation,validateRivalContinuation,rivalHistoricalValidationState} from './rival-continuation.js';
 const HUNT='snowbound-a-quiet-table',TRAIN='campaign-who-the-hell-is-leviticus-cornwall';
 const record=s=>s?.campaign?.missions?.[RIVAL_ID],holding=s=>record(s)?.aftermath?.holding;
 const object=v=>!!v&&typeof v==='object'&&!Array.isArray(v),finite=Number.isFinite;
@@ -140,6 +141,7 @@ export function validateHoldingDialog(s){
   return !!gate&&d.speaker===speaker&&d.text===texts[id]&&exact(d.choices,choices);
 }
 export function validateHolding(s){
+  if(usesRivalContinuation(s)&&record(s).rival.continuation?.initializedAt!==null){if(!validateRivalContinuation(s))return false;s=rivalHistoricalValidationState(s);}
   const r=record(s),h=holding(s);if(!r)return true;
   if(!h)return !finalized(s)&&!['holdingHours','withholdingHours','hunger','restraint','care'].some(key=>Object.hasOwn(r.captivity||{},key));
   if(!finalized(s)||h.schema!==1||!finite(h.initializedAt)||!finite(h.lastAdvancedAt)||h.initializedAt<0||h.lastAdvancedAt<h.initializedAt||h.lastAdvancedAt>s.elapsed||!finite(h.initialTrust))return false;
