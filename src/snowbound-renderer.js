@@ -4,6 +4,8 @@ import { createWesternAnimator, contactHand, jointScreen, savePose, smooth, solv
 import { createExpeditionActors, isRescuePresentation } from './expedition-actors.js';
 import { createExpeditionHuman, drawExpeditionOutfit, EXPEDITION_CAST_IDS } from './expedition-cast.js';
 import { drawExpeditionCamp } from './expedition-camp.js';
+import { createRivalCampPresentation } from './bellwether-renderer.js';
+import { ownsRivalActor, isRivalPresentation } from './rival-actors.js';
 import { createWillowCampPresentation } from './willow-run-renderer.js';
 import { ownsWillowActor, isHuntPresentation } from './willow-run-actors.js';
 
@@ -543,15 +545,17 @@ export function createSnowboundRenderer(game) {
   const animation = createWesternAnimator(E);
   const expedition = createExpeditionActors(E, game);
   const willow = createWillowCampPresentation(game);
-  let expeditionViewState = null, expeditionViewSource = null;
+  const rival = createRivalCampPresentation(game);
+  let expeditionViewState = null, expeditionViewSource = null,willowViewState=null,willowViewSource=null;
+  function willowView(state){if(!isRivalPresentation(state))return state;if(willowViewSource!==state){willowViewSource=state;willowViewState=Object.create(state);}willowViewState.entities=Object.fromEntries(Object.entries(state.entities).filter(([,body])=>!ownsRivalActor(state,body)));return willowViewState;}
   function expeditionView(state) {
-    if (!state.entities?.orla) return state;
+    if (!state.entities?.orla && !state.entities?.ruth) return state;
     if (expeditionViewSource !== state) { expeditionViewSource = state; expeditionViewState = Object.create(state); }
-    expeditionViewState.entities = Object.fromEntries(Object.entries(state.entities).filter(([, body]) => !ownsWillowActor(state, body)));
+    expeditionViewState.entities = Object.fromEntries(Object.entries(state.entities).filter(([, body]) => !ownsWillowActor(state, body) && !ownsRivalActor(state, body)));
     return expeditionViewState;
   }
   let contacts = [];
-  let clock = 0, pressureTime = null, rescuePresentation = false, huntPresentation = false;
+  let clock = 0, pressureTime = null, rescuePresentation = false, huntPresentation = false,rivalPresentation=false;
   const humanFor = (id, hostile = false) => { if (!humans.has(id)) humans.set(id, EXPEDITION_CAST_IDS.has(id) ? createExpeditionHuman(E,id) : makeHuman(id, hostile)); return humans.get(id); };
   const horseFor = (id) => { if (!horses.has(id)) horses.set(id, new SnowHorseRig(id)); return horses.get(id); };
   function motion(id, body, dt) {
@@ -562,10 +566,11 @@ export function createSnowboundRenderer(game) {
   function update(dt, state) {
     const rescue = isRescuePresentation(state), stream = getCampaignPresentation(state);
     rescuePresentation = rescue;
-    huntPresentation = isHuntPresentation(state);
-    animation.update(dt, state, rescue || isHuntPresentation(state) ? { ...stream, events: [] } : stream, game.reduceMotion);
+    huntPresentation = isHuntPresentation(state);rivalPresentation=isRivalPresentation(state);
+    animation.update(dt, state, rescue || isHuntPresentation(state) || isRivalPresentation(state) ? { ...stream, events: [] } : stream, game.reduceMotion);
     if (rescue) expedition.update(dt,expeditionView(state));
-    if (state.entities?.orla) willow.update(dt,state);
+    if (state.entities?.orla) willow.update(dt,willowView(state));
+      if (state.entities?.ruth) rival.update(dt,state);
     if (!game.reduceMotion) clock += dt;
     pressureTime = state.worldChanges?.pressureReleased ? (pressureTime ?? 0) + dt : null;
     const p = state.player;
@@ -661,6 +666,7 @@ export function createSnowboundRenderer(game) {
   }
 
   function drawHuman(r, body, id, state, horizon) {
+    if (ownsRivalActor(state, body)) return;
     if (state.entities?.orla && ownsWillowActor(state, body)) return;
     if (isRescuePresentation(state) && (id === 'mara' || id === 'inez' || EXPEDITION_CAST_IDS.has(id))) return;
     if (body.hidden || body.departed || body.escaped || body.carried || state.player?.carrying === id || id === 'gideon' && animation.carry(state)) return;
@@ -789,6 +795,7 @@ export function createSnowboundRenderer(game) {
       else { P.disc(ctx, x, y - 2, 6, '#9c8860'); P.disc(ctx, x, y - 2, 4, '#d2bd82'); P.line(ctx, x - 2, y - 3, x + 2, y - 3, '#716d48', 1); P.line(ctx, x, y - 3, x, y + 1, '#716d48', 1); }
     });
     for (const animal of state.animals || []) {
+      if (ownsRivalActor(state, animal)) continue;
       if (state.entities?.orla && ownsWillowActor(state, animal)) continue;
       if (isRescuePresentation(state)) continue;
       if (animal.id === state.horse?.id || animal.hidden || !r.visible(animal.x, animal.y, 0, 90, 140, 70) || r.w(animal.x, animal.y, 0)[1] < horizon) continue;
@@ -802,6 +809,7 @@ export function createSnowboundRenderer(game) {
       });
     }
     for (const mount of state.mounts || []) {
+      if (ownsRivalActor(state, mount)) continue;
       if (state.entities?.orla && ownsWillowActor(state, mount)) continue;
       if (isRescuePresentation(state)) continue;
       if (mount.hidden || r.w(mount.x, mount.y, 0)[1] < horizon) continue;
@@ -810,13 +818,14 @@ export function createSnowboundRenderer(game) {
     }
     for (const actor of [...(state.npcs || []), ...(state.enemies || [])]) drawHuman(r, actor, actor.id, state, horizon);
     const p = state.player, horse = p?.mounted ? p : state.horse;
-    if (!isRescuePresentation(state) && !isHuntPresentation(state) && horse && r.w(horse.x, horse.y, 0)[1] >= horizon) {
+    if (!isRescuePresentation(state) && !isHuntPresentation(state) && !isRivalPresentation(state) && horse && r.w(horse.x, horse.y, 0)[1] >= horizon) {
       r.shadow(horse.x, horse.y, 23, .22, '#58746b');
       r.actor(horse.x, horse.y, 0, (ctx, x, y) => horseFor(state.horse?.id || 'juniper').draw(ctx, x, y, 1.17, { ...horse, hp: state.horse?.hp ?? 100 }), { outline: false, margin: 110 });
     }
     if (p) drawHuman(r, p, 'mara', state, horizon);
     if (isRescuePresentation(state)) expedition.draw(r,expeditionView(state));
-    if (state.entities?.orla) willow.draw(r,state);
+    if (state.entities?.orla) willow.draw(r,willowView(state));
+    if (state.entities?.ruth) rival.draw(r,state);
     for (const shot of state.bullets || []) {
       const a = r.w(shot.x, shot.y, shot.z ?? 25), b = r.w(shot.x - shot.vx * .019, shot.y - shot.vy * .019, shot.z ?? 25);
       r.queue(shot.x, shot.y, 25, ctx => { P.line(ctx, ...a, ...b, shot.faction === 'player' ? '#ead9ad' : '#d9a673', 2); P.dot(ctx, ...a, '#f1e5c6'); });
@@ -844,5 +853,5 @@ export function createSnowboundRenderer(game) {
       if (p?.focusActive) P.blend(ctx, .07, 'normal', () => P.rect(ctx, 0, 0, r.bw, r.bh, '#d4b47b'));
     });
   }
-  return { update, draw, inspectAnimation: () => huntPresentation ? willow.inspect() : rescuePresentation ? expedition.inspect() : ({ contacts: contacts.map(c => ({ ...c })), mara: animation.clip('mara'), pavel: animation.clip('pavel') }), inspectHuntAnimation: () => willow.inspect() };
+  return { update, draw, inspectAnimation: () => rivalPresentation?rival.inspect():huntPresentation ? willow.inspect() : rescuePresentation ? expedition.inspect() : ({ contacts: contacts.map(c => ({ ...c })), mara: animation.clip('mara'), pavel: animation.clip('pavel') }), inspectHuntAnimation: () => willow.inspect(),inspectRivalAnimation:()=>rival.inspect() };
 }

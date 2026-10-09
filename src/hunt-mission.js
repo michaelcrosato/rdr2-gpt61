@@ -3,6 +3,7 @@
  */
 import { WILLOW_RUN_WORLD as WORLD, HUNT_CAST, HUNT_ANIMALS, HUNT_STAGES, HUNT_ITEMS, HUNT_BOW, HUNT_DIALOGUE, huntAnimalHitZones, huntBowHeading, huntBowGiftStance } from '../content/campaign/willow-run.js';
 import { SNOWBOUND_WORLD } from '../content/campaign/snowbound.js';
+import { RIVAL_WORLD } from '../content/campaign/bellwether-works.js';
 import { NORTH_CUTTING_WORLD } from '../content/campaign/north-cutting.js';
 export { WILLOW_RUN_WORLD, WILLOW_WORLD, HUNT_ITEMS } from '../content/campaign/willow-run.js';
 export const HUNT_ID = 'snowbound-a-quiet-table';
@@ -318,7 +319,7 @@ export function chooseHunt(s,id,ctx) {
   else if(id==='accept-hunt'&&d.id==='hunt-juno-invitation') {
     if(!r.flags.orlaMet||!r.flags.mossHeard||!r.flags.veraHeard||!r.flags.junoMet)return s;
     s.dialog=null;if(!active(s)&&!ctx.startMission(s,HUNT_ID))return s;
-    summon(s,ctx,'juno',{x:210,y:1298,z:0});ctx.checkpoint(s,'kitchen-route-prelude','Expedition prelude; no equipment or food granted');ctx.notice(s,'Meet Juno at the flour map through the drying shed’s east doorway. Gifts wait until the route is confirmed.');
+    summon(s,ctx,'juno',{x:210,y:1298,z:0});if(s.entities.hob&&!s.entities.hob.attachment)summon(s,ctx,'hob',HUNT_CAST.find(a=>a.id==='hob'));ctx.checkpoint(s,'kitchen-route-prelude','Expedition prelude; no equipment or food granted');ctx.notice(s,'Meet Juno at the flour map through the drying shed’s east doorway. Gifts wait until the route is confirmed.');
   } else if(['retain-hide','donate-hide'].includes(id)&&d.id==='hunt-yield-account') {
     const h=ownedHide(s,ctx);if(!h||h.location.type!=='drying-rack'||!near(s.player,body(s,ctx,'della'),75))return s;
     const choice=id==='donate-hide'?'donate':'retain';
@@ -327,7 +328,7 @@ export function chooseHunt(s,id,ctx) {
   }
   objective(s);return s;
 }
-function geometry(s){return s.region===WORLD.id?WORLD:{...SNOWBOUND_WORLD,obstacles:[...SNOWBOUND_WORLD.obstacles,...NORTH_CUTTING_WORLD.camp.obstacles,...WORLD.camp.obstacles]};}
+function geometry(s){return s.region===WORLD.id?WORLD:{...SNOWBOUND_WORLD,obstacles:[...SNOWBOUND_WORLD.obstacles,...NORTH_CUTTING_WORLD.camp.obstacles,...WORLD.camp.obstacles,...(s.campaign.missions['snowbound-the-names-they-took']?.status!=='locked'&&s.campaign.missions['snowbound-the-names-they-took']?RIVAL_WORLD.camp.obstacles:[])]};}
 function blocked(s,x,y,radius=9){const w=geometry(s);return x<radius||y<radius||x>w.width-radius||y>w.height-radius||w.obstacles.some(o=>ins({x,y},o,radius));}
 function move(s,a,dx,dy,radius=9){const old=point(a);if(!blocked(s,a.x+dx,a.y,radius))a.x+=dx;if(!blocked(s,a.x,a.y+dy,radius))a.y+=dy;return dist(old,a);}
 function lineClear(s,a,b,radius=7,projectile=false){
@@ -642,6 +643,7 @@ function junoStep(s,dt,ctx){
 function campStep(s,dt,ctx){
   if(s.region!=='snowbound')return;const r=rec(s),f=r.flags;
   if(f.hobSpoke&&!f.hobLeft){const h=s.entities.hob,target=WORLD.camp.hobDepartureRoute[f.hobRouteIndex];if(target){follow(s,h,target,78,dt,3);if(near(h,target,7)){f.hobRouteIndex++;h.route=[];}}else{f.hobLeft=true;emit(s,ctx,'leave-kitchen',h,h.id,h,'hob');}}
+  const hob=s.entities.hob;if(!f.hobSpoke&&hob.goal){follow(s,hob,hob.goal,78,dt,3);if(near(hob,hob.goal,8))delete hob.goal;}
   const orla=s.entities.orla;if(orla.goal){follow(s,orla,orla.goal,65,dt,3);if(near(orla,orla.goal,3.1))delete orla.goal;}
   if(r.mission.stage===8&&f.deliveredPlayer&&f.deliveredJuno&&f.hobLeft&&f.junoResting)advance(s,ctx,9,'both-bodies-delivered','Separate physical deliveries; Hob left and Juno rested');
 }
@@ -777,7 +779,7 @@ function validHuntDialog(s,r){
     return !!s.failure&&d.speaker==='A Quiet Table · Checkpoint'&&Array.isArray(d.choices)&&d.choices.length===expected.length&&d.choices.every((c,i)=>c.id===expected[i]);
   }
   if(typeof d.id!=='string')return false;
-  if(!d.id.startsWith('hunt'))return !active(s)||d.id.startsWith('rescue');
+  if(!d.id.startsWith('hunt'))return !active(s)||d.id.startsWith('rescue')||d.id.startsWith('rival-');
   if(!object(d)||!Array.isArray(d.choices)||d.choices.length>5)return false;
   const f=r.flags,stage=r.mission.stage,scenes={
     'hunt-orla':[f.orlaMet,['ask-pantry','ask-hunters','leave']],

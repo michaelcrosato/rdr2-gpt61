@@ -1,6 +1,7 @@
 /** A Voice Under Ice: original physical rescue. The journey owns registry, codec and replay. */
 import { NORTH_CUTTING_WORLD as WORLD, RESCUE_CAST, RESCUE_STAGES, RESCUE_ITEMS } from '../content/campaign/north-cutting.js';
 import { SNOWBOUND_WORLD } from '../content/campaign/snowbound.js';
+import { RIVAL_WORLD } from '../content/campaign/bellwether-works.js';
 import { WILLOW_RUN_WORLD } from '../content/campaign/willow-run.js';
 export { NORTH_CUTTING_WORLD, NORTH_WORLD, RESCUE_ITEMS } from '../content/campaign/north-cutting.js';
 export const RESCUE_ID = 'snowbound-a-voice-under-ice';
@@ -422,7 +423,7 @@ function finish(s, ctx) {
   ctx.notice(s, 'Silas is safely home. The loaned coach gun is yours; unused rescue supplies returned once.');
 }
 const inside = (a, r, radius = 0) => a.x > r.x - radius && a.x < r.x + r.w + radius && a.y > r.y - radius && a.y < r.y + r.h + radius;
-function geometry(s) { return s.region === WORLD.id ? WORLD : { ...SNOWBOUND_WORLD, obstacles: [...SNOWBOUND_WORLD.obstacles, ...WORLD.camp.obstacles, ...(s.campaign.missions['snowbound-a-quiet-table'] && s.campaign.missions['snowbound-a-quiet-table'].status !== 'locked' ? WILLOW_RUN_WORLD.camp.obstacles : [])] }; }
+function geometry(s) { return s.region === WORLD.id ? WORLD : { ...SNOWBOUND_WORLD, obstacles: [...SNOWBOUND_WORLD.obstacles, ...WORLD.camp.obstacles, ...(s.campaign.missions['snowbound-a-quiet-table'] && s.campaign.missions['snowbound-a-quiet-table'].status !== 'locked' ? WILLOW_RUN_WORLD.camp.obstacles : []), ...(s.campaign.missions['snowbound-the-names-they-took'] && s.campaign.missions['snowbound-the-names-they-took'].status !== 'locked' ? RIVAL_WORLD.camp.obstacles : [])] }; }
 function blocked(s, x, y, height = 0, radius = 9, crouch = false) {
   const w = geometry(s), p = { x, y };
   if (x < radius || y < radius || x > w.width - radius || y > w.height - radius) return true;
@@ -988,6 +989,7 @@ function validRescueDialog(s) {
   // Completed rescue still owns the camp clock during the hunt's prelude.
   // The authored Hunt scene is validated by its own strict mission validator.
   if (r.mission.completed && d.id?.startsWith('hunt') && ['unstarted', 'active'].includes(s.campaign.missions['snowbound-a-quiet-table']?.status)) return true;
+  if (r.mission.completed && d.id?.startsWith('rival-') && ['unstarted', 'active', 'completed'].includes(s.campaign.missions['snowbound-the-names-they-took']?.status)) return true;
   if (!active(s) && !d.id?.startsWith('rescue')) return true;
   if (!Array.isArray(d.choices) || typeof d.id !== 'string') return false;
   const ids = d.choices.map(c => c.id), exact = expected => ids.length === expected.length && ids.every((id, n) => id === expected[n]);

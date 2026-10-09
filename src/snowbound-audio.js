@@ -5,6 +5,10 @@ import { WILLOW_RUN_WORLD } from '../content/campaign/willow-run.js';
 // Original motifs and environmental synthesis use the supplied engine's audio
 // bus, so mute/volume and its browser gesture handling apply to every voice.
 const SCORES = {
+  quarryWatch: {bpm:52,steps:2,tracks:[{wave:'triangle',vol:.055,notes:'A2 - E3 . C4 - . B3 | G3 . D4 . B3 - A3 . | F3 - C4 . A3 - . . | E3 . B3 . G3 - - .'}]},
+  quarryFight: {bpm:92,steps:2,tracks:[{wave:'triangle',vol:.07,notes:'E3 B3 E4 . G3 D4 B3 . | A3 E4 . C4 B3 . G3 . | F3 C4 F4 . A3 E4 C4 . | E3 B3 E4 . D4 B3 G3 .'},{wave:'sine',vol:.04,notes:'E2 . . E2 . . B2 . | A2 . . A2 . . E2 . | F2 . . F2 . . C2 . | E2 . . B2 . . E2 .'}]},
+  copyistFlight: {bpm:104,steps:2,tracks:[{wave:'triangle',vol:.065,notes:'G3 D4 Bb3 . G3 D4 F4 . | Eb3 Bb3 G3 . Eb4 D4 Bb3 . | C3 G3 Eb4 . C4 G3 D4 . | D3 A3 F4 . D4 A3 G3 .'}]},
+  quarryAccount: {bpm:56,steps:2,tracks:[{wave:'sine',vol:.06,notes:'F3 - A3 . C4 - A3 . | D3 . A3 - F3 . E3 . | Bb2 - F3 . A3 - . . | C3 . G3 - E3 . F3 -'}]},
   quietWay: { bpm: 64, steps: 2, tracks: [
     { wave: 'triangle', vol: .07, notes: 'G3 - . D4 . B3 . . | A3 - . C4 . G3 . . | E3 - G3 . B3 . . . | D3 . A3 . G3 - . .' },
     { wave: 'sine', vol: .03, notes: 'G2 - - - . . . . | F2 - - - . . . . | E2 - - - . . . . | D2 - - - . . . .' },
@@ -73,7 +77,8 @@ export function createSnowboundAudio(audio) {
     },
     update(dt, state, paused = false) {
       const expedition = state.mission.id === 'snowbound-a-voice-under-ice', hunt = state.mission.id === 'snowbound-a-quiet-table';
-      const next = state.failure ? 'cold' : hunt ? state.mission.completed || state.mission.stage >= 8 ? 'table' : state.mission.stage === 7 ? 'gorge' : state.mission.stage >= 3 ? 'quietHunt' : 'quietWay' : expedition ? state.mission.completed || state.mission.stage === 9 ? 'care' : state.mission.stage >= 7 ? 'pack' : state.mission.stage >= 5 ? 'ledges' : 'search' : state.mission.completed || state.mission.stage === 8 ? 'home' : state.mission.stage === 3 || state.mission.stage === 5 ? 'yard' : state.mission.stage === 7 ? 'rescue' : state.mission.stage >= 2 ? 'approach' : 'cold';
+      const rival = state.mission.id === 'snowbound-the-names-they-took';
+      const next = state.failure ? 'cold' : rival ? state.mission.completed || state.mission.stage >= 12 ? 'quarryAccount' : state.mission.stage >= 9 ? 'copyistFlight' : [5,6,7].includes(state.mission.stage) ? 'quarryFight' : 'quarryWatch' : hunt ? state.mission.completed || state.mission.stage >= 8 ? 'table' : state.mission.stage === 7 ? 'gorge' : state.mission.stage >= 3 ? 'quietHunt' : 'quietWay' : expedition ? state.mission.completed || state.mission.stage === 9 ? 'care' : state.mission.stage >= 7 ? 'pack' : state.mission.stage >= 5 ? 'ledges' : 'search' : state.mission.completed || state.mission.stage === 8 ? 'home' : state.mission.stage === 3 || state.mission.stage === 5 ? 'yard' : state.mission.stage === 7 ? 'rescue' : state.mission.stage >= 2 ? 'approach' : 'cold';
       if (next !== phase) { phase = next; audio.music(SCORES[phase]); }
       if (paused) return;
       const p = state.player, north = state.region === 'north-cutting', willow = state.region === 'willow-run';

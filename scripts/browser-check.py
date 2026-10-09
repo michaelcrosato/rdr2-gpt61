@@ -3,6 +3,8 @@
 Requires the machine-wide Python Playwright toolkit and a running npm run dev server.
 No game-state globals or injected saves are used to advance these flows.
 """
+
+from campaign_save import observed_save, wait_for_save_commit
 import asyncio
 import json
 import os
@@ -22,7 +24,7 @@ async def check(engine, name, mobile=False):
     page.on('console', lambda msg: errors.append(msg.text) if msg.type == 'error' else None)
     await page.goto(BASE_URL)
     await page.locator('#new-game').tap() if mobile else await page.locator('#new-game').click()
-    await page.wait_for_timeout(200)
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.locator('#mission-name').is_visible()
     assert await page.locator('#interaction-label').inner_text() == 'Speak with Ada Reed'
     await page.locator('#interact').click() if mobile else await page.keyboard.press('e')
@@ -32,8 +34,14 @@ async def check(engine, name, mobile=False):
     await page.locator('[data-choice="accept-water"]').click()
     await page.wait_for_function('!document.querySelector("#conversation").open')
     assert 'Silas Venn' in await page.locator('#objective-text').inner_text()
-    saved = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+    # Observe one explicit paused Save, rather than a progress autosave that
+    # another earned checkpoint may legitimately supersede on the next frame.
+    await page.locator('[data-panel="menu"]').click()
+    await page.locator('[data-command="save"]').click()
+    await wait_for_save_commit(page)
+    saved = await observed_save(page)
     assert saved['mission']['stage'] == 1
+    await page.locator('[data-command="resume"]').click()
     if mobile:
         stick = await page.locator('#joystick').bounding_box()
         x, y = stick['x'] + stick['width'] / 2, stick['y'] + stick['height'] / 2
@@ -56,15 +64,17 @@ async def check(engine, name, mobile=False):
     await page.locator('#close-panel').click()
     await page.locator('[data-panel="menu"]').click()
     await page.locator('[data-command="save"]').click()
-    after_move = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+    await wait_for_save_commit(page)
+    after_move = await observed_save(page)
     assert after_move['player']['x'] > saved['player']['x'] + 10, 'Movement must change saved world position'
     await page.locator('[data-command="resume"]').click()
     await page.reload()
     await page.locator('#continue-game').click()
+    await page.locator('#welcome').wait_for(state='hidden')
     assert 'Silas Venn' in await page.locator('#objective-text').inner_text()
     await page.locator('[data-panel="menu"]').click()
     await page.locator('[data-command="export"]').focus()
-    await page.wait_for_timeout(300)
+    await page.wait_for_function('document.querySelector(\'[data-command="export"]\')===document.activeElement')
     assert await page.locator('[data-command="export"]').evaluate('(el)=>el===document.activeElement')
     await page.locator('#close-panel').click()
     if not mobile:
@@ -107,6 +117,7 @@ async def check_controller(engine):
     await press(13)
     assert await page.locator('[data-command="new"]').evaluate('(e)=>e===document.activeElement'), 'Controller navigates the pre-start menu'
     await press(0)
+    await page.locator('#welcome').wait_for(state='hidden')
     assert await page.locator('#mission-name').is_visible()
     await page.evaluate('inputFixturePad.axes[0]=1')
     await page.wait_for_timeout(400)
@@ -123,7 +134,8 @@ async def check_controller(engine):
     await press(1)
     await press(8)
     await page.locator('[data-command="save"]').click()
-    saved = await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+    await wait_for_save_commit(page)
+    saved = await observed_save(page)
     assert saved['player']['x'] > 730
     assert saved['horse']['follow']
     assert not errors, errors

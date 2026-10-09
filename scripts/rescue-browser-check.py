@@ -5,6 +5,8 @@ state, engine errors and ordinary manual Saves; none writes runtime state. This
 checks presentation/reload, separately from the full normal-control playthrough.
 WebKit phone profiles approximate Safari's engine, not real iOS hardware.
 """
+
+from campaign_save import observed_save
 import argparse,asyncio,json,os
 from pathlib import Path
 os.environ.setdefault('PLAYWRIGHT_HOST_PLATFORM_OVERRIDE','ubuntu24.04-x64')
@@ -39,7 +41,7 @@ async def check(p,brow,name,w,h,mobile):
    result['cases'].append({'save':f,'screenshot':shot,'objective':await page.locator('#objective-text').inner_text(),'measurements':measurements})
   await page.locator('[data-panel="map"]').click();assert await page.locator('#panel-title').inner_text()=='North Cutting';await page.screenshot(path=str(OUT/f'{brow}-{name}-map.png'));await page.locator('#close-panel').click()
   await page.locator('[data-panel="satchel"]').click();assert await page.locator('#panel-body').get_by_text('Rescue rope and sling',exact=False).count()>0;await page.screenshot(path=str(OUT/f'{brow}-{name}-satchel.png'));await page.locator('#close-panel').click()
-  await page.locator('[data-panel="menu"]').click();await page.locator('#text-size').select_option('1.4');await page.locator('#reduce-motion').check();await page.locator('[data-command="save"]').click();raw=await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))');assert raw['version'] in (2,3) and raw['region']=='north-cutting';await page.locator('[data-command="resume"]').click()
+  await page.locator('[data-panel="menu"]').click();await page.locator('#text-size').select_option('1.4');await page.locator('#reduce-motion').check();await page.locator('[data-command="save"]').click();raw=await observed_save(page);assert raw['version'] in (2,3,4) and raw['region']=='north-cutting';await page.locator('[data-command="resume"]').click()
   await page.reload();await page.locator('#continue-game').click();await page.wait_for_timeout(100);assert await page.locator('#mission-name').inner_text()=='A Voice Under Ice';assert await page.locator('body').get_attribute('data-region')=='north-cutting';await page.screenshot(path=str(OUT/f'{brow}-{name}-reloaded.png'))
   completed=args.completed_save or SOURCE/'10-complete-state.json'
   if completed.exists():

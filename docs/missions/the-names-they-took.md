@@ -1,6 +1,6 @@
 # The Names They Took — original rival-operation specification
 
-Research and authoring date: 2026-10-08. Stable mission ID: `snowbound-the-names-they-took`. Source requirement: `campaign-old-friends`. Destination: I — Snowbound. **Status: original authoring only; unimplemented and unavailable.** No runtime, source acceptance, catalog closure or complete-game claim follows from this document. Fourteen scenes below are distinct causal sequences, not a fourteen-button mission.
+Research and authoring date: 2026-10-08. Stable mission ID: `snowbound-the-names-they-took`. Source requirement: `campaign-old-friends`. Destination: I — Snowbound. **Status: runtime integration and bounded verification in progress.** This specification remains the complete production contract. Unverified source variants, input, presentation, balance and later dependencies remain required; this document is not source acceptance or a complete-game claim. Fourteen scenes below are distinct causal sequences, not a fourteen-button mission.
 
 ## Research baseline and access limits
 

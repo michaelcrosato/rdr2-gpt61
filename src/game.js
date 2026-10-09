@@ -3,11 +3,15 @@ import { createWorldRenderer } from './world-renderer.js';
 import { createSnowboundRenderer } from './snowbound-renderer.js';
 import { createNorthCuttingRenderer } from './north-cutting-renderer.js';
 import { createWillowRunRenderer } from './willow-run-renderer.js';
+import { createBellwetherRenderer } from './bellwether-renderer.js';
 import { huntAnimalHitZones } from '../content/campaign/willow-run.js';
 import { resolvePointerAim, resolveHuntPointerAim } from './aiming.js';
 import { createSnowboundAudio } from './snowbound-audio.js';
 import { castPortrait } from './cast-portraits.js';
 import { rescueJournalDrawing } from './campaign-journal.js';
+import { QUARRY_POCKET_OBJECTS } from '../content/campaign/quarry-papers.js';
+import {saveSlotFor} from './save-slots.js';
+import {createSaveRepository} from './save-database.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
@@ -15,9 +19,7 @@ const escape = (value) => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;'
 const OPENING_ID = 'snowbound-the-last-warm-light';
 const RESCUE_ID = 'snowbound-a-voice-under-ice';
 const HUNT_ID = 'snowbound-a-quiet-table';
-const SAVE_KEY = 'dust-mercy.journey.v1';
-const CAMPAIGN_SAVE_KEY = 'dust-mercy.campaign.v1';
-const MERCY_SAVE_KEY = 'dust-mercy.mercy.v1';
+const RIVAL_ID = 'snowbound-the-names-they-took';
 const PREFERENCES_KEY = 'dust-mercy.preferences.v1';
 const requestedMode = new URLSearchParams(location.search).get('mode') === 'mercy' ? 'mercy' : 'campaign';
 const input = {
@@ -29,12 +31,14 @@ const input = {
   cancelDraw: ['KeyX'], holster: ['KeyQ', 'Pad3'], block: ['KeyF', 'Pad4'], shove: ['KeyV'], restrain: ['KeyB'],
 };
 const game = new E.Game({ canvas: 'screen', view: 'threequarter', views: ['threequarter'], minH: 400, minW: 360, maxW: 1600, maxH: 1200, input, bg: '#838849' });
+const normalView = E.VIEWS.threequarter;
+const sightglassView = new E.View('rival-sightglass','Quarry sightglass',normalView.yawDeg,normalView.pitchDeg,normalView.scale,normalView.zBoost);
 const snowboundAudio = createSnowboundAudio(game.audio);
 let state = Sim.createState(requestedMode), started = false, activePanel = '', previousDialog = null;
 const renderers = new Map();
 function rendererForState() {
   const id = Sim.isCampaign(state) ? state.region : 'mercy';
-  if (!renderers.has(id)) renderers.set(id, id === 'north-cutting' ? createNorthCuttingRenderer(game) : id === 'willow-run' ? createWillowRunRenderer(game) : id === 'snowbound' ? createSnowboundRenderer(game) : createWorldRenderer(game));
+  if (!renderers.has(id)) renderers.set(id, id === 'bellwether-works' ? createBellwetherRenderer(game) : id === 'north-cutting' ? createNorthCuttingRenderer(game) : id === 'willow-run' ? createWillowRunRenderer(game) : id === 'snowbound' ? createSnowboundRenderer(game) : createWorldRenderer(game));
   return renderers.get(id);
 }
 let world = rendererForState();
@@ -76,45 +80,51 @@ const music = { bpm: 68, steps: 2, tracks: [
 ] };
 document.body.classList.add('intro');
 
+const deviceSaves=createSaveRepository({restore:raw=>Sim.restore(raw),modeOf:value=>Sim.isCampaign(value)?'campaign':'mercy'});
+let saveRequest=0,startRequest=0,journeyGeneration=0,reviewDisposition=null;
 function savedJourney(mode = started ? Sim.isCampaign(state) ? 'campaign' : 'mercy' : requestedMode) {
-  try {
-    const specific = localStorage.getItem(mode === 'campaign' ? CAMPAIGN_SAVE_KEY : MERCY_SAVE_KEY);
-    const restoredSpecific = specific && Sim.restore(specific);
-    if (restoredSpecific) return restoredSpecific;
-    const raw = localStorage.getItem(SAVE_KEY);
-    const legacy = raw && Sim.restore(raw);
-    return legacy && (mode === 'campaign' || !Sim.isCampaign(legacy)) ? legacy : null;
-  } catch { return null; }
+  try{for(const raw of deviceSaves.candidates(mode)){const restored=Sim.restore(raw);if(restored&&(mode==='campaign'||!Sim.isCampaign(restored)))return restored;}}catch{}
+  return null;
 }
-$('continue-game').hidden = !savedJourney();
-
+async function loadSavedJourney(mode){
+  try{for(const raw of await deviceSaves.loadCandidates(mode)){const restored=Sim.restore(raw);if(restored&&(mode==='campaign'||!Sim.isCampaign(restored)))return restored;}}catch{announce('The saved journey could not be read. Your current journey can still be exported.');}
+  return null;
+}
+$('continue-game').hidden=true;
 function announce(text) {
   clearTimeout(statusTimer); $('save-status').textContent = text;
   statusTimer = setTimeout(() => { $('save-status').textContent = ''; }, 5000);
 }
 function saveJourney(manual = false) {
-  if (!started) return false;
-  try {
-    const serialized = Sim.serialize(state);
-    const previous = localStorage.getItem(SAVE_KEY), oldJourney = previous && Sim.restore(previous);
-    const oldSlot = Sim.isCampaign(oldJourney) ? CAMPAIGN_SAVE_KEY : MERCY_SAVE_KEY;
-    if (oldJourney && !localStorage.getItem(oldSlot)) localStorage.setItem(oldSlot, previous);
-    localStorage.setItem(Sim.isCampaign(state) ? CAMPAIGN_SAVE_KEY : MERCY_SAVE_KEY, serialized);
-    localStorage.setItem(SAVE_KEY, serialized);
-    announce(manual ? 'Journey saved on this device.' : 'Journey saved.');
+  if (!started||reviewDisposition&&!manual)return Promise.resolve(false);
+  const generation=journeyGeneration,review=reviewDisposition,request=++saveRequest,status=$('save-status');status.dataset.saveRequest=String(request);status.dataset.saveState='saving';
+  let serialized,slot;
+  try{serialized=Sim.serialize(state);slot=saveSlotFor(Sim.isCampaign(state)?'campaign':'mercy');}
+  catch{status.dataset.saveState='failed';announce('The journey could not be saved. Export it from the menu.');return Promise.resolve(false);}
+  announce(manual?'Saving journey…':'Saving…');
+  return deviceSaves.save(slot,serialized,{preservePrevious:!!review}).then(()=>{
+    if(reviewDisposition===review&&generation===journeyGeneration)reviewDisposition=null;
+    if(request===saveRequest&&generation===journeyGeneration){status.dataset.saveState='saved';status.dataset.saveCommit=String(request);announce(manual?'Journey saved on this device.':'Journey saved.');}
     return true;
-  } catch { announce('This browser cannot save locally. Export your journey in the menu.'); return false; }
+  },()=>{
+    if(request===saveRequest&&generation===journeyGeneration){status.dataset.saveState='failed';announce('This browser cannot save locally. Export your journey in the menu.');}
+    return false;
+  });
 }
-function startJourney(continueSaved = false, mode = requestedMode) {
-  let next = Sim.createState(mode);
-  if (continueSaved) {
-    const loaded = savedJourney(mode);
-    if (!loaded) { announce('No valid journey was found.'); return; }
-    next = loaded;
-  }
+async function startJourney(continueSaved = false, mode = requestedMode) {
+  game.audio.sfx('confirm',{vol:0});
+  const request=++startRequest;await deviceSaves.ready;
+  const next=continueSaved?await loadSavedJourney(mode):Sim.createState(mode);
+  if(request!==startRequest)return;
+  if(!next){announce('No valid journey was found.');return;}
   beginJourney(next);
 }
-function beginJourney(next) {
+function invalidateJourneyAcknowledgement(){
+  journeyGeneration++;
+  const status=$('save-status');clearTimeout(statusTimer);status.textContent=reviewDisposition?'Reviewing another journey. Save to make it current.':'';status.dataset.saveState=reviewDisposition?'preview':'unsaved';delete status.dataset.saveRequest;delete status.dataset.saveCommit;
+}
+function beginJourney(next,{review=null}={}) {
+  reviewDisposition=review;invalidateJourneyAcknowledgement();
   cancelBowInput(); state = next; huntPadCursor = null;
   world = rendererForState(); renderedRegion = state.region;
   pointerMode = false; padAim = null; setTouchCrouch(false); touchHeld.clear(); releaseStick();
@@ -131,12 +141,16 @@ function closePanel() {
   if (started) $('screen').focus({ preventScroll: true });
 }
 function openPanel(id) {
-  if (!started && id !== 'menu') return;
+  if (!started&&!['menu','recoveries'].includes(id))return;
   if (state.dialog) return;
   if (activePanel === id) { closePanel(); return; }
   cancelBowInput(); activePanel = id; game.input.clear(); touchHeld.clear(); touchMove = [0, 0];
   renderPanel(); if (!$('panel').open) $('panel').showModal();
 }
+function downloadJourneyBytes(raw){
+  const url=URL.createObjectURL(new Blob([raw],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='dust-and-mercy-journey.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);announce('Journey exported.');
+}
+
 function panelRow(title, description, buttons = '') {
   return `<div class="panel-row"><div><h3>${escape(title)}</h3><p>${escape(description)}</p></div><div class="row-buttons">${buttons}</div></div>`;
 }
@@ -152,6 +166,7 @@ function journeyMarks(record) {
   if (record.mission.id === OPENING_ID) return `<p>${mark(p.noYardInjury)} No injury in the boiler yard<br>${mark(p.allSixSupplies)} All six supply objects recovered<br>${mark(p.accurate)} At least 80% shooting accuracy · ${Math.round(p.accuracy * 100)}%</p>`;
   if (record.mission.id === HUNT_ID) return `<p>${mark(p.oneArrowEach)} Each deer killed with one arrow<br>${mark(p.noSpook)} Neither deer frightened<br>${mark(p.secondCleanKill)} Second deer killed cleanly</p>`;
   if (record.mission.id === RESCUE_ID) return `<p>${mark(p.allWolvesNoBites)} All seven wolves killed without a bite<br>${mark(p.accuracy80)} At least 80% shooting accuracy · ${Math.round(p.shots ? p.hits / p.shots * 100 : 0)}%</p>`;
+  if (record.mission.id === RIVAL_ID) return `<p>${mark(p.quickCapture)} Levi bound within 55 seconds<br>${mark(p.threeFocusKills)} Three kills in one automatic focus sequence<br>${mark(p.fifteenHeadshots)} Fifteen actual headshot kills<br>${mark(p.noHealingItems)} No healing supplies used<br>${mark(p.underTime)} Operation completed within 22 minutes</p>`;
   return '';
 }
 function renderSnowboundMap(region) {
@@ -178,10 +193,26 @@ function renderSnowboundMap(region) {
 }
 function renderPanel() {
   const campaign = Sim.isCampaign(state), items = Sim.itemsFor(state), region = Sim.worldFor(state);
-  const titles = { map: ['THE COUNTRY AHEAD', campaign ? state.region === 'willow-run' ? 'Willow Run' : state.region === 'north-cutting' ? 'North Cutting' : 'Snowbound' : 'Mercy Vale'], journal: ['THE MARKS WE LEAVE', 'Your journal'], satchel: ['READY FOR THE ROAD', 'Your satchel'], menu: ['TAKE A BREATH', 'Dust & Mercy'] };
+  const titles = { map: ['THE COUNTRY AHEAD', campaign ? state.region === 'bellwether-works' ? 'Bellwether Works' : state.region === 'willow-run' ? 'Willow Run' : state.region === 'north-cutting' ? 'North Cutting' : 'Snowbound' : 'Mercy Vale'], journal: ['THE MARKS WE LEAVE', 'Your journal'], satchel: ['READY FOR THE ROAD', 'Your satchel'], menu: ['TAKE A BREATH', 'Dust & Mercy'] };
   const [kicker, title] = titles[activePanel] || titles.menu;
   $('panel-title').textContent = title; $('panel-kicker').textContent = kicker;
+  if(activePanel==='recoveries'){
+    $('panel-title').textContent='Other saved journeys';$('panel-kicker').textContent='REVIEW BEFORE CHANGING';
+    const copies=deviceSaves.recoveries();
+    $('panel-body').innerHTML='<p class="panel-copy">These journeys differ from your current saved journey. Load one to review it while paused, or export its original file. Automatic saves stay off during review; Save makes the reviewed journey current.</p>'+copies.map(copy=>{const restored=Sim.restore(copy.raw);return panelRow(restored.mission.name,`${Sim.isCampaign(restored)?'Snowbound campaign':'Mercy Vale'} · Day ${restored.day} · ${formatTime(restored.time)} · ${restored.mission.completed?'Completed':`Scene ${restored.mission.stage+1}`}`,button('Load for review','recover-load',copy.key)+button('Export original copy','recover-export',copy.key));}).join('');return;
+  }
+  if (activePanel === 'actions') {
+    $('panel-title').textContent = 'Within reach'; $('panel-kicker').textContent = 'PEOPLE AND EQUIPMENT';
+    $('panel-body').innerHTML = `<p class="panel-copy">Choose an action available at your current position.</p><div class="menu-buttons">${Sim.getInteractions(state).map(action=>button(action.label,'nearby',action.id)).join('') || '<p>No action is within reach. Return to the trail and move closer.</p>'}</div>`;
+    return;
+  }
   if (activePanel === 'map') {
+    if(campaign&&state.region==='bellwether-works'){
+      const lines=[region.trail,region.descent,region.convoyRoute,region.chase.route,region.returnRoute].map(path=>`<polyline points="${path.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#798880" stroke-width="12" stroke-dasharray="24 12"/>`).join('');
+      const cover=region.obstacles.map(o=>`<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="#665e49" opacity=".5"/>`).join('');
+      const places=region.places.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="12" fill="#4c5c50"/><text x="${p.x+25}" y="${p.y-16}" font-size="35">${escape(p.name)}</text>`).join('');
+      $('panel-body').innerHTML=`<svg class="map-art snow-map rival-map" viewBox="0 0 ${region.width} ${region.height}" role="img" aria-label="Bellwether Works, observation ridge, quarry searches, patrol approaches and return routes">${cover}${lines}${places}<circle class="player-marker" cx="${state.player.x}" cy="${state.player.y}" r="20"/></svg><p class="panel-copy">The observation ridge overlooks the traverser. The magazine, cap wagon and weighhouse are separate searches. Follow the real horse ramp and pulley creek; cover and doorways are shown where they block travel.</p>`;return;
+    }
     if (campaign) { renderSnowboundMap(region); return; }
     const river = Array.from({ length: 31 }, (_, i) => `${Sim.riverX(i * 40)},${i * 40}`).join(' ');
     const places = Sim.WORLD.places.map(p => `<circle cx="${p.x}" cy="${p.y}" r="9" fill="#424b35"/><text x="${p.x + 24}" y="${p.y - 14}">${escape(p.name)}</text>`).join('');
@@ -196,17 +227,24 @@ function renderPanel() {
     if (campaign && state.weapons) {
       html += '<h3>Weapons</h3>';
       for (const weapon of Object.values(state.weapons)) {
+        if(!['mara','community-rescue-chest'].includes(weapon.owner))continue;
         const selected = state.player.equippedWeaponId === weapon.id;
         const rack = state.entities[weapon.rackMountId];
         const withinReach = weapon.location === 'carried' || weapon.location === 'saddle' && rack && Math.hypot(state.player.x - rack.x, state.player.y - rack.y) <= 58 && Math.abs((state.player.z || 0) - (rack.z || 0)) < 6;
-        const needsInspection = weapon.kind === 'bow' && state.mission.id === HUNT_ID && !state.flags.bowInspected;
-        const canSelect = [RESCUE_ID, HUNT_ID].includes(state.mission.id) && withinReach && !needsInspection && !state.player.carrying && !state.traversal?.player;
-        html += panelRow(weapon.name || (weapon.kind === 'coach-gun' ? 'Short coach gun' : 'Vale revolver'), `${weapon.ammo} loaded · ${weapon.reserve} spare ${weapon.kind === 'bow' ? 'arrows' : weapon.kind === 'coach-gun' ? 'shells' : 'rounds'} · ${weapon.loanMissionId ? 'Community loan' : 'Owned'}${weapon.location === 'saddle' ? ` · On ${rack?.name || 'the horse'}’s rack` : ''}${needsInspection ? ' · Inspect the bow beside Copper before equipping it.' : ''}`, button(selected ? 'Equipped' : needsInspection ? 'Inspect at rack' : 'Equip', 'equipment', `equip:${weapon.id}`, selected || !canSelect));
+        const needsInspection = weapon.kind === 'bow' && state.mission.id === HUNT_ID && !state.flags.bowInspected || weapon.kind === 'carbine' && state.mission.id === RIVAL_ID && !state.flags.carbineInspected;
+        const canSelect = [RESCUE_ID, HUNT_ID, RIVAL_ID].includes(state.mission.id) && withinReach && !needsInspection && !state.player.carrying && !state.traversal?.player;
+        html += panelRow(weapon.name || (weapon.kind === 'coach-gun' ? 'Short coach gun' : 'Vale revolver'), `${weapon.kind === 'lariat' ? 'Reusable working rope' : `${weapon.ammo} loaded · ${weapon.reserve} spare ${weapon.kind === 'bow' ? 'arrows' : weapon.kind === 'coach-gun' ? 'shells' : 'rounds'}`} · ${weapon.loanMissionId ? 'Community loan' : 'Owned'}${weapon.location === 'saddle' ? ` · On ${rack?.name || 'the horse'}’s rack` : ''}${needsInspection ? ` · Inspect the ${weapon.kind === 'carbine' ? 'carbine' : 'bow'} beside Copper before equipping it.` : ''}`, button(selected ? 'Equipped' : needsInspection ? 'Inspect at rack' : 'Equip', 'equipment', `equip:${weapon.id}`, selected || !canSelect));
       }
     }
     if (campaign && state.itemInstances && Object.keys(state.itemInstances).length) {
       html += '<h3>Hides and tools</h3>';
       for (const item of Object.values(state.itemInstances)) html += panelRow(item.kind === 'field-knife' ? 'Field skinning knife' : `${item.sourceEntityId === 'willow-creek-doe' ? 'Creek doe' : 'Cedar buck'} hide · Quality ${item.quality} / 3`, `${item.owner === 'community' ? 'Community owned' : 'Owned'} · ${item.location.type.replaceAll('-', ' ')}`, item.kind === 'deer-hide' && item.owner === 'mara' ? button('Carry hide', 'equipment', `take-hide:${item.id}`, item.location.type === 'carried') + button('Store on Copper', 'equipment', `store-hide:${item.id}`, item.location.type === 'saddle') : '');
+    }
+    const pocketObjects=campaign&&state.campaign?.missions[RIVAL_ID]?.objects;
+    const personalPapers=QUARRY_POCKET_OBJECTS.filter(paper=>pocketObjects?.[paper.id]?.owner==='mara');
+    if(personalPapers.length){
+      html+='<h3>Recovered personal belongings</h3>';
+      for(const paper of personalPapers)html+=`<article class="panel-copy" data-pocket-object="${paper.id}"><h4>${escape(paper.name)}</h4><p style="white-space:pre-line">${escape(paper.text)}</p><small>Owned by Mara · From ${escape(state.entities[paper.sourceEntityId]?.name||'the individual pocket')}</small></article>`;
     }
     for (const [id, item] of Object.entries(items)) {
       if (id === 'ammo') continue;
@@ -243,9 +281,9 @@ function renderPanel() {
     }
     $('panel-body').innerHTML = html;
   } else {
-    const browse = ['map', 'journal', 'satchel'].map(name => button({ map: 'View map', journal: 'Read journal', satchel: 'Open satchel' }[name], 'panel', name, !started)).join('');
+    const browse = ['actions', 'map', 'journal', 'satchel'].map(name => button({ actions: 'Nearby actions', map: 'View map', journal: 'Read journal', satchel: 'Open satchel' }[name], 'panel', name, !started)).join('');
     const replays = completedStories().map(record => button(`Replay ${record.mission.name}`, 'story', `replay:${record.mission.id}`, !!state.replayCanonical)).join('');
-    $('panel-body').innerHTML = `<div class="menu-buttons">${button('Return to the trail', 'resume', '', !started)}${button('Save journey', 'save', '', !started)}${button('Load saved journey', 'load', '', !savedJourney())}${button('Export save file', 'export', '', !started)}${button('Import save file', 'import', '')}${button(started ? 'Start a new journey' : 'Begin the story', 'new', '')}${campaign && started ? button('Retry checkpoint', 'story', 'retry') : ''}${replays}${state.replayCanonical ? button('Return to your saved world', 'story', 'finish-replay') : ''}${browse}</div><div class="menu-settings"><label><input type="checkbox" id="mute-audio" ${muted ? 'checked' : ''}> Mute music and sound</label><label><input type="checkbox" id="reduce-motion" ${game.reduceMotion ? 'checked' : ''}> Reduce motion and camera shake</label><label for="text-size">Dialogue text size <select id="text-size"><option value="1">Standard</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label></div><div class="panel-copy"><h3>On the trail</h3><p>WASD or arrows to move · E to interact · Shift to run · H to call your horse · C to crouch. Aim with the mouse and click to shoot. With the bow, hold to draw and release to loose an arrow; X cancels the draw. R reloads. Q draws/holsters. Hold Space to focus. 1 / 2 / 3 use tonic, coffee or horse feed.</p><p>In a close fight, F blocks, V shoves, and B restrains. The same actions are available as on-screen buttons.</p><p>Controller: left stick to move, right stick to aim, A to interact, RT to shoot, LT to aim, X to reload, B to call your horse, RB to focus, Y to holster, LB to block. Press the left stick to run. View opens this menu; its map, journal and satchel controls work with the D-pad and A. With the bow, move the aiming cursor with the right stick, hold RT to draw and release to loose; X cancels. The right stick scrolls open panels. In close combat, A performs the displayed shove or restraint.</p><p>On touch screens, drag the left stick to move. Tap the world to choose an aim point. Tap Crouch to lower your stance, move with the stick, then tap it again to stand. The right-side buttons act. With the bow, tap the animal to aim, hold Fire to draw, then release. Cancel draw puts the arrow back.</p><p>Campaign build 0.4.0 · The full campaign and source coverage remain in production.</p></div><input id="save-file" type="file" accept=".json,application/json" hidden>`;
+    $('panel-body').innerHTML = `<p class="panel-copy">${reviewDisposition?'Reviewing another journey. Save to make it current. Automatic saves are off.':''}</p><div class="menu-buttons">${button('Return to the trail', 'resume', '', !started)}${button('Save journey', 'save', '', !started)}${button('Load saved journey', 'load', '', !savedJourney())}${button('Other saved journeys','panel','recoveries',deviceSaves.recoveries().length===0)}${button('Export save file', 'export', '', !started)}${button('Import save file', 'import', '')}${button(started ? 'Start a new journey' : 'Begin the story', 'new', '')}${campaign && started ? button('Retry checkpoint', 'story', 'retry') : ''}${replays}${state.replayCanonical ? button('Return to your saved world', 'story', 'finish-replay') : ''}${browse}</div><div class="menu-settings"><label><input type="checkbox" id="mute-audio" ${muted ? 'checked' : ''}> Mute music and sound</label><label><input type="checkbox" id="reduce-motion" ${game.reduceMotion ? 'checked' : ''}> Reduce motion and camera shake</label><label for="text-size">Dialogue text size <select id="text-size"><option value="1">Standard</option><option value="1.2">Large</option><option value="1.4">Extra large</option></select></label></div><div class="panel-copy"><h3>On the trail</h3><p>WASD or arrows to move · E to interact · Shift to run · H to call your horse · C to crouch. Aim with the mouse and click to shoot. With the bow, hold to draw and release to loose an arrow; X cancels the draw. R reloads. Q draws/holsters. Hold Space to focus. 1 / 2 / 3 use tonic, coffee or horse feed.</p><p>In a close fight, F blocks, V shoves, and B restrains. The same actions are available as on-screen buttons.</p><p>Controller: left stick to move, right stick to aim, A to interact, RT to shoot, LT to aim, X to reload, B to call your horse, RB to focus, Y to holster, LB to block. Press the left stick to run. View opens this menu; its map, journal and satchel controls work with the D-pad and A. With the bow, move the aiming cursor with the right stick, hold RT to draw and release to loose; X cancels. The right stick scrolls open panels. In close combat, A performs the displayed shove or restraint.</p><p>On touch screens, drag the left stick to move. Tap the world to choose an aim point. Tap Crouch to lower your stance, move with the stick, then tap it again to stand. The right-side buttons act. With the bow, tap the animal to aim, hold Fire to draw, then release. Cancel draw puts the arrow back.</p><p>Campaign build 0.5.0 · The full campaign and source coverage remain in production.</p></div><input id="save-file" type="file" accept=".json,application/json" hidden>`;
     $('text-size').value = document.documentElement.style.getPropertyValue('--dialogue-scale') || '1';
   }
 }
@@ -277,7 +315,7 @@ function updateConversation() {
 }
 
 function updateUI() {
-  const campaign = Sim.isCampaign(state), regionName = campaign ? state.region === 'willow-run' ? 'WILLOW RUN' : state.region === 'north-cutting' ? 'NORTH CUTTING' : 'SNOWBOUND' : 'MERCY VALE';
+  const campaign = Sim.isCampaign(state), regionName = campaign ? state.region === 'bellwether-works' ? 'BELLWETHER WORKS' : state.region === 'willow-run' ? 'WILLOW RUN' : state.region === 'north-cutting' ? 'NORTH CUTTING' : 'SNOWBOUND' : 'MERCY VALE';
   $('clock').textContent = formatTime(state.time);
   $('day-weather').textContent = `DAY ${state.day} · ${state.weather === 'snow' ? 'SNOW' : state.weather === 'rain' ? 'RAIN' : state.weather === 'overcast' ? 'OVERCAST' : regionName}`;
   document.body.dataset.region = campaign ? state.region : 'mercy';
@@ -310,6 +348,8 @@ function updateUI() {
     else if ([3, 4, 5].includes(state.mission.stage)) detail = 'CROUCH AND READ THE SIGN · AIM AT THE ANIMAL';
     else if (state.player.carrying) detail = 'ONE BODY, ONE LOAD · CALL COPPER AND WAIT FOR HER';
   }
+  const passengerPressure=state.mission.id===RIVAL_ID&&state.rival?.contractVersion===2&&state.rival.transport&&state.entities?.levi?.attachment?.type==='passenger'?state.rival.transport:null;
+  if(passengerPressure)detail=`STRAP ${Math.round(passengerPressure.strapQuality*100)}% · COPPER STAMINA ${Math.round(state.horse.stamina)}%`;
   $('mission-detail').hidden = !detail; $('mission-detail').textContent = detail;
   $('mission-progress').innerHTML = Array.from({ length: stageCount }, (_, i) => `<span class="${i < state.mission.stage ? 'done' : ''}"></span>`).join('');
   for (const [key, id] of [['hp', 'health'], ['stamina', 'stamina'], ['focus', 'focus']]) {
@@ -319,16 +359,25 @@ function updateUI() {
   }
   $('money').textContent = `$${state.player.money.toFixed(2)}`;
   $('honor').textContent = state.honor > 15 ? 'A NAME THE VALLEY TRUSTS' : state.honor < -15 ? 'A NAME THE VALLEY FEARS' : 'A NAME YET TO BE MADE';
-  $('ammo').textContent = state.player.ammo; $('reserve').textContent = `/ ${state.player.reserve}`;
-  $('weapon-status').textContent = state.player.reloadTimer > 0 ? 'Reloading…' : state.player.focusActive ? 'FOCUS · TIME SLOWS' : bowEquipped() ? state.bow?.drawing ? `Draw ${Math.round(state.bow.charge * 100)}% · Release to loose` : 'Hold Fire to draw · Release to loose' : 'Right click to aim · Click to fire';
-  const weapon = state.weapons?.[state.player.equippedWeaponId], weaponLabel = weapon?.kind === 'bow' ? 'ASH BOW' : weapon?.kind === 'coach-gun' ? 'COACH GUN' : 'REVOLVER';
+  const weapon=state.weapons?.[state.player.equippedWeaponId],ropeTool=weapon?.kind==='lariat';
+  const rope=state.campaign?.missions[RIVAL_ID]?.rope;
+  $('ammo').textContent=ropeTool?(rope?.phase==='flying'?'Flying':rope?.phase==='taut'?'Held':'Ready'):state.player.ammo;
+  $('reserve').textContent=ropeTool?'':`/ ${state.player.reserve}`;
+  $('reload').disabled=ropeTool;
+  $('weapon-status').textContent=ropeTool?(rope?.phase==='taut'?'Keep tension · Dismount and bind':rope?.phase==='flying'?'Loop in flight':state.mission.id===RIVAL_ID&&state.mission.stage===10?'Aim ahead · Click to throw':'Working rope · Use capture actions within reach'):state.player.reloadTimer>0?'Reloading…':state.player.focusActive?'FOCUS · TIME SLOWS':bowEquipped()?state.bow?.drawing?`Draw ${Math.round(state.bow.charge*100)}% · Release to loose`:'Hold Fire to draw · Release to loose':'Right click to aim · Click to fire';
+  const weaponLabel=weapon?.kind==='carbine'?'TERN CARBINE':ropeTool?'WORKING LARIAT':weapon?.kind==='bow'?'ASH BOW':weapon?.kind==='coach-gun'?'COACH GUN':'REVOLVER';
+  document.querySelector('.shoot-button').textContent=ropeTool?'Throw':'Fire';
+  if(passengerPressure)$('weapon-status').textContent=`Rear strap ${Math.round(passengerPressure.strapQuality*100)}% · Copper stamina ${Math.round(state.horse.stamina)}% · Stop, dismount and check the load`;
   const carried = state.entities?.[state.player.carrying]?.name?.split(' ')[0] || 'Gideon';
   $('weapon-name').textContent = state.player.carrying ? `CARRYING ${carried.toUpperCase()}` : state.player.mounted ? `RIDING ${state.horse.name.toUpperCase()}` : state.player.weaponOwned === false ? 'DISARMED' : state.player.holstered ? `${weaponLabel} HOLSTERED` : weapon?.name?.toUpperCase() || (weapon?.kind === 'coach-gun' ? 'SHORT COACH GUN' : 'VALE REVOLVER');
   $('campaign-controls').hidden = !campaign || !!state.dialog || !!activePanel;
   const melee = campaign && state.mission.id === OPENING_ID && state.mission.stage === 5;
   document.body.classList.toggle('melee', melee);
   $('holster-label').textContent = state.player.holstered ? 'Draw' : 'Holster';
-  document.querySelectorAll('[data-story-action]').forEach(el => { el.hidden = el.dataset.storyAction === 'cancel-bow' ? !bowEquipped() || !state.bow?.drawing : el.dataset.storyAction !== 'holster' && !melee; el.disabled = el.dataset.storyAction === 'holster' && state.player.weaponOwned === false; });
+  document.querySelectorAll('[data-story-action]').forEach(el => { el.hidden = el.dataset.storyAction === 'nearby-actions' ? state.mission.id !== RIVAL_ID && !state.campaign?.missions[RIVAL_ID] || !Sim.getInteractions(state).some(a=>a.id.startsWith('rival')) && state.mission.id !== RIVAL_ID : el.dataset.storyAction.startsWith('scope:') ? !state.scope?.raised : el.dataset.storyAction === 'cancel-rope' ? state.mission.id!==RIVAL_ID || state.mission.stage!==10 || !['flying','taut'].includes(rope?.phase) : el.dataset.storyAction === 'cancel-bow' ? !bowEquipped() || !state.bow?.drawing : el.dataset.storyAction !== 'holster' && !melee; el.disabled = el.dataset.storyAction === 'holster' && state.player.weaponOwned === false; });
+  const nearbyButton=document.querySelector('[data-story-action="nearby-actions"]');
+  if(campaign&&Sim.getInteractions(state).some(a=>a.id.startsWith('holding:')))nearbyButton.hidden=false;
+  document.body.classList.toggle('expanded-actions',!nearbyButton.hidden);
   const interaction = Sim.getInteraction(state);
   $('interact').hidden = !interaction || !!state.dialog || !!activePanel;
   if (interaction) $('interaction-label').textContent = interaction.label;
@@ -369,16 +418,45 @@ function huntAim() {
   const aim = resolveHuntPointerAim(state, ground, pointer, (x, y, z) => game.r.w(x, y, z), huntAnimalHitZones);
   aim.point = bounded(aim.point); return aim;
 }
+function rivalAim() {
+  const looking=!!state.scope?.raised;
+  const fallback=looking?state.scope.camera||state.scope.aim:{x:state.player.x+Math.cos(state.player.facing)*450,y:state.player.y+Math.sin(state.player.facing)*450};
+  const ground=pointerMode&&game.mouseGround(),screen=pointerMode&&game.input.mouseScreen();
+  if(looking){
+    const rx=Math.min(game.r.bw*.43,230),ry=Math.min(game.r.bh*.4,145);
+    const aim=ground||[fallback.x+(padAim?.[0]||0)*90/state.scope.zoom,fallback.y+(padAim?.[1]||0)*90/state.scope.zoom];
+    const projected=screen?[screen[0]-game.r.ix,screen[1]-game.r.iy]:game.r.w(aim[0],aim[1],0);
+    const x=projected[0]-game.r.bw/2,y=projected[1]-game.r.bh/2;
+    const scopeActors=['calder','grout','levi','skein'].filter(id=>{
+      const actor=state.entities[id];if(!actor||actor.hidden||actor.departed||actor.hp<=0||actor.regionId!==state.region)return false;
+      const p=game.r.w(actor.x,actor.y,(actor.z||0)+(actor.kind==='horse'?25:actor.mounted?65:30));
+      return ((p[0]-game.r.bw/2)/rx)**2+((p[1]-game.r.bh/2)/ry)**2<=.95;
+    });
+    return {point:aim,z:0,visible:(x/rx)**2+(y/ry)**2<=1,scopeActors};
+  }
+  if(padAim)return {point:[state.player.x+padAim[0]*500,state.player.y+padAim[1]*500],z:30};
+  if(!ground)return {point:[fallback.x,fallback.y],z:30};
+  const pointer={x:screen[0]-game.r.ix,y:screen[1]-game.r.iy},candidates=[];
+  for(const actor of Object.values(state.entities||{})){
+    if(actor.id==='mara'||actor.hp<=0||actor.hidden||actor.departed||actor.escaped||actor.regionId!==state.region)continue;
+    const mounted=actor.mounted,base=actor.z||0,head=base+(mounted?78:46),chest=base+(mounted?65:30);
+    for(const [height,radius]of [[head,12],[chest,24]]){const q=game.r.w(actor.x,actor.y,height),d=Math.hypot(pointer.x-q[0],pointer.y-q[1]);if(d<radius)candidates.push({score:d/radius,point:[actor.x,actor.y],z:height});}
+  }
+  candidates.sort((a,b)=>a.score-b.score);return candidates[0]||{point:ground,z:30};
+}
 function fire(auto = false) {
-  const shots = state.stats.shots, target = aimTarget(auto); Sim.shoot(state, ...target);
+  const shots = state.stats.shots, aim = state.mission.id === RIVAL_ID ? rivalAim() : null, target = aim?.point || aimTarget(auto); Sim.shoot(state, ...target, aim ? {z:aim.z} : {});
   if (state.stats.shots > shots) { game.audio.sfx('shoot', { vol: .32, pitch: .7 }); game.shake(.8); game.particles.smoke(state.player.x, state.player.y, 24, 2); }
 }
 function performAction(id) {
+  if (id === 'nearby-actions') { openPanel('actions'); return; }
   if (id === 'cancel-bow') { cancelBowInput(); updateUI(); return; }
   const next = Sim.action(state, id);
-  if (next && next !== state) { state = next; world = rendererForState(); game.cam.snap = true; }
+  const replaced=next&&next!==state;
+  if(replaced){state=next;world=rendererForState();game.cam.snap=true;}
   syncRegionView();
-  if (['retry', 'restart', 'replay', 'finish-replay'].includes(id) || id.startsWith('replay:')) {
+  if(replaced||['retry','restart','replay','finish-replay'].includes(id)||id.startsWith('replay:')){
+    ++startRequest;invalidateJourneyAcknowledgement();
     game.cam.snap = true; game.input.clear(); touchHeld.clear(); releaseStick();
     pointerMode = false; padAim = null; setTouchCrouch(false); saveClock = 0; lastProgress = progressKey();
     if (Sim.isCampaign(state)) snowboundAudio.reset(state);
@@ -391,6 +469,7 @@ function chooseOption(id) {
   Sim.choose(state, id);
   syncRegionView();
   if (reset) {
+    ++startRequest;invalidateJourneyAcknowledgement();
     game.cam.snap = true; game.input.clear(); touchHeld.clear(); releaseStick();
     pointerMode = false; padAim = null; setTouchCrouch(false); snowboundAudio.reset(state);
     saveClock = 0; lastProgress = progressKey(); saveJourney();
@@ -419,6 +498,11 @@ function handleModalPad() {
 game.start({
   update(dt) {
     uiClock += dt;
+    const looking = state.mission.id === RIVAL_ID && state.scope?.raised;
+    const desiredScale = normalView.scale * (looking ? state.scope.zoom : 1);
+    if(looking && (game.view !== sightglassView || Math.abs(game.view.scale-desiredScale)>1e-8)){
+      sightglassView.set(normalView.yawDeg,normalView.pitchDeg,desiredScale,normalView.zBoost);game.setView(sightglassView);
+    }else if(!looking && game.view !== normalView)game.setView(normalView);
     if (game.input.pressed('pause')) {
       if (state.dialog) { if (state.dialog.choices.some(c => c.id === 'leave')) chooseOption('leave'); }
       else if (activePanel) closePanel(); else openPanel('menu');
@@ -453,7 +537,7 @@ game.start({
         if (game.input.pressed('whistle')) { Sim.whistle(state); game.audio.sfx({ wave: 'sine', freq: 1400, to: 1900, dur: .25, vol: .1 }); }
         for (const name of ['holster', 'block', 'shove', 'restrain']) if (game.input.pressed(name)) performAction(name);
         const fireHeld = game.input.down('shoot') || touchHeld.has('shoot');
-        const bowAim = bowEquipped() ? huntAim() : null;
+        const bowAim = bowEquipped() ? huntAim() : null, quarryAim = state.mission.id === RIVAL_ID ? rivalAim() : null;
         if (bowAim) {
           if (!fireHeld) bowBlockedUntilRelease = false;
           if (fireHeld && !bowFireHeld && !bowBlockedUntilRelease) Sim.beginDraw(state, ...bowAim.point, { z: bowAim.z });
@@ -468,7 +552,7 @@ game.start({
         }
         for (const [key, item] of [['tonic', 'tonic'], ['coffee', 'coffee'], ['oats', 'oats']]) if (game.input.pressed(key)) Sim.useItem(state, item);
         const hp = state.player.hp;
-        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch') || touchCrouching, focus: game.input.down('focus') || touchHeld.has('focus'), block: game.input.down('block') || touchHeld.has('block'), drawHeld: bowEquipped() && fireHeld && !bowBlockedUntilRelease, ...(bowAim ? { aimX: bowAim.point[0], aimY: bowAim.point[1], aimZ: bowAim.z } : {}) });
+        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch') || touchCrouching, focus: game.input.down('focus') || touchHeld.has('focus'), block: game.input.down('block') || touchHeld.has('block'), drawHeld: bowEquipped() && fireHeld && !bowBlockedUntilRelease, ...(bowAim || quarryAim ? { aimX: (bowAim || quarryAim).point[0], aimY: (bowAim || quarryAim).point[1], aimZ: (bowAim || quarryAim).z,scopeVisible:quarryAim?.visible!==false,scopeActors:quarryAim?.scopeActors } : {}) });
         if (state.aiming && !state.player.mounted && !state.player.carrying && state.player.weaponOwned !== false) {
           const target = bowEquipped() ? huntAim().point : aimTarget();
           state.player.facing = Math.atan2(target[1] - state.player.y, target[0] - state.player.x);
@@ -483,7 +567,8 @@ game.start({
     }
     const yOffset = game.H * .1 / game.view.by;
     syncRegionView();
-    game.focus(state.player.x, state.player.y - yOffset, (state.region === 'north-cutting' ? state.player.z || 0 : 0) + (state.player.mounted ? 10 : 0));
+    const scopeCamera = state.mission.id === RIVAL_ID && state.scope?.raised && state.scope.camera;
+    game.focus(scopeCamera ? scopeCamera.x : state.player.x, (scopeCamera ? scopeCamera.y : state.player.y) - yOffset, (!scopeCamera && ['north-cutting','bellwether-works'].includes(state.region) ? state.player.z || 0 : 0) + (!scopeCamera && state.player.mounted ? 10 : 0));
     if (started && Sim.isCampaign(state)) snowboundAudio.update(dt, state, !!activePanel || !!state.dialog || !!state.failure);
     if (uiClock > .1) { uiClock = 0; updateUI(); }
   },
@@ -499,6 +584,7 @@ game.start({
 $('new-game').addEventListener('click', () => startJourney());
 $('mercy-game').addEventListener('click', () => startJourney(false, 'mercy'));
 $('continue-game').addEventListener('click', () => startJourney(true));
+// Welcome controls become ready only after the existing saves are known.
 document.querySelectorAll('[data-panel]').forEach(el => el.addEventListener('click', () => openPanel(el.dataset.panel)));
 $('close-panel').addEventListener('click', closePanel);
 $('panel').addEventListener('cancel', e => { e.preventDefault(); closePanel(); });
@@ -511,7 +597,7 @@ $('conversation').addEventListener('click', e => {
 });
 $('interact').addEventListener('click', () => { Sim.interact(state); syncRegionView(); updateUI(); });
 $('reload').addEventListener('click', () => { Sim.reload(state); updateUI(); });
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   const el = e.target.closest('[data-command]'); if (!el || el.disabled) return;
   const id = el.dataset.id;
   const commands = { buy: Sim.buy, sell: Sim.sell, use: Sim.useItem, craft: Sim.craft, donate: Sim.donate, upgrade: Sim.upgradeCamp, pack: Sim.action, equipment: Sim.action };
@@ -525,11 +611,12 @@ document.addEventListener('click', e => {
     saveJourney(); return;
   }
   switch (el.dataset.command) {
+    case 'nearby': closePanel(); Sim.interact(state,id); syncRegionView(); updateUI(); saveJourney(); break;
     case 'resume': closePanel(); break;
     case 'panel': openPanel(id); break;
     case 'notebook': $('notebook')?.scrollIntoView({ block: 'start', behavior: game.reduceMotion ? 'instant' : 'smooth' }); break;
     case 'save': saveJourney(true); break;
-    case 'load': { const loaded = savedJourney(); if (loaded) { closePanel(); beginJourney(loaded); } break; }
+    case 'load': { game.audio.sfx('confirm',{vol:0});const request=++startRequest,mode=Sim.isCampaign(state)?'campaign':'mercy',loaded=await loadSavedJourney(mode);if(request===startRequest&&loaded){closePanel();beginJourney(loaded);}break; }
     case 'new':
       if (started) {
         $('panel-kicker').textContent = 'A FRESH START'; $('panel-title').textContent = 'Leave this journey?';
@@ -538,8 +625,10 @@ document.addEventListener('click', e => {
       break;
     case 'confirm-new': closePanel(); startJourney(false, 'campaign'); break;
     case 'story': { closePanel(); performAction(id); break; }
-    case 'export': { const url = URL.createObjectURL(new Blob([Sim.serialize(state)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'dust-and-mercy-journey.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); announce('Journey exported.'); break; }
-    case 'import': $('save-file').click(); break;
+    case 'recover-load': {game.audio.sfx('confirm',{vol:0});const request=++startRequest;await deviceSaves.loadCandidates(requestedMode);if(request!==startRequest)break;const copy=deviceSaves.recoveries().find(copy=>copy.key===id),loaded=copy&&Sim.restore(copy.raw);if(loaded){closePanel();beginJourney(loaded,{review:copy});openPanel('menu');announce('Reviewing another journey. Save to make it current.');}break;}
+    case 'recover-export': {const copy=deviceSaves.recoveries().find(copy=>copy.key===id);if(copy)downloadJourneyBytes(copy.raw);break;}
+    case 'export': downloadJourneyBytes(Sim.serialize(state));break;
+    case 'import': game.audio.sfx('confirm',{vol:0});$('save-file').click(); break;
   }
 });
 document.addEventListener('change', async e => {
@@ -550,10 +639,11 @@ document.addEventListener('change', async e => {
   if (e.target.id === 'save-file') {
     const file = e.target.files?.[0]; if (!file) return;
     if (file.size > 8 * 1024 * 1024) { announce('This save exceeds the 8 MB import limit.'); return; }
+    const request=++startRequest;
     try {
       const loaded = Sim.restore(await file.text());
       if (!loaded) { announce('This file is not a valid Dust & Mercy journey.'); return; }
-      closePanel(); beginJourney(loaded); saveJourney(true);
+      await deviceSaves.ready;if(request!==startRequest)return;closePanel();beginJourney(loaded);await saveJourney(true);
     } catch { announce('The journey file could not be read.'); }
   }
 });
@@ -595,17 +685,23 @@ document.querySelectorAll('[data-action]').forEach(el => {
 });
 document.querySelectorAll('[data-story-action]').forEach(el => {
   el.addEventListener('pointerdown', e => {
+    if(el.dataset.storyAction==='nearby-actions')return;
     e.preventDefault(); el.setPointerCapture(e.pointerId);
     performAction(el.dataset.storyAction);
     if (el.dataset.storyAction === 'block') touchHeld.add('block');
     updateUI();
   });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(name, () => touchHeld.delete('block'));
-  el.addEventListener('click', e => { if (e.detail === 0) performAction(el.dataset.storyAction); });
+  el.addEventListener('click', e => { if (e.detail === 0 || el.dataset.storyAction==='nearby-actions') performAction(el.dataset.storyAction); });
 });
 addEventListener('blur', () => { cancelBowInput(); gameplaySpaceHeld = false; touchHeld.clear(); releaseStick(); if (started) saveJourney(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelBowInput(); touchHeld.clear(); releaseStick(); if (started) { saveJourney(); if (!activePanel && !state.dialog) openPanel('menu'); } } });
 addEventListener('pagehide', () => { if (started) saveJourney(); });
 game.audio.setVolume(muted ? 0 : .65);
-if (new URLSearchParams(location.search).has('play')) startJourney(!!savedJourney());
+deviceSaves.ready.then(available=>{
+  $('save-status').dataset.saveBackend=available?'indexeddb':'unavailable';
+  $('continue-game').hidden=!savedJourney();
+  for(const id of ['new-game','continue-game','mercy-game'])$(id).disabled=false;
+  if(new URLSearchParams(location.search).has('play'))startJourney(!!savedJourney());
+});
 updateUI();

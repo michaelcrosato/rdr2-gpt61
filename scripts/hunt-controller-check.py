@@ -6,6 +6,8 @@ Hunt Save. After setup, only the normal Gamepad axes/buttons path is used. No
 simulation state writes, private verbs, actor placement or keyboard fallback.
 This checks cursor, hold/cancel/pause/release, not a complete controller hunt.
 """
+
+from campaign_save import observed_save
 import argparse
 import asyncio
 import json
@@ -52,7 +54,7 @@ async def run(args):
         async def save(label):
             await press(8)
             await select('[data-command="save"]')
-            raw=await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))')
+            raw=await observed_save(page)
             (args.output/f'{label}.json').write_text(json.dumps(raw,indent=2)+'\n')
             await press(8)
             assert raw['version']==3 and raw['failure'] is None

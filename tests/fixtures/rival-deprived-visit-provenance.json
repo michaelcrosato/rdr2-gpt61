@@ -1,0 +1,51 @@
+{
+  "kind": "earned-native-continuation-of-genuine-public-WebKit-completion",
+  "source": "/tmp/dust-mercy-rival-webkit-current-hunt-first/14-complete-state.json",
+  "sourceSHA256": "4e2daa0a1ca7dc64ae95c7fd56a304b4823109bb4cde1a7f6d894feef3481026",
+  "resultSHA256": "6a8c9ab74e80b572daf453f0dda8de872815cb26495449da93f219c977215d1b",
+  "start": {
+    "x": 669.1949999999814,
+    "y": 1232.4649999999979,
+    "elapsed": 1022.4174666660449
+  },
+  "end": {
+    "x": 819.9003695619516,
+    "y": 1186.5517541957568,
+    "elapsed": 1026.817466666041
+  },
+  "movementFrames": 88,
+  "waypoints": [
+    {
+      "x": 690,
+      "y": 1232
+    },
+    {
+      "x": 690,
+      "y": 1050
+    },
+    {
+      "x": 820,
+      "y": 1050
+    },
+    {
+      "x": 820,
+      "y": 1190
+    }
+  ],
+  "dialog": {
+    "id": "rival-visit",
+    "speaker": "Levi Senn",
+    "text": "No meal was available at the first holding decision. No blanket was provided at that decision. The tightened hold was chosen. I am still under guard; checking the copied warrants does not make this a free room.",
+    "choices": [
+      {
+        "id": "leave",
+        "label": "Continue."
+      }
+    ]
+  },
+  "scope": "Actual owning Journey movement inputs and offered rival:visit. No position/stage/health/care/stock assignment. Not a public-input optional visit or passed full WebKit report.",
+  "fixture": "rival-v4-deprived-visit-native.json.gz",
+  "sha256OfUncompressedOriginalBytes": "6a8c9ab74e80b572daf453f0dda8de872815cb26495449da93f219c977215d1b",
+  "uncompressedBytes": 3185515,
+  "limits": "Genuine public first-WebKit completion followed by native owning-codec movement/actual offered visit; original full browser report remains failed before reload, and optional visit is not public-input proof. No position/stage/health/stock/outcome assignment. Exact original incorrect wire text is preserved."
+}

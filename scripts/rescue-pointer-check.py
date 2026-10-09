@@ -4,6 +4,8 @@ Deliberately aim at Copper to verify the protected-shot failure. Releasing a
 Space focus hold must leave Retry pending, followed by one explicit Retry click.
 Evaluations read projection and normal-menu Saves; none writes runtime state.
 """
+
+from campaign_save import observed_save
 import argparse,asyncio,json,os
 from pathlib import Path
 os.environ.setdefault('PLAYWRIGHT_HOST_PLATFORM_OVERRIDE','ubuntu24.04-x64')
@@ -25,7 +27,7 @@ async def main():
     await page.goto(args.url);await page.wait_for_function('globalThis.My3D2dge?.current?._running');await page.locator('[data-panel="menu"]').click()
     async with page.expect_file_chooser() as fc:await page.locator('[data-command="import"]').click()
     await (await fc.value).set_files(str(SAVE));await page.locator('#welcome').wait_for(state='hidden')
-    await page.keyboard.press('Escape');await page.locator('[data-command="save"]').click();before=await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))');await page.locator('[data-command="resume"]').click()
+    await page.keyboard.press('Escape');await page.locator('[data-command="save"]').click();before=await observed_save(page);await page.locator('[data-command="resume"]').click()
     target=before['entities']['copper'];point=await page.evaluate('''a=>{const g=My3D2dge.current,r=g.r,s=g.screen,rc=s.canvas.getBoundingClientRect();const[x,y]=r.w(a.x,a.y,a.z||0);return{x:rc.left+(s.OX+(x-s.fx)*s.S)/s.dpr,y:rc.top+(s.OY+(y-22-s.fy)*s.S)/s.dpr}}''',target)
     await page.mouse.move(point['x'],point['y']);await page.keyboard.down('Space');await page.mouse.click(point['x'],point['y']);await page.wait_for_timeout(700);await page.keyboard.up('Space');await page.wait_for_timeout(200)
     row['text']=await page.locator('#dialogue-text').inner_text();row['choices']=await page.locator('[data-choice]').evaluate_all('(els)=>els.map(e=>e.dataset.choice)')
@@ -33,7 +35,7 @@ async def main():
     assert 'Copper' in row['text'] and 'struck by your shot' in row['text'],row
     assert row['choices']==['retry','restart'],row
     await page.screenshot(path=str(OUT/f'{engine}-held-focus-failure.png'))
-    await page.locator('[data-choice="retry"]').click();await page.wait_for_timeout(100);await page.keyboard.press('Escape');await page.locator('[data-command="save"]').click();after=await page.evaluate('JSON.parse(localStorage.getItem("dust-mercy.journey.v1"))');(OUT/f'{engine}-recovered.json').write_text(json.dumps(after,indent=2)+'\n')
+    await page.locator('[data-choice="retry"]').click();await page.wait_for_timeout(100);await page.keyboard.press('Escape');await page.locator('[data-command="save"]').click();after=await observed_save(page);(OUT/f'{engine}-recovered.json').write_text(json.dumps(after,indent=2)+'\n')
     mid='snowbound-a-voice-under-ice';assert after['campaign']['missions'][mid]['retryCount']==before['campaign']['missions'][mid]['retryCount']+1,(before['campaign']['missions'][mid]['retryCount'],after['campaign']['missions'][mid]['retryCount']);assert after['failure'] is None
     assert after['stats']['deaths']==before['stats']['deaths']+1
     assert not errors;row['passed']=True

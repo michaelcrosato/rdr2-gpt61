@@ -10,6 +10,7 @@ const project = process.env.DUST_MERCY_REPO_ROOT
   : new URL('../', import.meta.url);
 const Journey = await import(new URL('src/campaign-journey.js', project));
 const { HUNT_CAST, HUNT_ANIMALS, WILLOW_RUN_WORLD: WORLD, HUNT_BOW } = await import(new URL('content/campaign/willow-run.js', project));
+const { RIVAL_CAST, RIVAL_ENEMIES } = await import(new URL('content/campaign/bellwether-works.js', project));
 const OPENING = 'snowbound-the-last-warm-light';
 const RESCUE = 'snowbound-a-voice-under-ice';
 const HUNT = 'snowbound-a-quiet-table';
@@ -61,14 +62,16 @@ function noHuntGift(body, previous) {
   }
 }
 function assertMigratedBody(previous, current) {
-  assert.equal(current.version, 3);
+  assert.equal(current.version, 4);
   assert.equal(current.region, previous.region);
   assert.equal(current.campaign.activeMissionId, previous.campaign.activeMissionId);
   assert.deepEqual(current.party, previous.party);
   assert.deepEqual(current.weapons, previous.weapons, 'loan and earned ownership/ammo/rack state remain authoritative');
-  for (const key of ['inventory', 'camp', 'companions', 'sideQuests', 'wanted', 'honor', 'stats', 'day', 'time', 'elapsed']) {
+  for (const key of ['inventory', 'camp', 'sideQuests', 'wanted', 'honor', 'stats', 'day', 'time', 'elapsed']) {
     assert.deepEqual(current[key], previous[key], `${key} survives migration without a world tick or grant`);
   }
+  for(const [id,before]of Object.entries(previous.companions))assert.deepEqual(current.companions[id],before,`${id} prior relationship unchanged`);
+  for(const id of Object.keys(current.companions).filter(id=>!Object.hasOwn(previous.companions,id))){assert.equal(previous.campaign.missions[RESCUE].mission.completed,true);assert.ok(['ruth','bastian','emmett'].includes(id));assert.deepEqual(current.companions[id],{trust:0,requests:0});}
   for (const id of [OPENING, RESCUE]) {
     assert.deepEqual(missionDurables(current.campaign.missions[id]), missionDurables(previous.campaign.missions[id]), `existing ${id} choices, timers, clinical/track/transaction/progress history stay intact`);
   }
@@ -77,7 +80,7 @@ function assertMigratedBody(previous, current) {
   }
   for (const id of Object.keys(current.entities).filter(id => !previous.entities[id])) {
     assert.equal(previous.campaign.missions[RESCUE].mission.completed, true, 'new hunting cast is gated by this branch’s actual rescue completion');
-    const authored = [...HUNT_CAST, ...HUNT_ANIMALS].find(actor => actor.id===id);
+    const authored = [...HUNT_CAST, ...HUNT_ANIMALS, ...RIVAL_CAST, ...RIVAL_ENEMIES].find(actor => actor.id===id);
     assert.ok(authored, `migration cannot fabricate an unrelated ${id} actor`);
     assert.equal(current.entities[id].hp, authored.hp);
     assert.equal(current.entities[id].attachment, null);
@@ -88,7 +91,7 @@ function assertMigratedBody(previous, current) {
     assert.deepEqual(after.residentIds.filter(actorId => previous.entities[actorId]), before.residentIds, `${id} retains existing residence without a duplicate body`);
   }
   for (const [key, value] of Object.entries(previous.campaign.unlocks)) {
-    const expected=key==='campaign-the-aftermath-of-genesis' && previous.campaign.missions[RESCUE].mission.completed
+    const expected=['campaign-the-aftermath-of-genesis','campaign-old-friends'].includes(key) && previous.campaign.missions[RESCUE].mission.completed
       ? {...value,available:true} : value;
     assert.deepEqual(current.campaign.unlocks[key], expected, `${key} retains metadata; only implemented hunt availability may change after actual Rescue completion`);
   }
@@ -196,7 +199,7 @@ function equipment(state=acceptTable()) {
 }
 
 for (const name of ['opening-departure', 'opening-carried', 'opening-complete', 'rescue-prepared', 'rescue-resting', 'rescue-carried', 'rescue-passenger', 'rescue-complete']) {
-  test(`version 3 migrates the unmodified public version-2 ${name} Save and every historical graph`, () => {
+  test(`version 4 migrates the unmodified public version-2 ${name} Save and every historical graph`, () => {
     const old = fixture(name);
     const state = Journey.restoreCampaign(old);
     assert.ok(state, 'the authentic older public Save restores');
