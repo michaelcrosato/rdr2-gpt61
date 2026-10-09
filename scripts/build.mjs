@@ -18,6 +18,7 @@ let html=await readFile(resolve(root,'index.html'),'utf8');
 for(const [before,after]of [['href="styles.css"',`href="${assets.style}"`],['src="my-3d2dge-agent.js"',`src="${assets.engine}"`],['src="src/game.js"',`src="${assets.game}"`]]){if(!html.includes(before))throw new Error(`Missing HTML build reference ${before}`);html=html.replace(before,after);}
 html=html.replace('</head>',`  <link rel="preload" as="script" href="${assets.engine}">\n  <link rel="modulepreload" href="${assets.game}">\n</head>`);
 await writeFile(resolve(out,'index.html'),html);
+await writeFile(resolve(out,'third-party-notices.txt'),await readFile(resolve(root,'THIRD_PARTY_NOTICES.md'),'utf8'));
 let revision=process.env.VERCEL_GIT_COMMIT_SHA||null;try{revision||=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();}catch{}
 const sizes=[];for(const name of Object.keys(outputs)){const bytes=await readFile(resolve(root,name));sizes.push({file:relative(out,resolve(root,name)).replaceAll('\\','/'),bytes:bytes.length,gzip:gzipSync(bytes).length,brotli:brotliCompressSync(bytes).length});}
 await writeFile(resolve(out,'build-info.json'),JSON.stringify({game:'Dust & Mercy',revision,assets,files:sizes},null,2)+'\n');

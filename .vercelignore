@@ -9,3 +9,7 @@ docs
 test-results
 playwright-report
 __pycache__
+*:Zone.Identifier
+scripts/*
+!scripts/build.mjs
+content/source-coverage.json
