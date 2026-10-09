@@ -58,3 +58,21 @@ test('real gun hit before wire work consumes first original and records destroye
  assert.deepEqual(p.circuit.path,[]);assert.equal(p.circuit.terminals.charge.state,'destroyed');assert.equal(p.circuit.breakEventId,null);assert.deepEqual(p.circuit.strokes,[]);assert.equal(r.objects['cap-tin'].primers[0].state,'spent');assert.equal(r.objects['cap-tin'].primers.filter(unit=>unit.state==='damaged').length,0);
  assert.deepEqual([s.entities.mara.hp,s.entities.ruth.hp],health);assert.equal(f.history(),true);
 });
+
+test('actual owned projectile interrupts Ruth’s pending physical fastening before its one native charge blast',()=>{
+ const f=createWireComponentFixture(),s=f.s,r=s.campaign.missions[RIVAL_ID];
+ f.complete(Powder.requestPowderTransfer(s,f.refs.charges[0],['ruth'],{owner:'ruth',location:{type:'station',targetId:'turnout-service-plate',regionId:'brass-cutting'}},f.ctx));
+ f.complete(Powder.requestWireStart(s,'mara',f.ctx));for(let i=0;i<18;i++)f.move('ruth',1,0,.05);
+ const fastening=Powder.requestTerminalFastening(s,'charge','ruth',f.ctx);assert.ok(fastening);
+ Journey.campaignAction(s,'equip:tern-carbine');Journey.campaignAction(s,'draw');assert.equal(s.entities.mara.holstered,false);
+ // Same explicit initial emission/car-world fixture as the prior first-child
+ // shot. No stage, health, ammunition, completion or impact is assigned.
+ s.campaign.activeMissionId=TRAIN_ID;s.campaign.missions[TRAIN_ID].performance=structuredClone(createTrainRuntimeSections(s).performance);s.campaign.missions[TRAIN_ID].train.combat=createTrainCombat();s.campaign.missions[TRAIN_ID].train.blasts=createTrainBlastState();
+ let consist=createTrainConsist(),geometry=trainGeometry(consist);s.campaign.missions[TRAIN_ID].train.consist=consist;
+ const world=()=>({regionId:'brass-cutting',geometry}),origin={x:100,y:100,z:6},blastProviders={worldFor:world,raycast:(w,a,b,o)=>raycastCoverAt(w.geometry,a,b,o),actorPoint:P,chargePoint:()=>({...origin,regionId:'brass-cutting'}),doorPoint:()=>({present:true,point:worldPoint(geometry.platforms.find(p=>p.id==='morrow-custody-coach').frame,{x:85,y:0,z:45})})};
+ const tick=(_controls,dt)=>{const next=advanceTrainConsist(consist,dt,{throttle:0,brake:0});consist=next.state;geometry=next.geometry;s.campaign.missions[TRAIN_ID].train.consist=consist;f.tick(dt);};
+ const prior=f.ctx.authorizeCustodyOp;f.ctx.authorizeCustodyOp=(_s,op)=>op.kind==='blast-charge'?op.actorIds.length===0&&op.options.chargeId==='quarry-sealed-charge-1'&&op.options.trigger==='projectile':prior(_s,op);
+ const ammo=s.weapons['tern-carbine'].ammo,h=bindPowderProjectileFixture({s,ctx:f.ctx,tick,world,blastProviders,boxFor:charge=>charge.id==='quarry-sealed-charge-1'&&charge.location.type==='station'?{center:origin}:null}),result=h.fly(h.shoot(origin)),p=Powder.trainPowderRecord(s);
+ assert.equal(result.receipt.kind,'charge');assert.equal(result.blasted,true);assert.equal(s.weapons['tern-carbine'].ammo,ammo-1);assert.equal(p.pending.length,0);
+ const cancelled=p.physicalEvents.find(e=>e.kind==='work-cancelled'&&e.data.workId===fastening.workId),blast=p.physicalEvents.find(e=>e.kind==='charge-blast');assert.ok(cancelled);assert.ok(p.physicalEvents.indexOf(cancelled)<p.physicalEvents.indexOf(blast));assert.equal(r.objects['quarry-sealed-charge-1'].powder.spent,true);assert.equal(r.rival.continuation.events.filter(e=>e.kind==='blast-charge').length,1);assert.equal(f.history(),true);
+});

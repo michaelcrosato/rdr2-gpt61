@@ -5,6 +5,7 @@ import {TRAIN_ID,TRAIN_CHARGE_REFERENCES} from '../content/campaign/brass-cuttin
 import {TRAIN_TOOL_CASE,TRAIN_KIT_DEFINITIONS} from '../content/campaign/train-equipment.js';
 import * as Custody from './rival-continuation.js';
 import {inspectCustodyContactWindow,CUSTODY_CONTACT_RADIUS} from './custody-contact.js';
+import {TRAIN_MASK_ID,TRAIN_MASK_SOURCE} from './train-gear.js';
 const {CUSTODY_WORK_SECONDS}=Custody;
 
 export const POWDER_SCHEMA=1;
@@ -24,6 +25,9 @@ const samePoint=(a,b)=>point(a)&&point(b)&&distance(a,b)<=EPS;
 export const POWDER_STEP_LIMIT=.25;
 export const POWDER_CONTACT_RADIUS=CUSTODY_CONTACT_RADIUS;
 export const POWDER_SAFE_INTERVAL=Custody.CUSTODY_RECOVERY_SECONDS;
+export const PREPARATION_INSPECTION_SECONDS=Object.freeze({'child-seal':.6,'primer-tin':.8,'wire-and-tools':.8});
+const inspectionKinds=Object.freeze({'child-seal':'inspect-child-seal','primer-tin':'inspect-primer-tin','wire-and-tools':'inspect-wire-and-tools'});
+const workSeconds=kind=>CUSTODY_WORK_SECONDS[kind]??PREPARATION_INSPECTION_SECONDS[Object.keys(inspectionKinds).find(topic=>inspectionKinds[topic]===kind)];
 const fuseDurations=Object.fromEntries(TRAIN_KIT_DEFINITIONS.filter(item=>item.kind==='game-fuse').map(item=>[item.id,item.fuseSeconds]));
 
 /** A trace is evidence from the owning ground geometry, not a requested wire
@@ -121,16 +125,16 @@ export function trainPowderRecord(s){return s?.campaign?.missions?.[TRAIN_ID]?.t
 export function inspectPowderContactWindow(window,expected){return inspectCustodyContactWindow(window,expected);}
 
 export function validatePowderPendingWork(work,now){
-  if(!keys(work,['workId','requestId','kind','startedAt','acceptedSeconds','intervals'])||typeof work.workId!=='string'||!/^powder-event-[1-9][0-9]*$/.test(work.workId)||typeof work.requestId!=='string'||!work.requestId||!Object.hasOwn(CUSTODY_WORK_SECONDS,work.kind)||CUSTODY_WORK_SECONDS[work.kind]<=0||!finite(work.startedAt)||work.startedAt<0||!finite(work.acceptedSeconds)||work.acceptedSeconds<0||!finite(now)||!Array.isArray(work.intervals)||work.intervals.length>4096)return false;
+  if(!keys(work,['workId','requestId','kind','startedAt','acceptedSeconds','intervals'])||typeof work.workId!=='string'||!/^powder-event-[1-9][0-9]*$/.test(work.workId)||typeof work.requestId!=='string'||!work.requestId||!finite(workSeconds(work.kind))||workSeconds(work.kind)<=0||!finite(work.startedAt)||work.startedAt<0||!finite(work.acceptedSeconds)||work.acceptedSeconds<0||!finite(now)||!Array.isArray(work.intervals)||work.intervals.length>4096)return false;
   let end=work.startedAt,sum=0;
   for(const interval of work.intervals){
     if(!keys(interval,['start','finish'])||!finite(interval.start)||!finite(interval.finish)||Math.abs(interval.start-end)>EPS||interval.finish<=interval.start||interval.finish-interval.start>POWDER_STEP_LIMIT+EPS||interval.finish>now+EPS)return false;
     sum+=interval.finish-interval.start;end=interval.finish;
   }
-  return Math.abs(sum-work.acceptedSeconds)<=EPS&&work.startedAt<=now&&work.acceptedSeconds<CUSTODY_WORK_SECONDS[work.kind]+POWDER_STEP_LIMIT+EPS;
+  return Math.abs(sum-work.acceptedSeconds)<=EPS&&work.startedAt<=now&&work.acceptedSeconds<workSeconds(work.kind)+POWDER_STEP_LIMIT+EPS;
 }
 
-const custodyKinds=new Set(['issue-kit','open-tin','move-object','unseal-charge','attach-primer','remove-primer','attach-fuse','light-fuse','cut-clamp','return-papers','establish-guard','guard-handover','lend-weapon','return-weapon']);
+const custodyKinds=new Set(['issue-kit','issue-mask','open-tin','move-object','unseal-charge','attach-primer','remove-primer','attach-fuse','light-fuse','cut-clamp','return-papers','establish-guard','guard-handover','lend-weapon','return-weapon']);
 const physicalKinds=new Set(['begin-wire','fasten-terminal','disconnect-terminal','test-circuit','stroke-detonator']);
 const copy=value=>structuredClone(value);
 function capability(fn,...args){try{return typeof fn==='function'&&fn(...args)===true;}catch{return false;}}
@@ -147,6 +151,8 @@ function workContact(s,operation,interval,ctx){
   try{return inspectPowderContactWindow(ctx.powderContactWindow(s,copy(operation),span),expected);}catch{return null;}
 }
 export function powderFixedContactRoles(op){
+  if(op.kind==='issue-mask')return ['mara','ada'].map(actorId=>({id:TRAIN_MASK_SOURCE.id,actorId,regionId:TRAIN_MASK_SOURCE.regionId}));
+  if(Object.values(inspectionKinds).includes(op.kind))return ['mara','ruth'].map(actorId=>({id:op.options.topic==='wire-and-tools'?TRAIN_TOOL_CASE.id:'quarry-charge-store',actorId,regionId:'snowbound'}));
   if(op.kind==='issue-kit')return ['mara','ruth'].map(actorId=>({id:TRAIN_TOOL_CASE.id,actorId,regionId:TRAIN_TOOL_CASE.regionId}));
   if(op.kind==='return-papers')return[{id:'actor:tomas:paper-handoff',actorId:'mara',regionId:'snowbound'}];
   if(['establish-guard','guard-handover'].includes(op.kind))return op.actorIds.map(actorId=>({id:'station:levi-holding',actorId,regionId:'snowbound'}));
@@ -159,7 +165,7 @@ function bridgeReady(){return ['beginCustodyRequest','inspectCustodyRequest','ca
 function conflictsWithPending(s,op){
   const record=trainPowderRecord(s);
   for(const work of record.pending){
-    const event=record.physicalEvents.find(item=>item.id===work.workId),other=event?.kind==='circuit-work-started'?event.data.operation:Custody.inspectCustodyRequest?.(s,work.requestId)?.operation;
+    const event=record.physicalEvents.find(item=>item.id===work.workId),other=['circuit-work-started','preparation-inspection-started'].includes(event?.kind)?event.data.operation:Custody.inspectCustodyRequest?.(s,work.requestId)?.operation;
     if(!other||other.actorIds.some(id=>op.actorIds.includes(id))||other.refs.some(ref=>op.refs.some(candidate=>sameRef(ref,candidate))))return true;
   }
   return false;
@@ -167,9 +173,139 @@ function conflictsWithPending(s,op){
 function interruptConflictingWork(s,op){
   const record=trainPowderRecord(s);
   for(const work of [...record.pending]){
-    const event=record.physicalEvents.find(item=>item.id===work.workId),other=event?.kind==='circuit-work-started'?event.data.operation:Custody.inspectCustodyRequest(s,work.requestId)?.operation;
+    const event=record.physicalEvents.find(item=>item.id===work.workId),other=['circuit-work-started','preparation-inspection-started'].includes(event?.kind)?event.data.operation:Custody.inspectCustodyRequest(s,work.requestId)?.operation;
     if(other&&(other.actorIds.some(id=>op.actorIds.includes(id))||other.refs.some(ref=>op.refs.some(candidate=>sameRef(ref,candidate)))))cancelPowderWork(s,work.workId,'interrupted');
   }
+}
+/** Hazards do not wait for a resource lock. Interrupt first, then allocate the
+ * hazard cause. If its owner refuses/rolls back, restore the same work prefix;
+ * continuation metadata restoration remains in the continuation owner. */
+function interruptingHazard(s,op,apply){
+  const record=trainPowderRecord(s),custody=Custody.prepareCustodyInterruption?.(s);
+  if(!record||!custody||typeof custody.rollback!=='function')return false;
+  const snapshot={pending:copy(record.pending),physicalEvents:copy(record.physicalEvents)};
+  try{interruptConflictingWork(s,op);if(apply())return true;}catch{}
+  try{custody.rollback();}finally{record.pending=snapshot.pending;record.physicalEvents=snapshot.physicalEvents;}
+  return false;
+}
+
+function inspectionOperation(topic,reference,actorIds,resolve){
+  if(!Object.hasOwn(inspectionKinds,topic)||JSON.stringify(actorIds)!==JSON.stringify(['mara','ruth']))return null;
+  const refs=createPowderReferences();let selected;
+  if(topic==='child-seal'){
+    if(!chargeIds.some(id=>sameRef(reference,original(id))))return null;
+    const child=resolve(reference);if(child?.kind!=='sealed-charge')return null;
+    selected=[copy(reference)];
+    if(child.location?.type==='crate'){if(child.location.targetId!=='charge-crate')return null;selected.push(refs.crate);}
+  }else if(topic==='primer-tin'){
+    if(!sameRef(reference,refs.tin))return null;selected=[refs.tin];
+  }else{
+    if(!sameRef(reference,refs.spool))return null;selected=[refs.spool,refs.lead,refs.detonator,refs.pliers,...refs.fuses];
+  }
+  return{kind:inspectionKinds[topic],actorIds:[...actorIds],refs:selected,to:null,options:{topic,ref:copy(reference)}};
+}
+function inspectionMeasurement(op,bindings){
+  const item=ref=>bindings.find(binding=>sameRef(binding.ref,ref))?.value,topic=op.options.topic;
+  if(bindings.some(binding=>!plain(binding.value)||typeof binding.value.owner!=='string'||!binding.value.owner||!plain(binding.value.location)))return null;
+  if(topic==='child-seal'){
+    const child=item(op.options.ref),p=child?.powder;
+    if(!child||child.id!==op.options.ref.objectId||child.kind!=='sealed-charge'||typeof child.sealed!=='boolean'||p!==undefined&&(!plain(p)||p.schema!==1||![null,'wired','fused'].includes(p.mode)||p.primerId!==null&&!/^quarry-primer-[1-6]$/.test(p.primerId)||typeof p.spent!=='boolean'))return null;
+    if(child.location.type==='crate'&&item(original('charge-crate'))?.kind!=='sealed-quarry-charges')return null;
+    return{topic,chargeId:child.id,sealed:child.sealed,mode:p?.mode??null,primerId:p?.primerId??null,spent:p?.spent??false};
+  }
+  if(topic==='primer-tin'){
+    const tin=item(op.options.ref),issuedIds=Array.from({length:6},(_,i)=>`quarry-primer-${i+1}`);
+    if(tin?.id!=='cap-tin'||tin.kind!=='cap-tin'||typeof tin.openingEventId!=='string'||!Array.isArray(tin.primers)||tin.primers.length!==6||tin.primers.some((unit,index)=>unit.id!==issuedIds[index]||unit.kind!=='game-primer'||unit.sourceTinId!=='cap-tin'||unit.openingEventId!==tin.openingEventId||!['in-tin','attached','damaged','spent'].includes(unit.state)||!plain(unit.location)))return null;
+    const usableIds=tin.primers.filter(unit=>unit.state==='in-tin'&&JSON.stringify(unit.location)===JSON.stringify({type:'tin',targetId:'cap-tin',compartment:'usable'})).map(unit=>unit.id);
+    const unserviceableIds=tin.primers.filter(unit=>unit.state==='damaged'&&JSON.stringify(unit.location)===JSON.stringify({type:'tin',targetId:'cap-tin',compartment:'unserviceable'})).map(unit=>unit.id);
+    return{topic,openingEventId:tin.openingEventId,issuedIds,usableIds,unserviceableIds,absentIds:issuedIds.filter(id=>!usableIds.includes(id)&&!unserviceableIds.includes(id))};
+  }
+  const kit=TRAIN_KIT_DEFINITIONS.map(definition=>item(tool(definition.id))),spool=kit[0],issueEventId=spool?.issueEventId;
+  if(!validatePowderWireBalance(spool)||typeof issueEventId!=='string'||kit.some((value,index)=>value?.id!==TRAIN_KIT_DEFINITIONS[index].id||value.kind!==TRAIN_KIT_DEFINITIONS[index].kind||value.issueEventId!==issueEventId||value.sourceCaseId!==TRAIN_TOOL_CASE.id))return null;
+  const fuses=kit.filter(value=>value.kind==='game-fuse');
+  if(fuses.some(fuse=>!['intact','attached','burning','spent'].includes(fuse.state)||fuse.chargeId!==null&&!chargeIds.includes(fuse.chargeId)))return null;
+  return{topic,issueEventId,spool:Object.fromEntries(['issuedLength','onReel','deployedLength','cutoffLength','lostLength'].map(key=>[key,spool[key]])),kit:kit.map(value=>({id:value.id,kind:value.kind})),fuses:fuses.map(value=>({id:value.id,state:value.state,chargeId:value.chargeId}))};
+}
+function validInspectionStart(start,sourceForRevision,eventFor){
+  const data=start?.data,op=data?.operation;
+  if(start?.kind!=='preparation-inspection-started'||!keys(data,['operation','sourceRevision','sourceBindings'])||!keys(op,['kind','actorIds','refs','to','options'])||!keys(op.options,['topic','ref'])||!Number.isSafeInteger(data.sourceRevision)||data.sourceRevision<0||!Array.isArray(data.sourceBindings)||data.sourceBindings.length!==op.refs?.length||typeof sourceForRevision!=='function')return false;
+  const values=data.sourceBindings;
+  if(values.some((entry,index)=>!keys(entry,['ref','value'])||!sameRef(entry.ref,op.refs[index])||JSON.stringify(entry.value)!==JSON.stringify(sourceForRevision(entry.ref,data.sourceRevision,start.at))))return false;
+  const expected=inspectionOperation(op.options.topic,op.options.ref,op.actorIds,ref=>values.find(entry=>sameRef(entry.ref,ref))?.value);
+  const measured=expected&&inspectionMeasurement(expected,values);
+  if(!expected||JSON.stringify(expected)!==JSON.stringify(op)||!measured)return false;
+  const materialId=measured.openingEventId||measured.issueEventId;
+  if(materialId){const event=typeof eventFor==='function'&&eventFor(materialId);if(!event||event.seq>data.sourceRevision||event.at>start.at||event.kind!==(op.options.topic==='primer-tin'?'open-tin':'issue-kit'))return false;}
+  return true;
+}
+function inspectionBindingsUnchanged(start,revision,at,{sourceForRevision,eventFor}){
+  if(!Number.isSafeInteger(revision)||revision<start.data.sourceRevision||typeof sourceForRevision!=='function'||typeof eventFor!=='function')return false;
+  const bindings=start.data.sourceBindings;
+  if(bindings.some(entry=>JSON.stringify(entry.value)!==JSON.stringify(sourceForRevision(entry.ref,revision,at))))return false;
+  // Moving a source away and back is not continuous inspection. Check each
+  // intervening canonical effect without replaying unrelated whole models.
+  for(let seq=start.data.sourceRevision+1;seq<=revision;seq++){
+    const event=eventFor(`${POWDER_SOURCE_MISSION}:continued:${seq}`);
+    if(!event||event.seq!==seq||event.at<start.at||event.at>at||!Array.isArray(event.effects))return false;
+    for(const binding of bindings)for(const effect of event.effects)if(sameRef(effect.ref,binding.ref)&&JSON.stringify(effect.after)!==JSON.stringify(binding.value))return false;
+  }
+  return true;
+}
+function inspectionAccess(s,op,ctx){
+  if(s.region!=='snowbound'||['worldFor','custodySnapshot','handUsable','handFree','authorizePreparationInspection'].some(key=>typeof ctx?.[key]!=='function')||!capability(ctx.authorizePreparationInspection,s,copy(op)))return false;
+  try{if(!ctx.worldFor(s))return false;}catch{return false;}
+  return op.actorIds.every(id=>{const actor=s.entities[id];return actor?.hp>0&&actor.regionId==='snowbound'&&!actor.mounted&&capability(ctx.handUsable,s,id,copy(op))&&capability(ctx.handFree,s,id,copy(op));});
+}
+function inspectionContact(s,op,interval,ctx){
+  const contact=workContact(s,op,interval,ctx),snapshot=Custody.physicalSnapshot(s,{actorIds:op.actorIds,refs:op.refs,destinations:[]},ctx);
+  return !!contact&&!!snapshot&&JSON.stringify(contact)===JSON.stringify(snapshot);
+}
+function inspectionLinks(s){return Custody.custodyValidationLinks(s);}
+function inspectionRevision(s){const events=s.campaign?.missions?.[POWDER_SOURCE_MISSION]?.rival?.continuation?.events;return Array.isArray(events)?events.length:null;}
+
+/** Timed observation of actual finite stock, never a no-op transfer, issue,
+ * flag or caller-supplied measurement. The existing accepted runner owns time. */
+export function requestPreparationInspection(s,spec,ctx){
+  const record=trainPowderRecord(s);if(!record||!keys(spec,['topic','ref','actorIds'])||!finite(s.elapsed))return null;
+  const op=inspectionOperation(spec.topic,spec.ref,spec.actorIds,ref=>authoritative(s,ref));
+  if(!op||!inspectionAccess(s,op,ctx)||conflictsWithPending(s,op)||!inspectionContact(s,op,{start:s.elapsed,finish:s.elapsed},ctx))return null;
+  const sourceRevision=inspectionRevision(s),sourceBindings=op.refs.map(ref=>({ref:copy(ref),value:copy(authoritative(s,ref))}));
+  const start={kind:'preparation-inspection-started',at:s.elapsed,data:{operation:op,sourceRevision,sourceBindings}},links=inspectionLinks(s);
+  if(!validInspectionStart(start,links.sourceForRevision,links.eventFor))return null;
+  const event=physicalEvent(s,start.kind,start.data),requestId=`inspection:${event.id}`;record.workSerial++;
+  record.pending.push({workId:event.id,requestId,kind:op.kind,startedAt:s.elapsed,acceptedSeconds:0,intervals:[]});
+  if(record.lastAdvancedAt===null)record.lastAdvancedAt=s.elapsed;
+  return{workId:event.id,requestId,requiredSeconds:workSeconds(op.kind)};
+}
+
+function inspectionRows(record,now,links){
+  if(!record||!Array.isArray(record.physicalEvents)||!Array.isArray(record.pending)||!Array.isArray(record.custodyEventRefs))return null;
+  const starts=new Map(),finished=new Set(),rows=[];
+  for(const event of record.physicalEvents){
+    if(event.kind==='preparation-inspection-started'){
+      if(!validInspectionStart(event,links.sourceForRevision,links.eventFor)||starts.has(event.id))return null;starts.set(event.id,event);
+    }else if(event.kind==='preparation-inspection-completed'){
+      const data=event.data,start=starts.get(data?.workId);
+      if(!keys(data,['workId','sourceRevision','acceptedSeconds','intervals','measurement'])||!start||finished.has(start.id)||event.at<start.at||!inspectionBindingsUnchanged(start,data.sourceRevision,event.at,links))return null;
+      const op=start.data.operation,work={workId:start.id,requestId:`inspection:${start.id}`,kind:op.kind,startedAt:start.at,acceptedSeconds:data.acceptedSeconds,intervals:data.intervals};
+      if(!validatePowderPendingWork(work,event.at)||work.acceptedSeconds+EPS<workSeconds(work.kind)||work.intervals.at(-1)?.finish!==event.at||JSON.stringify(data.measurement)!==JSON.stringify(inspectionMeasurement(op,start.data.sourceBindings)))return null;
+      finished.add(start.id);rows.push({workId:start.id,topic:op.options.topic,ref:copy(op.options.ref),actorIds:[...op.actorIds],startedAt:start.at,finishedAt:event.at,sourceRevision:data.sourceRevision,measurement:copy(data.measurement)});
+    }else if(event.kind==='work-cancelled'&&starts.has(event.data?.workId)){
+      if(finished.has(event.data.workId))return null;finished.add(event.data.workId);
+    }
+  }
+  for(const start of starts.values())if(!finished.has(start.id)){
+    const work=record.pending.find(item=>item.workId===start.id);
+    if(!work||work.requestId!==`inspection:${start.id}`||work.kind!==start.data.operation.kind||work.startedAt!==start.at||!validatePowderPendingWork(work,now)||!inspectionBindingsUnchanged(start,record.custodyEventRefs.length,now,links))return null;
+  }
+  return rows;
+}
+
+/** Historical evidence only; the preparation owner still checks current
+ * resources, readiness, actual dialogue and the declared scene boundary. */
+export function preparationInspectionEvidence(s,{since=0,at=s?.elapsed}={}){
+  const record=trainPowderRecord(s);if(!record||!finite(since)||since<0||!finite(at)||at<since||at>s.elapsed)return null;
+  try{const rows=inspectionRows(record,s.elapsed,inspectionLinks(s));return rows?.filter(row=>row.startedAt>=since&&row.finishedAt<=at)??null;}catch{return null;}
 }
 
 /** The caller selects an offered operation, never its timing/cause/count. The
@@ -277,6 +413,18 @@ export function stepPowderWork(s,dt,ctx,{paused=false}={}){
     // A controller may offer/create work after advancing this accepted clock.
     // Its first contact interval begins at birth, never before the request.
     if(work.startedAt>interval.start+EPS)continue;
+    if(work.requestId===`inspection:${work.workId}`){
+      const start=record.physicalEvents.find(event=>event.id===work.workId),op=start?.data?.operation,links=inspectionLinks(s),revision=inspectionRevision(s);
+      if(!validatePowderPendingWork(work,s.elapsed)||!validInspectionStart(start,links.sourceForRevision,links.eventFor)||op.kind!==work.kind||start.at!==work.startedAt||!inspectionBindingsUnchanged(start,revision,s.elapsed,links)||!inspectionAccess(s,op,ctx)||!inspectionContact(s,op,interval,ctx)){
+        cancelPowderWork(s,work.workId,'contact-lost');cancelled.push(work.workId);continue;
+      }
+      work.intervals.push({start:interval.start,finish:interval.finish});work.acceptedSeconds+=interval.seconds;
+      if(work.acceptedSeconds+EPS>=workSeconds(work.kind)){
+        physicalEvent(s,'preparation-inspection-completed',{workId:work.workId,sourceRevision:revision,acceptedSeconds:work.acceptedSeconds,intervals:copy(work.intervals),measurement:inspectionMeasurement(op,start.data.sourceBindings)});
+        record.pending=record.pending.filter(item=>item!==work);completed.push(work.workId);
+      }
+      continue;
+    }
     if(work.requestId===`physical:${work.workId}`){
       const event=record.physicalEvents.find(item=>item.id===work.workId),op=event?.data.operation;
       if(!validatePowderPendingWork(work,s.elapsed)||event?.kind!=='circuit-work-started'||op?.kind!==work.kind||!physicalPrecondition(s,op,ctx)||!workContact(s,op,interval,ctx)){
@@ -305,6 +453,7 @@ export function stepPowderWork(s,dt,ctx,{paused=false}={}){
 
 const operation=(kind,actorIds,refs,options={},to=null)=>({kind,actorIds,refs,to,options});
 export function requestKitOpening(s,ctx){if(!trainPowderRecord(s)||Object.keys(trainPowderRecord(s).kit).length)return null;return requestPowderCustodyWork(s,operation('issue-kit',['mara','ruth'],[]),ctx);}
+export function requestMaskHandoff(s,ctx){if(!trainPowderRecord(s)||s.itemInstances?.[TRAIN_MASK_ID])return null;return requestPowderCustodyWork(s,operation('issue-mask',['mara','ada'],[]),ctx);}
 export function requestTinOpening(s,ctx){const refs=createPowderReferences(),tin=authoritative(s,refs.tin,'cap-tin');if(!tin||tin.primers!==undefined||tin.openingEventId!==undefined)return null;return requestPowderCustodyWork(s,operation('open-tin',['ruth'],[refs.tin]),ctx);}
 export function powderTransferAllowed(s,reference){
   const record=trainPowderRecord(s);if(!record)return false;
@@ -504,22 +653,27 @@ export function applyPowderTerminalStrain(s,ctx){
   const charge=authoritative(s,record.refs.charges[0],'sealed-charge'),primerId=charge?.powder?.primerId;
   if(!primerId||charge.powder.spent)return false;
   const primer=authoritative(s,original(primerId),'game-primer');if(primer?.state!=='attached')return false;
-  const event=physicalEvent(s,'terminal-released',{physicalReceipt:copy(strain),primerRef:original(primerId),custodyEventId:null});
-  const result=immediateCustody(s,'damage-primer',[],[record.refs.tin,record.refs.charges[0],original(primerId)],{chargeId:charge.id,primerId,physicalReceipt:copy(strain)},event,ctx);
-  if(!result){record.physicalEvents.pop();return false;}return true;
+  const refs=[record.refs.tin,record.refs.charges[0],original(primerId)];
+  return interruptingHazard(s,{actorIds:[],refs},()=>{
+    const event=physicalEvent(s,'terminal-released',{physicalReceipt:copy(strain),primerRef:original(primerId),custodyEventId:null});
+    const result=immediateCustody(s,'damage-primer',[],refs,{chargeId:charge.id,primerId,physicalReceipt:copy(strain)},event,ctx);
+    if(!result){record.physicalEvents.pop();return false;}return true;
+  });
 }
 
 function blastCharge(s,chargeRef,trigger,ctx,projectileReceipt=null){
   const record=trainPowderRecord(s),charge=record&&authoritative(s,chargeRef,'sealed-charge');
   if(!charge||!charge.powder||charge.powder.spent||typeof ctx?.blastGeometry!=='function'||typeof ctx.prepareBlastEffects!=='function')return false;
   if(trigger==='projectile'&&!capability(ctx.validatePowderProjectileHit,s,copy(projectileReceipt),copy(chargeRef)))return false;
-  const event=physicalEvent(s,'charge-blast',{chargeRef:copy(chargeRef),trigger,projectileReceipt:copy(projectileReceipt),custodyEventId:null});
-  const cause={missionId:TRAIN_ID,eventId:event.id};let receipt;
-  try{receipt=ctx.blastGeometry(s,{chargeRef:copy(chargeRef),trigger,cause});}catch{receipt=null;}
-  if(!receipt||receipt.custodyEventId!==null||receipt.at!==s.elapsed||JSON.stringify(receipt.cause)!==JSON.stringify(cause)){record.physicalEvents.pop();return false;}
   const refs=[chargeRef,...(charge.powder.primerId?[original(charge.powder.primerId)]:[]),...(charge.powder.fuseRef?[copy(charge.powder.fuseRef)]:[])];
-  const result=immediateCustody(s,'blast-charge',[],refs,{chargeId:charge.id,trigger,physicalReceipt:receipt},event,ctx);
-  if(!result){record.physicalEvents.pop();return false;}return true;
+  return interruptingHazard(s,{actorIds:[],refs},()=>{
+    const event=physicalEvent(s,'charge-blast',{chargeRef:copy(chargeRef),trigger,projectileReceipt:copy(projectileReceipt),custodyEventId:null});
+    const cause={missionId:TRAIN_ID,eventId:event.id};let receipt;
+    try{receipt=ctx.blastGeometry(s,{chargeRef:copy(chargeRef),trigger,cause});}catch{receipt=null;}
+    if(!receipt||receipt.custodyEventId!==null||receipt.at!==s.elapsed||JSON.stringify(receipt.cause)!==JSON.stringify(cause)){record.physicalEvents.pop();return false;}
+    const result=immediateCustody(s,'blast-charge',[],refs,{chargeId:charge.id,trigger,physicalReceipt:receipt},event,ctx);
+    if(!result){record.physicalEvents.pop();return false;}return true;
+  });
 }
 
 /** Deadline derives from the once-only light event; restore and menu redraws
@@ -538,7 +692,7 @@ export function applyPowderProjectileHit(s,chargeRef,hitReceipt,ctx){return blas
 /** Structural half of Save validation. The owning continuation must ALSO
  * validate kit/primer/charge custody and these referenced canonical events.
  * This never blesses a standalone caller-created inventory. */
-export function validatePowderWorkHistory(record,now,{requestFor,eventFor,fixedContactFor}={}){
+export function validatePowderWorkHistory(record,now,{requestFor,eventFor,fixedContactFor,sourceForRevision}={}){
   const expected=createTrainPowderRecord();
   if(!keys(record,Object.keys(expected))||record.schema!==POWDER_SCHEMA||!validatePowderReferences(record.refs)||!plain(record.kit)||!finite(now)||now<0||record.lastAdvancedAt!==null&&(!finite(record.lastAdvancedAt)||record.lastAdvancedAt<0||record.lastAdvancedAt>now)||!Number.isSafeInteger(record.workSerial)||record.workSerial<0||!Array.isArray(record.pending)||!Array.isArray(record.physicalEvents)||!Array.isArray(record.custodyEventRefs)||record.physicalEvents.length>50000||new Set(record.custodyEventRefs).size!==record.custodyEventRefs.length)return false;
   const kitRefs=[record.refs.spool,record.refs.lead,record.refs.detonator,record.refs.pliers,...record.refs.fuses];
@@ -556,6 +710,13 @@ export function validatePowderWorkHistory(record,now,{requestFor,eventFor,fixedC
     }else if(event.kind==='circuit-work-started'){
       if(!keys(event.data,['operation'])||!validPhysicalOperation(event.data.operation))return false;
       starts.set(event.id,event);
+    }else if(event.kind==='preparation-inspection-started'){
+      if(!validInspectionStart(event,sourceForRevision,eventFor))return false;
+      starts.set(event.id,event);
+    }else if(event.kind==='preparation-inspection-completed'){
+      const start=starts.get(event.data?.workId);
+      if(start?.kind!=='preparation-inspection-started'||finishes.has(start.id))return false;
+      finishes.set(start.id,event);
     }else if(event.kind==='work-completed'){
       if(!keys(event.data,['workId','custodyEventId','acceptedSeconds','intervals'])||!starts.has(event.data.workId)||finishes.has(event.data.workId)||typeof event.data.custodyEventId!=='string'||typeof eventFor!=='function')return false;
       const canonical=eventFor(event.data.custodyEventId);
@@ -587,6 +748,9 @@ export function validatePowderWorkHistory(record,now,{requestFor,eventFor,fixedC
     if(start.kind==='circuit-work-started'){
       if(work.requestId!==`physical:${start.id}`||work.kind!==start.data.operation.kind)return false;
       operation=start.data.operation;
+    }else if(start.kind==='preparation-inspection-started'){
+      if(work.requestId!==`inspection:${start.id}`||work.kind!==start.data.operation.kind)return false;
+      operation=start.data.operation;
     }else{
       const request=typeof requestFor==='function'&&requestFor(work.requestId);
       if(start.data.requestId!==work.requestId||start.data.operationKind!==work.kind||!request||request.operation?.cause?.eventId!==work.workId||request.operation.kind!==work.kind)return false;
@@ -595,7 +759,7 @@ export function validatePowderWorkHistory(record,now,{requestFor,eventFor,fixedC
     for(const lock of [...operation.actorIds.map(id=>`actor/${id}`),...operation.refs.map(ref=>`ref/${ref.sourceMissionId}/${ref.objectId}`)]){if(pendingLocks.has(lock))return false;pendingLocks.add(lock);}
   }
   if([...starts.keys()].some(id=>!finishes.has(id)&&!record.pending.some(work=>work.workId===id)))return false;
-  return record.custodyEventRefs.every(id=>typeof id==='string'&&record.physicalEvents.filter(event=>['work-completed','wire-motion','terminal-released','charge-blast'].includes(event.kind)&&event.data.custodyEventId===id).length===1)&&validateCircuitHistory(record,now,eventFor,finishes,fixedContactFor)&&validateFuseHistory(record,now,eventFor);
+  return record.custodyEventRefs.every(id=>typeof id==='string'&&record.physicalEvents.filter(event=>['work-completed','wire-motion','terminal-released','charge-blast'].includes(event.kind)&&event.data.custodyEventId===id).length===1)&&inspectionRows(record,now,{sourceForRevision,eventFor})!==null&&validateCircuitHistory(record,now,eventFor,finishes,fixedContactFor)&&validateFuseHistory(record,now,eventFor);
 }
 
 function validPhysicalOperation(op){

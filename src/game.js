@@ -12,6 +12,7 @@ import { rescueJournalDrawing } from './campaign-journal.js';
 import { QUARRY_POCKET_OBJECTS } from '../content/campaign/quarry-papers.js';
 import {saveSlotFor} from './save-slots.js';
 import {createSaveRepository} from './save-database.js';
+import {createTrainCampWorkView} from './train-camp-work-view.js';
 
 const E = globalThis.My3D2dge;
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,7 @@ const input = {
   cancelDraw: ['KeyX'], holster: ['KeyQ', 'Pad3'], block: ['KeyF', 'Pad4'], shove: ['KeyV'], restrain: ['KeyB'],
 };
 const game = new E.Game({ canvas: 'screen', view: 'threequarter', views: ['threequarter'], minH: 400, minW: 360, maxW: 1600, maxH: 1200, input, bg: '#838849' });
+const campWorkView=createTrainCampWorkView(document);
 const normalView = E.VIEWS.threequarter;
 const sightglassView = new E.View('rival-sightglass','Quarry sightglass',normalView.yawDeg,normalView.pitchDeg,normalView.scale,normalView.zBoost);
 const snowboundAudio = createSnowboundAudio(game.audio);
@@ -239,7 +241,7 @@ function renderPanel() {
     }
     if (campaign && state.itemInstances && Object.keys(state.itemInstances).length) {
       html += '<h3>Hides and tools</h3>';
-      for (const item of Object.values(state.itemInstances)) html += panelRow(item.kind === 'field-knife' ? 'Field skinning knife' : `${item.sourceEntityId === 'willow-creek-doe' ? 'Creek doe' : 'Cedar buck'} hide · Quality ${item.quality} / 3`, `${item.owner === 'community' ? 'Community owned' : 'Owned'} · ${item.location.type.replaceAll('-', ' ')}`, item.kind === 'deer-hide' && item.owner === 'mara' ? button('Carry hide', 'equipment', `take-hide:${item.id}`, item.location.type === 'carried') + button('Store on Copper', 'equipment', `store-hide:${item.id}`, item.location.type === 'saddle') : '');
+      for (const item of Object.values(state.itemInstances)) html += panelRow(item.kind === 'face-covering' ? escape(item.name) : item.kind === 'field-knife' ? 'Field skinning knife' : `${item.sourceEntityId === 'willow-creek-doe' ? 'Creek doe' : 'Cedar buck'} hide · Quality ${item.quality} / 3`, `${item.owner === 'community' ? 'Community owned' : 'Owned'} · ${item.location.type.replaceAll('-', ' ')}`, item.kind === 'deer-hide' && item.owner === 'mara' ? button('Carry hide', 'equipment', `take-hide:${item.id}`, item.location.type === 'carried') + button('Store on Copper', 'equipment', `store-hide:${item.id}`, item.location.type === 'saddle') : '');
     }
     const pocketObjects=campaign&&state.campaign?.missions[RIVAL_ID]?.objects;
     const personalPapers=QUARRY_POCKET_OBJECTS.filter(paper=>pocketObjects?.[paper.id]?.owner==='mara');
@@ -392,6 +394,7 @@ function updateUI() {
   $('panel-feedback').textContent = activePanel === 'satchel' ? latest : '';
   $('trade-feedback').textContent = state.dialog?.shop ? latest : '';
   updateConversation();
+  campWorkView.sync(state,{screen:game.screen});
 }
 
 function aimTarget(auto = false) {
@@ -569,7 +572,9 @@ game.start({
     const yOffset = game.H * .1 / game.view.by;
     syncRegionView();
     const scopeCamera = state.mission.id === RIVAL_ID && state.scope?.raised && state.scope.camera;
-    game.focus(scopeCamera ? scopeCamera.x : state.player.x, (scopeCamera ? scopeCamera.y : state.player.y) - yOffset, (!scopeCamera && ['north-cutting','bellwether-works'].includes(state.region) ? state.player.z || 0 : 0) + (!scopeCamera && state.player.mounted ? 10 : 0));
+    const workFrame=!scopeCamera&&campWorkView.frame(state,{view:game.view,screen:game.screen});
+    if(workFrame?.fits)game.focus(workFrame.focus.x,workFrame.focus.y,workFrame.focus.z);
+    else game.focus(scopeCamera ? scopeCamera.x : state.player.x, (scopeCamera ? scopeCamera.y : state.player.y) - yOffset, (!scopeCamera && ['north-cutting','bellwether-works'].includes(state.region) ? state.player.z || 0 : 0) + (!scopeCamera && state.player.mounted ? 10 : 0));
     if (started && Sim.isCampaign(state)) snowboundAudio.update(dt, state, !!activePanel || !!state.dialog || !!state.failure);
     if (uiClock > .1) { uiClock = 0; updateUI(); }
   },

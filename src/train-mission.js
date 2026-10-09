@@ -8,6 +8,8 @@ import {beginTrainPrelude,stepTrainPrelude,getTrainPreludeInteractions,interactT
 import {createClinicBottleContactProvider} from './train-camp-motion.js';
 import {createTrainCampWorkProvider} from './train-camp-work.js';
 import * as Briefing from './train-briefing.js';
+import * as Preparation from './train-preparation.js';
+import {TRAIN_GEAR_DEFINITIONS,validateTrainGear} from './train-gear.js';
 export {worldForTrainCamp} from './train-camp-work.js';
 import {blockedAt,moveActor} from './campaign-navigation.js';
 import {requestTrainReload,stepTrainReload} from './train-combat.js';
@@ -19,7 +21,7 @@ export const TRAIN_PLAYABLE=false;
 // Conservative feet-height serialization bound, including inherited upward
 // ramp velocity. Actual support/airborne validity remains a physical check.
 export const TRAIN_MAX_BODY_Z=256;
-export const TRAIN_ITEMS={};
+export const TRAIN_ITEMS=Object.fromEntries(TRAIN_GEAR_DEFINITIONS.map(item=>[item.id,{name:item.name,description:'Ada’s one oilcloth windwrap. Actual ownership, wearing and storage remain in its item instance.'}]));
 export const TRAIN_WEAPON_DEFINITIONS={};
 export const TRAIN_ENTITY_SPECS=[
   ...TRAIN_NEW_CAST.map(actor=>({...actor,category:actor.kind==='horse'?'mount':'npc'})),
@@ -39,7 +41,7 @@ function exact(value,shape){
 }
 export function validateTrainRecord(s){
   const r=s?.campaign?.missions?.[TRAIN_ID];
-  if(r?.train?.runtimeVersion!==undefined)return validateTrainRuntime(s);
+  if(r?.train?.runtimeVersion!==undefined)return validateTrainRuntime(s)&&validateTrainGear(s);
   if(!object(r)||!['locked','unstarted'].includes(r.status)||s.campaign.activeMissionId===TRAIN_ID)return false;
   const expected=createTrainRecord();expected.status=r.status;
   if(!exact(r,expected)||TRAIN_ENTITY_IDS.some(id=>Object.hasOwn(s.entities||{},id)))return false;
@@ -73,10 +75,11 @@ export function beginTrainClinic(s,ctx){
 }
 export function getTrainInteractions(s,ctx){
   if(!active(s)||record(s).train.runtimeVersion!==1||s.dialog||s.failure)return [];
-  return[...getTrainPreludeInteractions(s),...Briefing.getTrainBriefingInteractions(s),...Rescue.getRescueInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10})),...Rival.getRivalInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10}))];
+  return[...getTrainPreludeInteractions(s),...Briefing.getTrainBriefingInteractions(s),...Preparation.getTrainPreparationInteractions(s,campContext(s,ctx)),...Rescue.getRescueInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10})),...Rival.getRivalInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10}))];
 }
 export function interactTrain(s,id,ctx){
   if(!getTrainInteractions(s,ctx).some(a=>a.id===id))return s;
+  if(id.startsWith('train:prepare-')){Preparation.interactTrainPreparation(s,id,campContext(s,ctx));return s;}
   if(id.startsWith('train:brief-')){Briefing.interactTrainBriefing(s,id,campContext(s,ctx));return s;}
   if(id.startsWith('train:')){interactTrainPrelude(s,id,ctx);return s;}
   if(Rescue.getRescueInteractions(s,ctx).some(a=>a.id===id)){
@@ -92,6 +95,7 @@ export function interactTrain(s,id,ctx){
 export function chooseTrain(s,id,ctx){
   if(s.dialog?.id?.startsWith('train-prelude-'))chooseTrainPrelude(s,id,ctx);
   else if(s.dialog?.id?.startsWith('train-briefing-'))Briefing.chooseTrainBriefing(s,id,campContext(s,ctx));
+  else if(s.dialog?.id?.startsWith('train-prepare-'))Preparation.chooseTrainPreparation(s,id,campContext(s,ctx));
   else if(s.dialog?.id?.startsWith('rescue'))Rescue.chooseRescue(s,id,ctx);
   else if(s.dialog?.id?.startsWith('rival-'))Rival.chooseRival(s,id,ctx);
   return s;
@@ -108,10 +112,12 @@ export function stepTrain(s,dt,input={},ctx){
   s.stats.distance+=Math.hypot(p.x-before.x,p.y-before.y);p.stamina=Math.max(0,Math.min(100,p.stamina+(sprint?-8:5)*dt));p.shotTimer=Math.max(0,(p.shotTimer||0)-dt);stepTrainReload(s,'mara',dt);
   stepTrainPrelude(s,dt,clinicContext(s,ctx));
   if(r.train.briefingVersion===1)Briefing.stepTrainBriefing(s,dt,campContext(s,ctx));
+  if(r.train.preparationVersion===1)Preparation.stepTrainPreparation(s,dt,campContext(s,ctx));
   if(r.mission.stage===0&&trainClinicComplete(s)){r.mission.stage=1;r.mission.objective=TRAIN_STAGES[1];r.train.chronicle.stageEvents.push({fromStage:0,toStage:1,at:s.elapsed,cause:'clinic-complete'});ctx.checkpoint(s,'train-clinic-complete','Separate bedside exchanges and the actual bottle setdown completed');}
   return s;
 }
 export function advanceTrainWorldWork(s,dt,ctx){if(!record(s)?.train?.powder||!Number.isFinite(dt)||dt<=0)return false;const workContext=s.region==='snowbound'?campContext(s,ctx):ctx;Powder.stepPowderWork(s,dt,workContext,{paused:false});Powder.advancePowderFuses(s,workContext,{paused:false});return true;}
+export function finishTrainAcceptedFrame(s,ctx){if(active(s)&&record(s).train?.preparationVersion===1)Preparation.finalizeTrainPreparation(s,campContext(s,ctx));return s;}
 export function shootTrain(s){return s;}
 export function reloadTrain(s){requestTrainReload(s,'mara');return s;}
 export function useTrainItem(s,id,ctx){

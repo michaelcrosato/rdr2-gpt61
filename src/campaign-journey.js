@@ -12,6 +12,7 @@ import { SNOWBOUND_WORLD, SNOWBOUND_CAST, CAMPAIGN_ITEMS } from '../content/camp
 import { NORTH_CUTTING_WORLD, RESCUE_CAST, RESCUE_ITEMS } from '../content/campaign/north-cutting.js';
 import { WILLOW_RUN_WORLD, HUNT_CAST, HUNT_ANIMALS, HUNT_ITEMS, HUNT_BOW } from '../content/campaign/willow-run.js';
 import { RIVAL_WORLD, RIVAL_CAST, RIVAL_ENEMIES, RIVAL_ITEMS, RIVAL_CARBINE } from '../content/campaign/bellwether-works.js';
+import {TRAIN_MASK_ID,validateTrainGear,validateTrainGearInstance} from './train-gear.js';
 import {TRAIN_WORLD} from '../content/campaign/brass-cutting.js';
 
 const OPENING_ID = 'snowbound-the-last-warm-light';
@@ -442,6 +443,7 @@ export function stepCampaign(s, dt, input = {}) {
       if(s.version>=5&&typeof Train.advanceTrainWorldWork==='function')Train.advanceTrainWorldWork(s,accepted,context);
     }
     syncAttachments(s);
+    if(trainFrame&&s.elapsed>beforeElapsed&&typeof Train.finishTrainAcceptedFrame==='function')Train.finishTrainAcceptedFrame(s,context);
     if(trainFrame){
       const pending=trainStepCheckpoints.get(s);trainStepCheckpoints.delete(s);
       for(const entry of pending){if(recordFor(s).mission.id!==entry.missionId||recordFor(s).mission.stage!==entry.stage)throw new TypeError('A train checkpoint crossed another scene within one accepted step');checkpoint(s,entry.id,entry.label);}
@@ -611,8 +613,10 @@ function validPoint(actor, regionId, s = null) {
   return world && finite(actor.x) && finite(actor.y) && actor.x >= 0 && actor.y >= 0 && actor.x <= world.width && actor.y <= world.height && finite(actor.z) && actor.z >= 0 && actor.z <= maxZ;
 }
 function validateItemInstances(s) {
+  if(s.version>=5&&!validateTrainGear(s))return false;
   const ids = ['hunt-hide-doe', 'hunt-hide-buck', 'field-knife'];
   for (const [id, item] of Object.entries(s.itemInstances)) {
+    if(id===TRAIN_MASK_ID){if(s.version<5||!validateTrainGearInstance(s,item))return false;continue;}
     if (!ids.includes(id) || !object(item) || item.id !== id || item.kind !== (id === 'field-knife' ? 'field-knife' : 'deer-hide') || !Number.isInteger(item.quality) || item.quality < 1 || item.quality > 3 || !['mara', 'community'].includes(item.owner)) return false;
     if (item.sourceEntityId !== (id === 'field-knife' ? 'kitchen-knife' : id === 'hunt-hide-doe' ? 'willow-creek-doe' : 'willow-cedar-buck')) return false;
     const location = item.location;

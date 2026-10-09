@@ -67,7 +67,7 @@ export function createPowderFixture({componentGraph=null}={}){
     }
     assert.ok(Math.hypot(s.entities[id].x-target.x,s.entities[id].y-target.y)<=1,`Actual approach failed for ${id}`);
   }
-  function complete(request,{success=true}={}){assert.ok(request);for(let i=0;i<30&&Powder.trainPowderRecord(s).pending.length;i++)tick();assert.equal(Powder.trainPowderRecord(s).pending.length,0);const result=Powder.trainPowderRecord(s).physicalEvents.find(event=>event.data?.workId===request.workId);assert.ok(result);assert.ok(success?['work-completed','circuit-work-completed'].includes(result.kind):result.kind==='work-cancelled',`Unexpected physical result ${result.kind}`);}
-  function history(){const c=s.campaign.missions[RIVAL_ID].rival.continuation;return Custody.validateRivalContinuation(s)&&Powder.validatePowderWorkHistory(Powder.trainPowderRecord(s),s.elapsed,{requestFor:id=>Custody.inspectCustodyRequest(s,id),eventFor:id=>c.events.find(event=>event.id===id),fixedContactFor:id=>fixedContact(s,id)});}
+  function complete(request,{success=true}={}){assert.ok(request);for(let i=0;i<30&&Powder.trainPowderRecord(s).pending.length;i++)tick();assert.equal(Powder.trainPowderRecord(s).pending.length,0);const result=Powder.trainPowderRecord(s).physicalEvents.find(event=>event.data?.workId===request.workId);assert.ok(result);assert.ok(success?['work-completed','circuit-work-completed','preparation-inspection-completed'].includes(result.kind):result.kind==='work-cancelled',`Unexpected physical result ${result.kind}`);}
+  function history(){return Custody.validateRivalContinuation(s)&&Powder.validatePowderWorkHistory(Powder.trainPowderRecord(s),s.elapsed,{...Custody.custodyValidationLinks(s),fixedContactFor:id=>fixedContact(s,id)});}
   return{s,ctx,settings,tick,approach,complete,history};
 }
