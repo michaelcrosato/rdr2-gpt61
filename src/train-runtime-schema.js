@@ -10,6 +10,7 @@ import {createTrainCombat} from './train-combat.js';
 import {createTrainBlastState} from './train-blast.js';
 import {custodyValidationLinks} from './rival-continuation.js';
 import {validateTrainBriefing} from './train-briefing.js';
+import {usesTrainPreparation,validateTrainPreparation} from './train-preparation.js';
 import {TRAIN_BRIEFING_PAPER_CONTACTS} from '../content/campaign/train-camp.js';
 const RESCUE='snowbound-a-voice-under-ice',HUNT='snowbound-a-quiet-table',RIVAL='snowbound-the-names-they-took';
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v),finite=Number.isFinite;
@@ -103,20 +104,23 @@ function validateClinicalHistory(s,initial,chronicle){
   const actual=Object.keys(transactions).filter(validId);if(actual.length!==seen.size||actual.some(id=>!seen.has(id))||[...seen].some(id=>!same(transactions[id],{amount:1,completed:true}))||!passive(s.elapsed))return false;
   return Math.abs(s.entities.silas.hp-hp)<=1e-6&&Math.abs(s.campaign.missions[RESCUE].rescue.silas.healingHours-hours)<=1e-6&&Math.abs(s.campaign.missions[RESCUE].timers.helper-cooldown)<=1e-6&&!!s.entities.silas.injured===injured;
 }
-export function validateTrainRuntime(s){
+export function validateTrainRuntime(s,{preparation:preparationProofOwners={}}={}){
   try{
     const r=s.campaign?.missions?.[TRAIN_ID],t=r?.train,m=r?.mission;
-    if(s.version!==5||s.campaign.activeMissionId!==TRAIN_ID||s.region!=='snowbound'||r.status!=='active'||r.sourceRequirementId!==TRAIN_SOURCE_REQUIREMENT||![RESCUE,HUNT,RIVAL].every(id=>s.campaign.missions[id]?.mission.completed)||!m||m.id!==TRAIN_ID||m.name!=='What the Line Carries'||m.stageCount!==20||![0,1,2].includes(m.stage)||m.completed!==false||m.rewardPaid!==false||typeof m.objective!=='string'||!m.objective.length||m.objective.length>2000)return false;
+    if(s.version!==5||s.campaign.activeMissionId!==TRAIN_ID||s.region!=='snowbound'||r.status!=='active'||r.sourceRequirementId!==TRAIN_SOURCE_REQUIREMENT||![RESCUE,HUNT,RIVAL].every(id=>s.campaign.missions[id]?.mission.completed)||!m||m.id!==TRAIN_ID||m.name!=='What the Line Carries'||m.stageCount!==20||![0,1,2,3].includes(m.stage)||m.completed!==false||m.rewardPaid!==false||typeof m.objective!=='string'||!m.objective.length||m.objective.length>2000)return false;
     const briefing=t.briefingVersion!==undefined||t.briefing!==undefined;
-    if(!keys(t,['schema','runtimeVersion','powder','consist','prelude','combat','blasts','chronicle',...(briefing?['briefingVersion','briefing']:[])])||t.schema!==1||t.runtimeVersion!==1||t.consist!==null||!keys(t.chronicle,['schema','enteredAt','acceptedAt','stageEvents','clinicalActions'])||t.chronicle.schema!==1||!begun(t.chronicle.enteredAt,0,s.elapsed)||!Array.isArray(t.chronicle.stageEvents)||m.stage<2&&t.chronicle.acceptedAt!==null||m.stage===2&&!begun(t.chronicle.acceptedAt,t.chronicle.enteredAt,s.elapsed)||m.stage===0&&briefing)return false;
-    if(!keys(r.flags,[])||!keys(r.timers,['elapsed'])||!finite(r.timers.elapsed)||r.timers.elapsed<0||r.timers.elapsed>s.elapsed-t.chronicle.enteredAt+1e-6||!keys(r.choices,['operation'])||r.choices.operation!==(m.stage===2?'accepted':null)||!keys(r.transactions,[]))return false;
+    const preparation=t.preparationVersion!==undefined||t.preparation!==undefined;
+    if(!keys(t,['schema','runtimeVersion','powder','consist','prelude','combat','blasts','chronicle',...(briefing?['briefingVersion','briefing']:[]),...(preparation?['preparationVersion','preparation']:[])])||t.schema!==1||t.runtimeVersion!==1||t.consist!==null||!keys(t.chronicle,['schema','enteredAt','acceptedAt','stageEvents','clinicalActions'])||t.chronicle.schema!==1||!begun(t.chronicle.enteredAt,0,s.elapsed)||!Array.isArray(t.chronicle.stageEvents)||m.stage<2&&t.chronicle.acceptedAt!==null||m.stage>=2&&!begun(t.chronicle.acceptedAt,t.chronicle.enteredAt,s.elapsed)||m.stage===0&&briefing||m.stage<2&&preparation)return false;
+    if(!keys(r.flags,[])||!keys(r.timers,['elapsed'])||!finite(r.timers.elapsed)||r.timers.elapsed<0||r.timers.elapsed>s.elapsed-t.chronicle.enteredAt+1e-6||!keys(r.choices,['operation'])||r.choices.operation!==(m.stage>=2?'accepted':null)||!keys(r.transactions,[]))return false;
     const perf=r.performance;if(!keys(perf,['shots','hits','headshots','kills','healingUses','noHealingItems','eligible'])||['shots','hits','headshots','kills'].some(key=>perf[key]!==0)||!Number.isSafeInteger(perf.healingUses)||perf.healingUses<0||perf.noHealingItems!==(perf.healingUses===0)||typeof perf.eligible!=='boolean')return false;
-    if(!same(t.combat,createTrainCombat())||!same(t.blasts,createTrainBlastState())||!validatePowderWorkHistory(t.powder,s.elapsed,custodyValidationLinks(s))||!validateEarlyCustody(s,briefing)||!validateTrainBriefing(s))return false;
-    if(!validateTrainPreludeState(s)||s.dialog?.id?.startsWith('train-')&&!s.dialog.id.startsWith('train-prelude-')&&!s.dialog.id.startsWith('train-briefing-'))return false;
+    if(!same(t.combat,createTrainCombat())||!same(t.blasts,createTrainBlastState())||!validatePowderWorkHistory(t.powder,s.elapsed,custodyValidationLinks(s))||!validateEarlyCustody(s,briefing)||!validateTrainBriefing(s)||!validateTrainPreparation(s,preparationProofOwners))return false;
+    if(!validateTrainPreludeState(s)||s.dialog?.id?.startsWith('train-')&&!s.dialog.id.startsWith('train-prelude-')&&!s.dialog.id.startsWith('train-briefing-')&&!s.dialog.id.startsWith('train-prepare-'))return false;
     if(m.stage===0)return t.chronicle.stageEvents.length===0;
     const e=t.chronicle.stageEvents[0];if(!keys(e,['fromStage','toStage','at','cause'])||e.fromStage!==0||e.toStage!==1||e.cause!=='clinic-complete'||!begun(e.at,t.chronicle.enteredAt,s.elapsed)||!trainClinicComplete(s)||e.at<t.prelude.bottleWork.finishedAt||t.prelude.acknowledged.filter(e=>['bedside','silas','family'].includes(e.kind)).some(line=>line.at>e.at))return false;
     if(m.stage===1)return t.chronicle.stageEvents.length===1;
-    const accepted=t.chronicle.stageEvents[1];return briefing&&t.chronicle.stageEvents.length===2&&keys(accepted,['fromStage','toStage','at','cause'])&&accepted.fromStage===1&&accepted.toStage===2&&accepted.cause==='briefing-accepted'&&accepted.at===t.chronicle.acceptedAt&&accepted.at===t.briefing.acceptedAt&&accepted.at>=e.at;
+    const accepted=t.chronicle.stageEvents[1];if(!briefing||!keys(accepted,['fromStage','toStage','at','cause'])||accepted.fromStage!==1||accepted.toStage!==2||accepted.cause!=='briefing-accepted'||accepted.at!==t.chronicle.acceptedAt||accepted.at!==t.briefing.acceptedAt||accepted.at<e.at)return false;
+    if(m.stage===2)return t.chronicle.stageEvents.length===2;
+    const prepared=t.chronicle.stageEvents[2];return usesTrainPreparation(s)&&t.chronicle.stageEvents.length===3&&keys(prepared,['fromStage','toStage','at','cause'])&&prepared.fromStage===2&&prepared.toStage===3&&prepared.cause==='preparation-departure'&&prepared.at===t.preparation.completedAt&&prepared.at>=accepted.at;
   }catch{return false;}
 }
 function validateEarlyCustody(s,briefing){
@@ -131,10 +135,11 @@ function validateEarlyCustody(s,briefing){
   };
   const allowed=(op,at)=>{
     if(r.mission.stage<2||at<r.train.chronicle.acceptedAt)return beforeAccept(op,at);
-    if(!['issue-kit','open-tin','move-object','unseal-charge','attach-primer','return-papers','establish-guard','guard-handover','lend-weapon','return-weapon'].includes(op.kind))return false;
+    if(!['issue-kit','open-tin','move-object','unseal-charge','attach-primer','return-papers','establish-guard','guard-handover','lend-weapon','return-weapon','issue-mask'].includes(op.kind))return false;
     if(['unseal-charge','attach-primer'].includes(op.kind)&&(op.options.chargeId!=='quarry-sealed-charge-1'||op.kind==='attach-primer'&&op.options.mode!=='wired'))return false;
-    return op.to===null||['carried','saddle','crate'].includes(op.to.location.type)||op.to.location.type==='station'&&op.to.location.regionId==='snowbound';
+    return op.to===null||['carried','saddle','crate','worn'].includes(op.to.location.type)||op.to.location.type==='station'&&op.to.location.regionId==='snowbound';
   };
   if(c.events.some(e=>!allowed(e.operation,e.workReceipt.startedAt))||Object.values(c.requests).some(request=>!allowed(request.operation,request.startedAt)))return false;
-  return p.pending.every(work=>!work.requestId.startsWith('physical:'))&&p.physicalEvents.every(event=>!event.kind.startsWith('circuit-')&&!['wire-motion','terminal-released','charge-blast'].includes(event.kind));
+  const actualPreparation=usesTrainPreparation(s)&&r.mission.stage>=2;
+  return p.pending.every(work=>!work.requestId.startsWith('physical:')&&(!work.requestId.startsWith('inspection:')||actualPreparation&&work.startedAt>=r.train.preparation.startedAt))&&p.physicalEvents.every(event=>!event.kind.startsWith('circuit-')&&!['wire-motion','terminal-released','charge-blast'].includes(event.kind)&&(!event.kind.startsWith('preparation-inspection-')||actualPreparation&&event.at>=r.train.preparation.startedAt));
 }

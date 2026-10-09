@@ -1,10 +1,13 @@
 /** Original train inhabitants on the supplied native humanoid/animal skeletons. */
 import {createRivalHuman,drawRivalOutfit,RivalMountRig} from '../rival-rigs.js';
 import {createWillowHuman,drawWillowOutfit,WillowAnimalRig} from '../willow-run-rigs.js';
+import {EXPEDITION_CAST_IDS,createExpeditionHuman,drawExpeditionOutfit} from '../expedition-cast.js';
 import {savePose,solveLimb} from '../western-animation.js';
 import {add,sub,scale,dot,cross,length,worldPoint,localPoint} from '../rail-foundation/rigid-frame.js';
 
 export const TRAIN_PROFILES=Object.freeze({
+ ada:{size:1.61,build:'heroic',coat:'#617d87',cloth:'#8fa7a0',pants:'#465e65',hair:'#7f6951',skin:'#bba17f',hat:'#8e727f',hipHalf:1.8,shoulderHalf:3.5,headR:3.05,accessory:'mending-basket'},
+ gideon:{size:1.68,build:'heroic',coat:'#6f7770',cloth:'#b1ad95',pants:'#5b6355',hair:'#b2afa0',skin:'#bba17f',hat:null,hipHalf:1.8,shoulderHalf:3.5,headR:3.05},
  nell:{size:1.64,build:'heroic',coat:'#32676a',cloth:'#b69560',pants:'#465858',hair:'#30251f',skin:'#ba8763',hat:null,hipHalf:2.4,shoulderHalf:3.4,headR:3.5,accessory:'riveter-stitch'},
  abel:{size:1.82,build:'heroic',coat:'#484740',cloth:'#c6c5af',pants:'#45483e',hair:'#b5b6a3',skin:'#af886d',hat:'#393e39',hipHalf:2.6,shoulderHalf:3.2,headR:3.3,accessory:'watch-satchel'},
  harlan:{size:1.77,build:'bulky',coat:'#62636a',cloth:'#9c9a83',pants:'#3f4449',hair:'#685347',skin:'#b67a54',hat:'#2b3539',hipHalf:3.1,shoulderHalf:4.2,headR:3.7,accessory:'shovel'},
@@ -15,6 +18,7 @@ export const TRAIN_PROFILES=Object.freeze({
  faber:{size:1.74,build:'bulky',coat:'#746f52',cloth:'#bab08c',pants:'#4c5142',hair:'#b4aa91',skin:'#bd9573',hat:'#4a4a3c',hipHalf:3.2,shoulderHalf:4,headR:3.8,accessory:'oil-case'},
 });
 export function createTrainHuman(E,body){
+ if(EXPEDITION_CAST_IDS.has(body.id))return{...createExpeditionHuman(E,body.id),legacy:'expedition'};
  const p=TRAIN_PROFILES[body.id];if(!p){if(body.id==='juno')return{...createWillowHuman(E,body.id),legacy:'willow'};if(/^(morrow-|brass-)/.test(body.id))return{...createRivalHuman(E,body.id,{...body,rig:{coat:'#3d5358',cloth:'#b5a47d',hat:'#34464c',scarf:'#b69b69',...(body.rig||{})}}),legacy:'morrow-guard'};return{...createRivalHuman(E,body.id,body),legacy:'rival'};}
  const colors={...p,boot:'#35413c',belt:'#6b5842',trim:'#c9b48b',glove:'#a69978',metal:'#a8b9ac'};
  return{id:body.id,profile:p,colors,rig:new E.Humanoid({size:p.size,build:p.build,hipHalf:p.hipHalf,shoulderHalf:p.shoulderHalf,headR:p.headR,outfit:'coat',sleeves:'long',weapon:null,hair:body.id==='etta'?'bun':body.id==='nell'?'short':'short',colors,cheat:0})};
@@ -60,6 +64,7 @@ export function prepareTrainPose(E,h,body,platform,{contacts=[],freeHands=true}=
  return{root,diagnostics:finalContacts(rig,root,diagnostics),restore};
 }
 export function drawTrainOutfit(E,g,r,h,body){
+ if(h.legacy==='expedition'){drawExpeditionOutfit(E,g,r.w(body.x,body.y,body.z||0),h,r.view,body,{});return;}
  if(h.legacy){if(h.legacy==='willow')drawWillowOutfit(E,g,r.w(body.x,body.y,body.z||0),h,r.view,body,{});else drawRivalOutfit(E,g,r.w(body.x,body.y,body.z||0),h,r.view,body,{});if(h.legacy==='morrow-guard'){const p=rigWorldPoint(h.rig,body,'shL'),at=r.w(p.x,p.y,p.z);E.px.line(g,at[0]-2,at[1]+4,at[0],at[1]+7,'#d4be80',2);E.px.line(g,at[0],at[1]+7,at[0]+2,at[1]+4,'#d4be80',2);}return;}
  const P=E.px,at=j=>{const p=rigWorldPoint(h.rig,body,j);return r.w(p.x,p.y,p.z);},head=at('head'),sh=at('shC'),hip=at('hipC'),left=at('handL'),right=at('handR'),p=h.profile;
  if(p.hat){P.ell(g,head[0],head[1],11,3,p.hat);P.rect(g,head[0]-5,head[1]-9,10,8,p.hat);}else if(body.id==='etta')P.disc(g,head[0]-6,head[1]-4,4,p.hair);

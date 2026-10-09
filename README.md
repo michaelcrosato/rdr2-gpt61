@@ -14,6 +14,8 @@ npm run dev
 
 Open **http://127.0.0.1:4173** to begin in Snowbound. The title screen also opens the earlier Mercy Vale region; its saves preserve the campaign journey. `PORT=8080 npm run dev` changes the local port. The server binds to localhost. Any static web server can serve the project; opening `index.html` as a `file:` URL does not support its ES modules.
 
+For the optimized inspection build, run `npm ci --ignore-scripts`, `npm run build`, then `npm run preview`. The build emits only the game into `dist/`, with minified, hashed engine/game/CSS assets and a build provenance file. Vercel uses the checked-in configuration to build this directory; hashed assets have immutable caching while the entry page revalidates. Test fixtures, saved journeys, source documentation and development tools are excluded from the published output. Saves remain in the browser's IndexedDB for the current site origin; Export/Import moves a journey between local and hosted builds.
+
 ## Playable now
 
 - **The Last Warm Light:** a distinct nine-stage campaign opening. Prepare at the frozen refuge, ride the wire trail with Tomas and Inez, negotiate at Copperglass, fight the boiler-yard guards, collect six separate supplies, survive Pavel's disarming ambush, choose his fate, calm and lead Copper, rescue Ada and Gideon through the service doorway, then return with actual supplies. Both rescue priorities and all three Pavel outcomes write lasting consequences; the destroyed boiler, recovered log and captured/escaped Voss persist.

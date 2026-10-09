@@ -20,7 +20,7 @@ export const TRAIN_STAGES=[
  'Visit Silas in the shelter. Meet Abel, hear Elin and Fin, and check the actual patient and family care.',
  'Bring the recovered diagram and seizure list to Tomas and Della. Discuss the workers and the deeds; decide whether to prepare.',
  'Inspect the same four quarry charges and the separate cap tin. Count wire and primers, prepare lawful cargo and equipment, and hand over stable and holding duties.',
- 'Confirm seven distinct assignments. Let Ruth ride ahead; mount and leave with the other five riders and their own horses.',
+ 'Confirm seven distinct assignments with Ruth already riding ahead. Mount and leave with the other five riders and their own horses.',
  'Ride into the thaw at Brass Cutting. Read the culvert and stockade, hear the injury and earlier-money discussion, and rejoin the actual party.',
  'Dismount at the ridge and reach Ruth. Carry the spool, lay a continuous cable, fasten both terminals, test continuity and return the actual spool.',
  'Rejoin the waiting riders. Wear your own face covering, clear the track and watch the real engine approach.',

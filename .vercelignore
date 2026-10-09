@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+.github
+tests
+fixtures
+proposals
+docs
+test-results
+playwright-report
+__pycache__

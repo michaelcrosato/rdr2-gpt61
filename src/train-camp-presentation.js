@@ -47,6 +47,13 @@ export function clinicBottleBounds(origin,closed=true){
  const parts=partsFor(closed);return{min:{x:origin.x+Math.min(...parts.map(p=>p[0])),y:origin.y+Math.min(...parts.map(p=>p[1])),z:origin.z+Math.min(...parts.map(p=>p[2]-4))},max:{x:origin.x+Math.max(...parts.map(p=>p[3])),y:origin.y+Math.max(...parts.map(p=>p[4])),z:origin.z+Math.max(...parts.map(p=>p[5]-4))}};
 }
 function bottleMesh(E,g,r,bottle,origin){boxes(E,g,r,origin,box=>{for(const [x0,y0,z0,x1,y1,z1,color]of partsFor(bottle.closed))box(x0,y0,z0-4,x1,y1,z1-4,color);});}
+function paperMesh(E,g,r,original,plane){
+ const half=TRAIN_BRIEFING_PAPER_HALF_EXTENTS,z=plane.z+half.z+.05,P=E.px;
+ boxes(E,g,r,plane,box=>box(-half.x,-half.y,-half.z,half.x,half.y,half.z,original.id==='route-diagram'?'#d4c79e':'#cbbd93'));
+ const at=(x,y)=>r.w(plane.x+x,plane.y+y,z);
+ if(original.id==='route-diagram'){P.line(g,...at(-5,-2),...at(-1,1),'#477870',1);P.line(g,...at(-1,1),...at(5,-1),'#477870',1);P.line(g,...at(4,2),...at(4,3),'#685c44',1);}
+ else for(const y of[-2,0,2])P.line(g,...at(-5,y),...at(y===0?4:2,y),'#66543e',1);
+}
 function abelOutfit(E,g,r,h,root){
  const at=id=>{const p=rigWorldPoint(h.rig,root,id);return r.w(p.x,p.y,p.z);},P=E.px,head=at('head'),sh=at('shC'),hip=at('hipC');
  P.ell(g,head[0],head[1],11,3,h.profile.hat);P.rect(g,head[0]-5,head[1]-9,10,8,h.profile.hat);
@@ -91,11 +98,11 @@ export function createTrainCampPresentation(E,{getClinicBottleHuman=physicsHuman
      if(held){const side=bottle.location.hand||'R',origin=rigWorldPoint(h.rig,pose.root,'hand'+side);bottleMesh(E,g,r,bottle,origin);diagnostics.objects.push({id:bottle.id,location:'carried',owner:body.id,world:origin,bounds:clinicBottleBounds(origin,bottle.closed)});}
      if(work?.kind==='layout'){
       const original=s.campaign?.missions?.['snowbound-the-names-they-took']?.objects?.[work.objectId];
-      if(original?.owner===body.id&&original.location?.type==='carried'&&original.location.targetId===body.id){const grip=rigWorldPoint(h.rig,pose.root,'handR'),plane={...grip,z:grip.z-3},half=TRAIN_BRIEFING_PAPER_HALF_EXTENTS;boxes(E,g,r,plane,box=>box(-half.x,-half.y,-half.z,half.x,half.y,half.z,'#d4c79e'));diagnostics.objects.push({id:original.id,location:'carried',owner:body.id,world:grip,paperPlane:plane});}
+      if(original?.owner===body.id&&original.location?.type==='carried'&&original.location.targetId===body.id){const grip=rigWorldPoint(h.rig,pose.root,'handR'),plane={...grip,z:grip.z-3};paperMesh(E,g,r,original,plane);diagnostics.objects.push({id:original.id,location:'carried',owner:body.id,world:grip,paperPlane:plane});}
      }
      if(work?.kind==='handoff')for(let index=0;index<work.refs.length;index++){
       const ref=work.refs[index],original=ref.sourceMissionId==='snowbound-the-names-they-took'&&s.campaign?.missions?.[ref.sourceMissionId]?.objects?.[ref.objectId];
-      if(original?.owner===body.id&&original.location?.type==='carried'&&original.location.targetId===body.id){const grip=rigWorldPoint(h.rig,pose.root,'handR'),plane={...grip,z:grip.z-3+index*.22},half=TRAIN_BRIEFING_PAPER_HALF_EXTENTS;boxes(E,g,r,plane,box=>box(-half.x,-half.y,-half.z,half.x,half.y,half.z,index?'#cbbd93':'#d4c79e'));diagnostics.objects.push({id:original.id,location:'carried',owner:body.id,world:grip,paperPlane:plane});}
+      if(original?.owner===body.id&&original.location?.type==='carried'&&original.location.targetId===body.id){const grip=rigWorldPoint(h.rig,pose.root,'handR'),plane={...grip,z:grip.z-3+index*.22};paperMesh(E,g,r,original,plane);diagnostics.objects.push({id:original.id,location:'carried',owner:body.id,world:grip,paperPlane:plane});}
      }
      diagnostics.contacts.push(...pose.diagnostics.map(c=>({...copy(c),actorId:body.id,errorFinite:Number.isFinite(c.error)})));
      for(const c of pose.diagnostics)if(!c.reachable||!Number.isFinite(c.error)||c.error>1e-5)diagnostics.errors.push({id:body.id,kind:'unreached-native-contact',contact:c.kind});

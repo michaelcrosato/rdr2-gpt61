@@ -7,6 +7,7 @@ import {TRAIN_KIT_DEFINITIONS,TRAIN_TOOL_CASE} from '../content/campaign/train-e
 import {TRAIN_BRIEFING_TABLE,TRAIN_BRIEFING_PAPER_CONTACTS} from '../content/campaign/train-camp.js';
 import {inspectCustodyContactWindow} from './custody-contact.js';
 import {isOriginalWeaponRef,resolveOriginalWeapon,prepareRivalWeaponLoan,validateRivalWeaponLoans,weaponLoanHistoricalState} from './rival-weapon-loan.js';
+import {TRAIN_MASK_ID,TRAIN_MASK_SOURCE,isTrainGearRef,trainGearLocation,createTrainGearInstance,validateTrainGear} from './train-gear.js';
 
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const copy=v=>JSON.parse(JSON.stringify(v));
@@ -17,6 +18,7 @@ const chargeIds=Array.from({length:4},(_,i)=>`quarry-sealed-charge-${i+1}`);
 const rivalKinds={sightglass:'sightglass','cap-tin':'cap-tin','charge-crate':'sealed-quarry-charges','route-diagram':'document','seizure-list':'document','levi-debt-card':'debt-card',...Object.fromEntries(chargeIds.map(id=>[id,'sealed-charge']))};
 const kitKinds=Object.fromEntries(TRAIN_KIT_DEFINITIONS.map(item=>[item.id,item.kind]));
 const custodians=new Set(['mara','ruth','juno','tomas','bastian','della','inez','hob']);
+const participants=new Set([...custodians,'ada']);
 
 export const CUSTODY_WORK_SECONDS=Object.freeze({
   'issue-kit':TRAIN_TOOL_CASE.openSeconds,'open-tin':1.1,'move-object':.9,
@@ -26,20 +28,21 @@ export const CUSTODY_WORK_SECONDS=Object.freeze({
   'fasten-terminal':1,'disconnect-terminal':.7,'test-circuit':.6,
   'stroke-detonator':.4,'begin-wire':.6,
   'lend-weapon':1,'return-weapon':1,
+  'issue-mask':TRAIN_MASK_SOURCE.issueSeconds,
 });
 export const CUSTODY_RECOVERY_SECONDS=2;
-const operationKinds=new Set(['issue-kit','open-tin','move-object','unseal-charge','attach-primer','remove-primer','attach-fuse','light-fuse','blast-charge','return-papers','establish-guard','guard-handover','wire-pay-out','cut-clamp','damage-primer','lend-weapon','return-weapon']);
+const operationKinds=new Set(['issue-kit','open-tin','move-object','unseal-charge','attach-primer','remove-primer','attach-fuse','light-fuse','blast-charge','return-papers','establish-guard','guard-handover','wire-pay-out','cut-clamp','damage-primer','lend-weapon','return-weapon','issue-mask']);
 const finitePoint=p=>exactKeys(p,['x','y','z'])&&['x','y','z'].every(k=>Number.isFinite(p[k]));
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const refKey=ref=>`${ref.sourceMissionId}/${ref.objectId}`;
 const stateOf=s=>rec(s)?.rival?.continuation;
-const currentModel=s=>({objects:copy(rec(s).objects),kit:copy(powder(s)?.kit||{}),guardPresent:Object.hasOwn(rec(s).captivity,'guardId'),guardId:rec(s).captivity.guardId??null});
-function referenceKnown(ref){return isOriginalWeaponRef(ref)||exactKeys(ref,['sourceMissionId','objectId'])&&(ref.sourceMissionId===RIVAL_ID&&(rivalKinds[ref.objectId]||/^quarry-primer-[1-6]$/.test(ref.objectId))||ref.sourceMissionId===TRAIN_ID&&kitKinds[ref.objectId]);}
+const currentModel=s=>({objects:copy(rec(s).objects),kit:copy(powder(s)?.kit||{}),gear:s.itemInstances?.[TRAIN_MASK_ID]?{[TRAIN_MASK_ID]:copy(s.itemInstances[TRAIN_MASK_ID])}:{},guardPresent:Object.hasOwn(rec(s).captivity,'guardId'),guardId:rec(s).captivity.guardId??null});
+function referenceKnown(ref){return isOriginalWeaponRef(ref)||isTrainGearRef(ref)||exactKeys(ref,['sourceMissionId','objectId'])&&(ref.sourceMissionId===RIVAL_ID&&(rivalKinds[ref.objectId]||/^quarry-primer-[1-6]$/.test(ref.objectId))||ref.sourceMissionId===TRAIN_ID&&kitKinds[ref.objectId]);}
 function normalizeOperation(op){
-  if(!object(op)||Object.keys(op).some(key=>!['kind','actorIds','refs','to','options','cause'].includes(key))||!operationKinds.has(op.kind)||!Array.isArray(op.actorIds)||new Set(op.actorIds).size!==op.actorIds.length||op.actorIds.some(id=>!custodians.has(id))||!Array.isArray(op.refs)||op.refs.some(ref=>!referenceKnown(ref))||new Set(op.refs.map(refKey)).size!==op.refs.length||!exactKeys(op.cause,['missionId','eventId'])||op.cause.missionId!==TRAIN_ID||!/^powder-event-[1-9]\d*$/.test(op.cause.eventId))return null;
+  if(!object(op)||Object.keys(op).some(key=>!['kind','actorIds','refs','to','options','cause'].includes(key))||!operationKinds.has(op.kind)||!Array.isArray(op.actorIds)||new Set(op.actorIds).size!==op.actorIds.length||op.actorIds.some(id=>!participants.has(id))||op.actorIds.includes('ada')&&op.kind!=='issue-mask'||!Array.isArray(op.refs)||op.refs.some(ref=>!referenceKnown(ref))||new Set(op.refs.map(refKey)).size!==op.refs.length||!exactKeys(op.cause,['missionId','eventId'])||op.cause.missionId!==TRAIN_ID||!/^powder-event-[1-9]\d*$/.test(op.cause.eventId))return null;
   const value={kind:op.kind,actorIds:copy(op.actorIds),refs:copy(op.refs),to:op.to===undefined?null:copy(op.to),options:copy(op.options||{}),cause:copy(op.cause)};
   if(value.to!==null&&(!exactKeys(value.to,['owner','location'])||!custodians.has(value.to.owner)||!permittedLocation(value.to.location)))return null;
-  const fields={ 'issue-kit':[],'open-tin':[],'move-object':[],'unseal-charge':['chargeId'],'attach-primer':['chargeId','primerId','mode'],'remove-primer':['chargeId','primerId'],'attach-fuse':['chargeId','fuseId'],'light-fuse':['chargeId','fuseId'],'blast-charge':['chargeId','trigger','physicalReceipt'],'return-papers':[],'establish-guard':['toActorId'],'guard-handover':['fromActorId','toActorId'],'wire-pay-out':['motion'],'cut-clamp':[],'damage-primer':['chargeId','primerId','physicalReceipt'],'lend-weapon':['weaponId'],'return-weapon':['weaponId'] };
+  const fields={ 'issue-kit':[],'open-tin':[],'move-object':[],'unseal-charge':['chargeId'],'attach-primer':['chargeId','primerId','mode'],'remove-primer':['chargeId','primerId'],'attach-fuse':['chargeId','fuseId'],'light-fuse':['chargeId','fuseId'],'blast-charge':['chargeId','trigger','physicalReceipt'],'return-papers':[],'establish-guard':['toActorId'],'guard-handover':['fromActorId','toActorId'],'wire-pay-out':['motion'],'cut-clamp':[],'damage-primer':['chargeId','primerId','physicalReceipt'],'lend-weapon':['weaponId'],'return-weapon':['weaponId'],'issue-mask':[] };
   if(!exactKeys(value.options,fields[value.kind])||!value.actorIds.length&&!['blast-charge','damage-primer'].includes(value.kind)||value.to!==null&&!['move-object','cut-clamp'].includes(value.kind))return null;
   if(value.refs.some(isOriginalWeaponRef)&&!['lend-weapon','return-weapon'].includes(value.kind))return null;
   return value;
@@ -57,7 +60,18 @@ export function physicalSnapshot(s,{actorIds,refs,destinations},ctx){
 }
 function bindings(s,refs){return refs.map(ref=>({ref:copy(ref),value:copy(resolveFixedRef(s,ref))}));}
 function sameBindings(s,list){try{return list.every(entry=>same(entry.value,resolveFixedRef(s,entry.ref)));}catch{return false;}}
-function lockedKeys(op){return [...op.actorIds.map(id=>'actor/'+id),...op.refs.map(ref=>refKey(ref)),...(op.kind==='issue-kit'?['container/'+TRAIN_TOOL_CASE.id]:[])];}
+function lockedKeys(op){return [...op.actorIds.map(id=>'actor/'+id),...op.refs.map(ref=>refKey(ref)),...(op.kind==='issue-kit'?['container/'+TRAIN_TOOL_CASE.id]:[]),...(op.kind==='issue-mask'?['container/'+TRAIN_MASK_SOURCE.id]:[])];}
+function componentLockConflict(s,op){
+  const p=powder(s),wanted=lockedKeys(op);
+  for(const work of p?.pending||[]){
+    // Continuation-backed work is checked against its owning requests below.
+    if(stateOf(s).requests[work.requestId])continue;
+    const start=p.physicalEvents.find(e=>e.id===work.workId),other=start?.data?.operation;
+    if(!object(other)||!Array.isArray(other.actorIds)||!Array.isArray(other.refs)||other.actorIds.some(id=>!participants.has(id))||other.refs.some(ref=>!referenceKnown(ref)))return true;
+    if([...other.actorIds.map(id=>'actor/'+id),...other.refs.map(refKey)].some(key=>wanted.includes(key)))return true;
+  }
+  return false;
+}
 function accessReady(s,op,ctx){
   // Providers own the actual world, hands and finite carrying capacity. A
   // caller cannot replace any of these with a permissive cause boolean.
@@ -71,7 +85,7 @@ function accessReady(s,op,ctx){
 }
 function contactReady(s,op,ctx,snapshot){
   if(!op.actorIds.length)return ['blast-charge','damage-primer'].includes(op.kind);
-  const roles=op.kind==='issue-kit'?['mara','ruth'].map(actorId=>({id:TRAIN_TOOL_CASE.id,actorId,regionId:TRAIN_TOOL_CASE.regionId})):op.kind==='return-papers'?[{id:'actor:tomas:paper-handoff',actorId:'mara',regionId:'snowbound'}]:['establish-guard','guard-handover'].includes(op.kind)?op.actorIds.map(actorId=>({id:'station:levi-holding',actorId,regionId:'snowbound'})):['lend-weapon','return-weapon'].includes(op.kind)?[...['mara','bastian'].map(actorId=>({id:'station:community-rescue-chest',actorId,regionId:'snowbound'})),{id:'actor:bastian:weapon-handoff',actorId:'mara',regionId:'snowbound'}]:[];
+  const roles=op.kind==='issue-mask'?['mara','ada'].map(actorId=>({id:TRAIN_MASK_SOURCE.id,actorId,regionId:TRAIN_MASK_SOURCE.regionId})):op.kind==='issue-kit'?['mara','ruth'].map(actorId=>({id:TRAIN_TOOL_CASE.id,actorId,regionId:TRAIN_TOOL_CASE.regionId})):op.kind==='return-papers'?[{id:'actor:tomas:paper-handoff',actorId:'mara',regionId:'snowbound'}]:['establish-guard','guard-handover'].includes(op.kind)?op.actorIds.map(actorId=>({id:'station:levi-holding',actorId,regionId:'snowbound'})):['lend-weapon','return-weapon'].includes(op.kind)?[...['mara','bastian'].map(actorId=>({id:'station:community-rescue-chest',actorId,regionId:'snowbound'})),{id:'actor:bastian:weapon-handoff',actorId:'mara',regionId:'snowbound'}]:[];
   if(roles.length&&typeof ctx.fixedContact!=='function')return false;
   const fixedContacts=roles.map(role=>({...role,point:ctx.fixedContact(s,role.id)}));
   if(fixedContacts.some(contact=>!finitePoint(contact.point)))return false;
@@ -84,10 +98,10 @@ export function beginCustodyRequest(s,operation,ctx){
   try{
     const op=normalizeOperation(operation),c=stateOf(s);if(!op||ctx.authorizeCustodyOp(s,op)!==true||!accessReady(s,op,ctx)||!object(powder(s))||!object(powder(s).kit)||!Array.isArray(powder(s).custodyEventRefs))return null;
     if(['lend-weapon','return-weapon'].includes(op.kind)&&!prepareRivalWeaponLoan(s,op))return null;
-    const keys=lockedKeys(op);if(Object.values(c.requests).some(request=>lockedKeys(request.operation).some(key=>keys.includes(key))))return null;
+    const keys=lockedKeys(op);if(componentLockConflict(s,op)||Object.values(c.requests).some(request=>lockedKeys(request.operation).some(key=>keys.includes(key))))return null;
     const snapshot=physicalSnapshot(s,{actorIds:op.actorIds,refs:op.refs,destinations:op.to?[op.to.location]:[]},ctx);if(!snapshot||!contactReady(s,op,ctx,snapshot))return null;
     const sourceBindings=bindings(s,op.refs);
-    if(c.initializedAt===null){c.initializedAt=s.elapsed;c.baseline={at:s.elapsed,...currentModel(s)};}
+    if(c.initializedAt===null){const {gear,...oldModel}=currentModel(s);if(Object.keys(gear).length)return null;c.initializedAt=s.elapsed;c.baseline={at:s.elapsed,...oldModel};}
     const id=`${TRAIN_ID}:custody-request:${++c.requestSerial}`;
     c.requests[id]={id,operation:op,startedAt:s.elapsed,sourceBindings};
     return{requestId:id,kind:op.kind,requiredSeconds:CUSTODY_WORK_SECONDS[op.kind]};
@@ -95,8 +109,18 @@ export function beginCustodyRequest(s,operation,ctx){
 }
 export function inspectCustodyRequest(s,id){const request=stateOf(s)?.requests?.[id];return request?copy(request):null;}
 export function cancelCustodyRequest(s,id){const c=stateOf(s);if(!c?.requests?.[id])return false;delete c.requests[id];return true;}
+/** Owner-side rollback for one synchronous physical hazard interruption.
+ * Powder restores its own pending/events; it never writes this ledger. The
+ * ordinary guarded commit separately restores material and blast effects.
+ */
+export function prepareCustodyInterruption(s){
+  if(!usesRivalContinuation(s)||!Number.isFinite(s.elapsed)||!object(stateOf(s)))return null;
+  const c=stateOf(s),snapshot=copy(c),at=s.elapsed;
+  return{rollback(){if(stateOf(s)!==c||s.elapsed!==at)throw new TypeError('A custody interruption cannot roll back another accepted frame');for(const key of Object.keys(c))delete c[key];Object.assign(c,copy(snapshot));return true;}};
+}
 const ref=(sourceMissionId,objectId)=>({sourceMissionId,objectId});
 function modelObject(model,reference){
+  if(isTrainGearRef(reference))return model.gear?.[reference.objectId];
   if(reference.sourceMissionId===TRAIN_ID)return model.kit[reference.objectId];
   if(/^quarry-primer-[1-6]$/.test(reference.objectId))return model.objects['cap-tin']?.primers?.find(p=>p.id===reference.objectId);
   return model.objects[reference.objectId];
@@ -105,6 +129,7 @@ function chargePowder(charge){return charge.powder||(charge.powder={schema:1,mod
 function requiredReferences(op,ids){return ids.every(([mission,id])=>op.refs.some(r=>r.sourceMissionId===mission&&r.objectId===id));}
 function permittedLocation(location){
   if(!object(location))return false;
+  if(location.type==='worn')return trainGearLocation(location);
   if(['carried','saddle','crate'].includes(location.type))return exactKeys(location,['type','targetId'])&&(location.type==='carried'?custodians.has(location.targetId):location.type==='crate'?location.targetId==='charge-crate':['copper','plover','bracken','cinder','tomas-mount'].includes(location.targetId));
   if(['station','container'].includes(location.type)){
     if(!exactKeys(location,['type','targetId','regionId']))return false;
@@ -132,7 +157,9 @@ function deriveOperation(model,op,id,at,derivation=null){
   const unit=typeof o.primerId==='string'?tin?.primers?.find(p=>p.id===o.primerId):null;
   const fail=message=>{throw new TypeError(message);};
   const need=(ok,message)=>{if(!ok)fail(message);};
-  if(op.kind==='issue-kit'){
+  if(op.kind==='issue-mask'){
+    need(same(op.actorIds,['mara','ada'])&&op.refs.length===0&&op.to===null&&!next.gear[TRAIN_MASK_ID],'Only Ada’s actual first basket handoff can issue the windwrap');next.gear[TRAIN_MASK_ID]=createTrainGearInstance(at,id);
+  }else if(op.kind==='issue-kit'){
     need(op.actorIds.includes('mara')&&op.actorIds.includes('ruth')&&op.refs.length===0&&op.to===null&&Object.keys(next.kit).length===0,'Only the actual first case issue can create kit');
     for(const definition of TRAIN_KIT_DEFINITIONS){const {ownerId,location,...data}=definition;next.kit[data.id]={...copy(data),owner:ownerId,location:{...copy(location),regionId:TRAIN_TOOL_CASE.regionId},sourceOwnerId:ownerId,sourceCaseId:TRAIN_TOOL_CASE.id,issuedAt:at,issueEventId:id};}
     Object.assign(next.kit['brass-wire-spool'],{onReel:420,deployedLength:0,cutoffLength:0,lostLength:0,deploymentClosed:false});
@@ -143,6 +170,8 @@ function deriveOperation(model,op,id,at,derivation=null){
   }else if(op.kind==='move-object'){
     need(op.refs.length>=1&&op.to&&permittedLocation(op.to.location),'A physical exclusive destination is required');
     const item=modelObject(next,op.refs[0]);need(item&&item.kind!=='game-primer'&&!item.powder?.spent&&item.state!=='spent'&&(item.kind!=='game-fuse'||item.chargeId===null&&item.state==='intact'),'Consumed, attached fuse and derived primer custody cannot move independently');
+    if(isTrainGearRef(op.refs[0]))need(op.refs.length===1&&same(op.actorIds,['mara'])&&op.to.owner==='mara'&&trainGearLocation(op.to.location),'Only Mara can carry, wear or saddle the same owned windwrap');
+    else need(op.to.location.type!=='worn','Only the finite windwrap can occupy the face slot');
     need(item.owner!==null&&['mara','ruth','juno','tomas','bastian','della','inez','hob'].includes(op.to.owner),'Unsupported current custodian');
     if(op.to.location.type==='carried')need(op.to.owner===op.to.location.targetId,'Carrier must be custodian');
     if(item.location.type==='carried')need(op.actorIds.includes(item.location.targetId),'An actual carrying source must join the handoff');
@@ -194,12 +223,13 @@ function deriveOperation(model,op,id,at,derivation=null){
   }else if(!['lend-weapon','return-weapon'].includes(op.kind))fail('Unsupported continuation operation');
   account(next);return next;
 }
-function effectsBetween(before,after){const effects=[];for(const [mission,key]of [[RIVAL_ID,'objects'],[TRAIN_ID,'kit']])for(const id of new Set([...Object.keys(before[key]),...Object.keys(after[key])]))if(!same(before[key][id]??null,after[key][id]??null))effects.push({ref:ref(mission,id),before:before[key][id]??null,after:after[key][id]??null});return effects;}
+function effectsBetween(before,after){const effects=[];for(const [mission,key]of [[RIVAL_ID,'objects'],[TRAIN_ID,'kit'],[TRAIN_ID,'gear']])for(const id of new Set([...Object.keys(before[key]),...Object.keys(after[key])]))if(!same(before[key][id]??null,after[key][id]??null))effects.push({ref:ref(mission,id),before:before[key][id]??null,after:after[key][id]??null});return effects;}
 function applyModel(s,model){
   for(const [target,source]of [[rec(s).objects,model.objects],[powder(s).kit,model.kit]]){
     for(const key of Object.keys(target))if(!Object.hasOwn(source,key))delete target[key];
     for(const [key,value]of Object.entries(source)){if(object(target[key])){for(const property of Object.keys(target[key]))if(!Object.hasOwn(value,property))delete target[key][property];Object.assign(target[key],copy(value));}else target[key]=copy(value);}
   }
+  if(model.gear[TRAIN_MASK_ID])s.itemInstances[TRAIN_MASK_ID]=copy(model.gear[TRAIN_MASK_ID]);else delete s.itemInstances[TRAIN_MASK_ID];
   if(model.guardPresent)rec(s).captivity.guardId=model.guardId;else delete rec(s).captivity.guardId;
 }
 function validReceipt(s,request,receipt){
@@ -207,7 +237,7 @@ function validReceipt(s,request,receipt){
 }
 export function commitCustody(s,{requestId,acceptedWorkReceipt},ctx){
   const c=stateOf(s),request=c?.requests?.[requestId];if(!request||!usesRivalContinuation(s)||typeof ctx?.authorizeCustodyOp!=='function'||typeof ctx?.validateCustodyCause!=='function'||typeof ctx?.prepareCustodyPhysicalEffects!=='function')return null;
-  const transactions=[];let before=null,oldEvents,oldRefs;
+  const transactions=[];let before=null,oldEvents,oldRefs;const oldGearPresent=Object.hasOwn(c,'gearVersion'),oldGearVersion=c.gearVersion;
   try{
     const op=request.operation;if(ctx.authorizeCustodyOp(s,op)!==true||!accessReady(s,op,ctx)||!sameBindings(s,request.sourceBindings)||!validReceipt(s,request,acceptedWorkReceipt)||ctx.validateCustodyCause(s,op,acceptedWorkReceipt,requestId)!==true)return null;
     const snap=physicalSnapshot(s,{actorIds:op.actorIds,refs:op.refs,destinations:op.to?[op.to.location]:[]},ctx);if(!snap||!contactReady(s,op,ctx,snap)||!same(snap,{actors:acceptedWorkReceipt.actors,sources:acceptedWorkReceipt.sources,destinations:acceptedWorkReceipt.destinations}))return null;
@@ -226,12 +256,12 @@ export function commitCustody(s,{requestId,acceptedWorkReceipt},ctx){
     transactions.push(ctx.prepareCustodyPhysicalEffects(s,op,event));
     if(transactions.some(tx=>!object(tx)||typeof tx.apply!=='function'||typeof tx.rollback!=='function'||tx.apply.constructor.name==='AsyncFunction'||tx.rollback.constructor.name==='AsyncFunction'))return null;
     oldEvents=c.events.length;oldRefs=[...powder(s).custodyEventRefs];
-    applyModel(s,after);c.events.push(event);powder(s).custodyEventRefs.push(id);delete c.requests[requestId];
+    applyModel(s,after);c.events.push(event);if(op.kind==='issue-mask')c.gearVersion=1;powder(s).custodyEventRefs.push(id);delete c.requests[requestId];
     for(const tx of transactions){const result=tx.apply();if(result&&typeof result.then==='function')throw new TypeError('Physical custody commits must be synchronous');}
-    if(!same(currentModel(s),after)||c.events.length!==oldEvents+1||c.events.at(-1)!==event||!same(powder(s).custodyEventRefs,[...oldRefs,id])||!validateRivalWeaponLoans(s,c.events))throw new TypeError('Physical result changed canonical custody authority');
+    if(!same(currentModel(s),after)||c.events.length!==oldEvents+1||c.events.at(-1)!==event||!same(powder(s).custodyEventRefs,[...oldRefs,id])||!validateRivalWeaponLoans(s,c.events)||!validateTrainGear(s))throw new TypeError('Physical result changed canonical custody authority');
     return{eventId:id,event:copy(event),changedRefs:event.effects.map(effect=>copy(effect.ref))};
   }catch{
-    if(before&&oldEvents!==undefined){for(const tx of transactions.reverse())try{tx?.rollback?.();}catch{}applyModel(s,before);c.events.length=oldEvents;powder(s).custodyEventRefs.splice(0,powder(s).custodyEventRefs.length,...oldRefs);c.requests[requestId]=request;}
+    if(before&&oldEvents!==undefined){for(const tx of transactions.reverse())try{tx?.rollback?.();}catch{}applyModel(s,before);if(oldGearPresent)c.gearVersion=oldGearVersion;else delete c.gearVersion;c.events.length=oldEvents;powder(s).custodyEventRefs.splice(0,powder(s).custodyEventRefs.length,...oldRefs);c.requests[requestId]=request;}
     return null;
   }
 }
@@ -253,7 +283,8 @@ export function resolveFixedRef(s,reference,expectedKind=null){
       kind='game-primer';const tin=rec(s)?.objects?.['cap-tin'],c=rec(s)?.rival?.continuation;
       if(tin?.openingEventId&&c?.events?.some(event=>event.id===tin.openingEventId&&event.kind==='open-tin'))value=tin.primers?.find(unit=>unit.id===reference.objectId);
     }
-  }else if(reference.sourceMissionId===TRAIN_ID){kind=kitKinds[reference.objectId];if(kind)value=powder(s)?.kit?.[reference.objectId];}
+  }else if(isTrainGearRef(reference)){kind='face-covering';if(stateOf(s)?.gearVersion===1)value=s.itemInstances?.[reference.objectId];}
+  else if(reference.sourceMissionId===TRAIN_ID){kind=kitKinds[reference.objectId];if(kind)value=powder(s)?.kit?.[reference.objectId];}
   if(!value||value.id!==reference.objectId||value.kind!==kind||expectedKind!==null&&expectedKind!==kind)throw new TypeError('Missing or incompatible authoritative object reference');
   return value;
 }
@@ -274,7 +305,7 @@ function legacyGuardAllowed(r){
   return r.captivity.guardId==='bastian'&&r.flags.bound===true&&r.flags.held===true&&(r.rival.questioningVersion!==1||ordered);
 }
 function modelReference(model,reference){
-  const value=modelObject(model,reference),kind=reference.sourceMissionId===TRAIN_ID?kitKinds[reference.objectId]:rivalKinds[reference.objectId]||'game-primer';
+  const value=modelObject(model,reference),kind=isTrainGearRef(reference)?'face-covering':reference.sourceMissionId===TRAIN_ID?kitKinds[reference.objectId]:rivalKinds[reference.objectId]||'game-primer';
   if(!value||value.id!==reference.objectId||value.kind!==kind)throw new TypeError('Missing historical fixed object');return value;
 }
 function receiptShape(receipt,op,startedAt,finishedAt){
@@ -309,15 +340,28 @@ export function rivalHistoricalValidationState(s){
 }
 /** Root's train validator supplies these links to the powder owning validator;
  * neither side imports the other module or copies a current stock registry. */
-export function custodyValidationLinks(s){return{requestFor:id=>inspectCustodyRequest(s,id),eventFor:id=>{const event=stateOf(s)?.events.find(event=>event.id===id);return event?copy(event):null;}};}
+/** Detached material at an actual ledger prefix. A physical inspection can
+ * bind this revision without copying a second mutable resource authority.
+ * Equal-time events have an order; a later event strictly before at means the
+ * requested revision is stale for that time and cannot be used as evidence.
+ */
+export function sourceForRevision(s,reference,revision,at){
+  try{
+    const c=stateOf(s);if(!usesRivalContinuation(s)||isOriginalWeaponRef(reference)||!referenceKnown(reference)||!Number.isSafeInteger(revision)||revision<0||revision>c.events.length||!Number.isFinite(at)||at<0||at>s.elapsed||c.events.slice(0,revision).some(e=>e.at>at)||c.events.slice(revision).some(e=>e.at<at))return null;
+    const model=c.baseline?{objects:copy(c.baseline.objects),kit:copy(c.baseline.kit),gear:{}}:{objects:copy(rec(s).objects),kit:copy(powder(s)?.kit||{}),gear:{}};
+    for(const event of c.events.slice(0,revision))for(const effect of event.effects){const map=isTrainGearRef(effect.ref)?model.gear:effect.ref.sourceMissionId===RIVAL_ID?model.objects:effect.ref.sourceMissionId===TRAIN_ID?model.kit:null;if(!map)return null;if(effect.after===null)delete map[effect.ref.objectId];else map[effect.ref.objectId]=copy(effect.after);}
+    const item=modelObject(model,reference);return item?copy(item):null;
+  }catch{return null;}
+}
+export function custodyValidationLinks(s){return{requestFor:id=>inspectCustodyRequest(s,id),eventFor:id=>{const event=stateOf(s)?.events.find(event=>event.id===id);return event?copy(event):null;},sourceForRevision:(ref,revision,at)=>sourceForRevision(s,ref,revision,at)};}
 export function validateRivalContinuation(s){
   try{
     if(!usesRivalContinuation(s))return false;
     const c=stateOf(s),p=powder(s);
-    if(!exactKeys(c,['schema','initializedAt','baseline','requestSerial','requests','events'])||c.schema!==1||!Number.isSafeInteger(c.requestSerial)||c.requestSerial<0||!object(c.requests)||!Array.isArray(c.events))return false;
+    if(!exactKeys(c,['schema','initializedAt','baseline','requestSerial','requests','events',...(Object.hasOwn(c,'gearVersion')?['gearVersion']:[])])||c.gearVersion!==undefined&&c.gearVersion!==1||c.schema!==1||!Number.isSafeInteger(c.requestSerial)||c.requestSerial<0||!object(c.requests)||!Array.isArray(c.events)||!validateTrainGear(s))return false;
     if(c.initializedAt===null)return c.baseline===null&&c.requestSerial===0&&Object.keys(c.requests).length===0&&c.events.length===0&&originalFieldsAbsent(rec(s).objects)&&legacyGuardAllowed(rec(s))&&(!p||object(p.kit)&&!Object.keys(p.kit).length&&Array.isArray(p.custodyEventRefs)&&!p.custodyEventRefs.length);
     const b=c.baseline;if(!rec(s).mission.completed||!Number.isFinite(c.initializedAt)||c.initializedAt<0||c.initializedAt>s.elapsed||!exactKeys(b,['at','objects','kit','guardPresent','guardId'])||b.at!==c.initializedAt||!object(b.kit)||Object.keys(b.kit).length||!originalFieldsAbsent(b.objects)||typeof b.guardPresent!=='boolean'||b.guardPresent&&b.guardId!=='bastian'||!b.guardPresent&&b.guardId!==null||!object(p)||!object(p.kit)||!Array.isArray(p.custodyEventRefs)||!Array.isArray(p.physicalEvents)||!Array.isArray(p.pending))return false;
-    let model={objects:copy(b.objects),kit:{},guardPresent:b.guardPresent,guardId:b.guardId},at=b.at;const requests=new Set(),causes=new Set();
+    let model={objects:copy(b.objects),kit:{},gear:{},guardPresent:b.guardPresent,guardId:b.guardId},at=b.at;const requests=new Set(),causes=new Set();
     const requestNumber=id=>{const prefix=`${TRAIN_ID}:custody-request:`;if(typeof id!=='string'||!id.startsWith(prefix)||!/^[1-9]\d*$/.test(id.slice(prefix.length)))return null;const number=Number(id.slice(prefix.length));return Number.isSafeInteger(number)&&number>=1&&number<=c.requestSerial?number:null;};
     for(let index=0;index<c.events.length;index++){
       const e=c.events[index],op=normalizeOperation(e?.operation);

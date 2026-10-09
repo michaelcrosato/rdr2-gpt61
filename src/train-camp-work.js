@@ -7,12 +7,15 @@ import {TRAIN_BRIEFING_TABLE as TABLE,TRAIN_BRIEFING_TABLE_SOLID as SOLID,TRAIN_
 import {createTrainHuman,prepareTrainPose,physicalProjection,rigWorldPoint} from './train-native/rigs.js';
 import {resolveFixedRef,inspectCustodyRequest} from './rival-continuation.js';
 import {powderFixedContactRoles,validatePowderCustodyCause} from './train-powder.js';
+import {TRAIN_PREPARATION_SOLIDS} from '../content/campaign/train-preparation-camp.js';
 const point=a=>({x:a.x,y:a.y,z:a.z||0}),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z),mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
 const presentation=new WeakMap(),worlds=new WeakMap();
 const bodyStamp=a=>JSON.stringify([a.x,a.y,a.z,a.facing,a.pose,a.crouch,a.mounted,a.hp,a.handInjury,a.injured,a.toolHeld,a.holstered,a.carrying,a.weaponAction,a.attachment,a.reloadTimer,a.reloadWeaponId]);
 export function worldForTrainCamp(s,base){
-  if(base?.id!=='snowbound'||s.campaign?.missions?.[TRAIN_ID]?.train?.briefing?.setup?.finishedAt==null)return base;
-  let world=worlds.get(base);if(!world){world={...base,obstacles:[...base.obstacles,SOLID]};worlds.set(base,world);}return world;
+  if(base?.id!=='snowbound')return base;
+  const train=s.campaign?.missions?.[TRAIN_ID]?.train,table=train?.briefing?.setup?.finishedAt!=null,sites=train?.preparationVersion===1?train.preparation?.campSetup?.sites:null,props=TRAIN_PREPARATION_SOLIDS.filter(p=>sites&&Object.hasOwn(sites,p.id));if(!table&&!props.length)return base;
+  let variants=worlds.get(base);if(!variants){variants=new Map();worlds.set(base,variants);}const key=`${table}/${props.map(p=>p.id).join(',')}`;let world=variants.get(key);
+  if(!world){world={...base,obstacles:[...base.obstacles,...(table?[SOLID]:[]),...props]};variants.set(key,world);}return world;
 }
 export function getTrainCampWorkPose(s,id){const entry=presentation.get(s)?.get(id),body=s.entities?.[id];return entry&&body&&entry.at===s.elapsed&&entry.body===body&&entry.stamp===bodyStamp(body)?entry:null;}
 function segmentBox(a,b,box,radius){
@@ -39,7 +42,7 @@ export function createTrainCampWorkProvider(E,worldFor){
     const body=s.entities[id];if(!body)return null;const humans=cache(s).humans;let entry=humans.get(id);
     if(!entry||entry.body!==body){entry={body,human:createTrainHuman(E,body),at:null,target:null,joints:null};humans.set(id,entry);}
     const key=JSON.stringify(target),stamp=bodyStamp(body);if(entry.at===s.elapsed&&entry.target===key&&entry.stamp===stamp)return entry;
-    const dt=entry.at===null?0:Math.max(0,Math.min(.1,s.elapsed-entry.at));if(entry.at!==s.elapsed||entry.stamp!==stamp)entry.human.rig.update(dt,{...body,pose:body.pose||(body.crouch?'crouch':null)});
+    const dt=entry.at===null?0:Math.max(0,Math.min(.1,s.elapsed-entry.at));if(entry.at!==s.elapsed||entry.stamp!==stamp)entry.human.rig.update(dt,{...body,pose:body.id==='silas'&&body.attachment?.type==='rest'||body.id==='gideon'&&body.injured?'down':body.pose||(body.crouch?'crouch':null)});
     physicalProjection(E,()=>{const pose=prepareTrainPose(E,entry.human,body,null,{contacts:target?[{side:'R',kind:'camp-work',target}]:[],freeHands:handFree(s,id)});
       try{entry.joints=['shR','elbowR','handR'].map(j=>rigWorldPoint(entry.human.rig,pose.root,j));entry.reachable=pose.diagnostics.every(c=>c.reachable&&c.error<1e-5);entry.usable=handUsable(s,id)&&pose.diagnostics.every(c=>!c.blocked);}finally{pose.restore();}});
     entry.at=s.elapsed;entry.target=key;entry.stamp=stamp;entry.contact=target&&{...target};return entry;
@@ -85,6 +88,7 @@ export function createTrainCampWorkProvider(E,worldFor){
     return{start,finish,tableId:TABLE.id,sweptClear:intervalClear(s,'table-setup',start,finish,entries),futureSolidClear:blocked.length===0,occupants:blocked,actors:entries.map((e,i)=>({id:['tomas','della'][i],root:point(e.body),hand:{...e.joints[2]},target:{x:SETUP[e.body.id].target.x,y:TABLE.y,z:TABLE.height},reachable:e.reachable,handUsable:e.usable,handFree:handFree(s,e.body.id)}))};
   }
   return{briefingTableWindow,powderContactWindow,fixedContact,handFree,handUsable,pointForLocation:locationPoint,
+    prepareNativeActor:native,inspectNativeInterval:intervalClear,
     prepareCampWork(s){
       const train=s.campaign.missions[TRAIN_ID].train;
       if(train.briefing?.setup?.finishedAt===null){const entries=['tomas','della'].map(id=>native(s,id,SETUP[id].target));intervalClear(s,'table-setup',s.elapsed,s.elapsed,entries);cache(s).setupRoots={at:s.elapsed,roots:occupants(s)};}
