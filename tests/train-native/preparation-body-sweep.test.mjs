@@ -1,3 +1,4 @@
+import {followPreparationGuideNative} from '../helpers/train-preparation-route.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Journey,acceptedBriefingNative,moveNative,trainRecord} from '../helpers/train-preparation-route.mjs';
@@ -48,7 +49,7 @@ function pendingNativeBytes(){
   // assigned while building it. Later probes are explicitly staged negatives.
   const s=acceptedBriefingNative();moveNative(s,{x:790,y:1205});interactNative(s,'train:prepare-call');moveNative(s,TRAIN_STORE_MARA);interactNative(s,'train:prepare-talk:store');
   for(let i=0;i<400&&!s.dialog;i++)Journey.stepCampaign(s,.05);assert.ok(s.dialog);while(s.dialog)chooseNative(s,'train-prepare-next');
-  interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');for(let i=0;i<400&&!trainRecord(s).train.powder.pending.some(w=>w.kind==='inspect-child-seal');i++)Journey.stepCampaign(s,.05);
+  interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');followPreparationGuideNative(s);for(let i=0;i<400&&!trainRecord(s).train.powder.pending.some(w=>w.kind==='inspect-child-seal');i++)Journey.stepCampaign(s,.05);
   assert.ok(trainRecord(s).train.powder.pending.some(w=>w.kind==='inspect-child-seal'),'actual original inspection work exists');originalPendingBytes=Journey.serializeCampaign(s);assert.ok(Journey.restoreCampaign(originalPendingBytes));return originalPendingBytes;
 }
 function stagedContact(){

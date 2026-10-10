@@ -20,6 +20,16 @@ export const TRAIN_CRATE_GRIP=point(770,1268,37);
 export const TRAIN_STORE_MARA=pose(791,1260,Math.PI/2);
 export const TRAIN_STORE_MARA_HAND=point(773,1268,37);
 export const TRAIN_CHILD_CONTACTS=Object.freeze(Object.fromEntries([747,753,759,765].map((x,i)=>[`quarry-sealed-charge-${i+1}`,Object.freeze({center:point(x,1268,32),grip:point(x,1264,42),approach:pose(x,1244,0)})])));
+// A fresh first inspection stands clear of the tack-room wall with Ruth's
+// whole walking body. The original contacts remain the historical decoder;
+// the child, its grip, tray and Ruth's real arm dimensions stay unchanged.
+export const TRAIN_INSPECTION_V2_CONTACTS=Object.freeze(Object.fromEntries(Object.entries(TRAIN_CHILD_CONTACTS).map(([id,slot])=>[id,Object.freeze({...slot,approach:id==='quarry-sealed-charge-1'?pose(753,1244,0):slot.approach})])));
+// Version3 raises the observing hand clear of the finite tray rails. Its
+// separate player contact stays outside the east rail and within reach of
+// the same store. Older requested/started operations retain their own poses.
+export const TRAIN_INSPECTION_V3_CONTACTS=Object.freeze(Object.fromEntries(Object.entries(TRAIN_CHILD_CONTACTS).map(([id,slot])=>[id,Object.freeze({...slot,grip:point(slot.grip.x,slot.grip.y,46.2),approach:pose(Math.max(750,Math.min(slot.approach.x,759)),1245,0)})])));
+export const TRAIN_INSPECTION_V3_MARA_HAND=point(776.5,1268,37);
+export const TRAIN_INSPECTION_V3_MARA_APPROACH=pose(796,1265,Math.PI/2);
 export const TRAIN_TIN_CENTER=point(735,1262,27);
 export const TRAIN_TIN_SHAPE=Object.freeze({x:3,y:2,z:3});
 export const TRAIN_PRIMER_SLOTS=Object.freeze(Object.fromEntries(Array.from({length:6},(_,i)=>[`quarry-primer-${i+1}`,Object.freeze({center:point(733.4+(i%3)*1.6,1261.3+Math.floor(i/3)*1.4,29),halfExtents:point(.4,.4,.6)})])));

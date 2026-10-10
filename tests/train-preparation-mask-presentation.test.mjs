@@ -1,3 +1,4 @@
+import {followPreparationGuideNative} from './helpers/train-preparation-route.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Journey,trainRecord,moveNative} from './helpers/train-preparation-route.mjs';
 import {interactNative} from './helpers/train-clinic-route.mjs';
@@ -48,7 +49,7 @@ test('actual walking changes the worn native face frame and actual drawing cance
 });
 
 test('genuine wear then crouched walk and immediate standing inspection binds the worn cloth to the selected work Human’s drawn head',()=>{
- const s=ownedMask();interactNative(s,'train:prepare-mask-wear');wait(s,()=>prep(s).work===null);Journey.campaignAction(s,'crouch');for(let i=0;i<6;i++)Journey.stepCampaign(s,.05);assert.equal(s.player.crouch,true);moveNative(s,TRAIN_STORE_MARA);Journey.campaignAction(s,'stand');assert.equal(s.player.crouch,false);interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');wait(s,()=>!!activePreparationCampWorkPose(s,s.player)&&trainRecord(s).train.powder.pending.some(w=>w.acceptedSeconds>0));
+ const s=ownedMask();interactNative(s,'train:prepare-mask-wear');wait(s,()=>prep(s).work===null);Journey.campaignAction(s,'crouch');for(let i=0;i<6;i++)Journey.stepCampaign(s,.05);assert.equal(s.player.crouch,true);moveNative(s,TRAIN_STORE_MARA);Journey.campaignAction(s,'stand');assert.equal(s.player.crouch,false);interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');followPreparationGuideNative(s);wait(s,()=>!!activePreparationCampWorkPose(s,s.player)&&trainRecord(s).train.powder.pending.some(w=>w.acceptedSeconds>0));
  const work=activePreparationCampWorkPose(s,s.player),idle=getPreparationWornMaskPose(s);assert.ok(idle);assert.notEqual(work.human,idle.human,'different genuine provider histories must be exercised');const itemBefore=structuredClone(s.itemInstances[TRAIN_MASK_ID]),result=render(s),actor=result.actors.find(a=>a.id==='mara'),mask=result.objects.find(o=>o.id===TRAIN_MASK_ID);assert.equal(actor.work,'preparation');assert.equal(mask.geometrySource,'drawn-native-pose');assert.equal(mask.getterHumanMatchesDraw,false);assert.equal(mask.physicsHuman,true);assert.ok(Math.abs(mask.facePoint.z-idle.geometry.face.z)>.5,'standing work and the earlier crouch/walk idle blend genuinely differ');assert.equal(mask.fitVersion,2);close(mask.facePoint,fittedFace(actor.maskHead,work.human.rig,s.player.facing,2));assert.deepEqual(s.itemInstances[TRAIN_MASK_ID],itemBefore);assert.ok(Journey.restoreCampaign(Journey.serializeCampaign(s)));
 });
 

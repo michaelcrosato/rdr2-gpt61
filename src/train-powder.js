@@ -189,8 +189,8 @@ function interruptingHazard(s,op,apply){
   return false;
 }
 
-function inspectionOperation(topic,reference,actorIds,resolve){
-  if(!Object.hasOwn(inspectionKinds,topic)||JSON.stringify(actorIds)!==JSON.stringify(['mara','ruth']))return null;
+function inspectionOperation(topic,reference,actorIds,resolve,approachVersion){
+  if(!Object.hasOwn(inspectionKinds,topic)||JSON.stringify(actorIds)!==JSON.stringify(['mara','ruth'])||approachVersion!==undefined&&(topic!=='child-seal'||![2,3].includes(approachVersion)))return null;
   const refs=createPowderReferences();let selected;
   if(topic==='child-seal'){
     if(!chargeIds.some(id=>sameRef(reference,original(id))))return null;
@@ -202,7 +202,7 @@ function inspectionOperation(topic,reference,actorIds,resolve){
   }else{
     if(!sameRef(reference,refs.spool))return null;selected=[refs.spool,refs.lead,refs.detonator,refs.pliers,...refs.fuses];
   }
-  return{kind:inspectionKinds[topic],actorIds:[...actorIds],refs:selected,to:null,options:{topic,ref:copy(reference)}};
+  return{kind:inspectionKinds[topic],actorIds:[...actorIds],refs:selected,to:null,options:{topic,ref:copy(reference),...([2,3].includes(approachVersion)?{approachVersion}:{})}};
 }
 function inspectionMeasurement(op,bindings){
   const item=ref=>bindings.find(binding=>sameRef(binding.ref,ref))?.value,topic=op.options.topic;
@@ -228,10 +228,10 @@ function inspectionMeasurement(op,bindings){
 }
 function validInspectionStart(start,sourceForRevision,eventFor){
   const data=start?.data,op=data?.operation;
-  if(start?.kind!=='preparation-inspection-started'||!keys(data,['operation','sourceRevision','sourceBindings'])||!keys(op,['kind','actorIds','refs','to','options'])||!keys(op.options,['topic','ref'])||!Number.isSafeInteger(data.sourceRevision)||data.sourceRevision<0||!Array.isArray(data.sourceBindings)||data.sourceBindings.length!==op.refs?.length||typeof sourceForRevision!=='function')return false;
+  if(start?.kind!=='preparation-inspection-started'||!keys(data,['operation','sourceRevision','sourceBindings'])||!keys(op,['kind','actorIds','refs','to','options'])||!plain(op.options)||!keys(op.options,['topic','ref',...(Object.hasOwn(op.options,'approachVersion')?['approachVersion']:[])])||!Number.isSafeInteger(data.sourceRevision)||data.sourceRevision<0||!Array.isArray(data.sourceBindings)||data.sourceBindings.length!==op.refs?.length||typeof sourceForRevision!=='function')return false;
   const values=data.sourceBindings;
   if(values.some((entry,index)=>!keys(entry,['ref','value'])||!sameRef(entry.ref,op.refs[index])||JSON.stringify(entry.value)!==JSON.stringify(sourceForRevision(entry.ref,data.sourceRevision,start.at))))return false;
-  const expected=inspectionOperation(op.options.topic,op.options.ref,op.actorIds,ref=>values.find(entry=>sameRef(entry.ref,ref))?.value);
+  const expected=inspectionOperation(op.options.topic,op.options.ref,op.actorIds,ref=>values.find(entry=>sameRef(entry.ref,ref))?.value,op.options.approachVersion);
   const measured=expected&&inspectionMeasurement(expected,values);
   if(!expected||JSON.stringify(expected)!==JSON.stringify(op)||!measured)return false;
   const materialId=measured.openingEventId||measured.issueEventId;
@@ -266,8 +266,8 @@ function inspectionRevision(s){const events=s.campaign?.missions?.[POWDER_SOURCE
 /** Timed observation of actual finite stock, never a no-op transfer, issue,
  * flag or caller-supplied measurement. The existing accepted runner owns time. */
 export function requestPreparationInspection(s,spec,ctx){
-  const record=trainPowderRecord(s);if(!record||!keys(spec,['topic','ref','actorIds'])||!finite(s.elapsed))return null;
-  const op=inspectionOperation(spec.topic,spec.ref,spec.actorIds,ref=>authoritative(s,ref));
+  const record=trainPowderRecord(s);if(!record||!plain(spec)||!keys(spec,['topic','ref','actorIds',...(Object.hasOwn(spec,'approachVersion')?['approachVersion']:[])])||!finite(s.elapsed))return null;
+  const op=inspectionOperation(spec.topic,spec.ref,spec.actorIds,ref=>authoritative(s,ref),spec.approachVersion);
   if(!op||!inspectionAccess(s,op,ctx)||conflictsWithPending(s,op)||!inspectionContact(s,op,{start:s.elapsed,finish:s.elapsed},ctx))return null;
   const sourceRevision=inspectionRevision(s),sourceBindings=op.refs.map(ref=>({ref:copy(ref),value:copy(authoritative(s,ref))}));
   const start={kind:'preparation-inspection-started',at:s.elapsed,data:{operation:op,sourceRevision,sourceBindings}},links=inspectionLinks(s);

@@ -1,0 +1,19 @@
+{
+  "scope": "Actual offered first child inspection from unchanged PR9 store Save, through real accepted Journey frames. Original stocks and prior Rival/guard facts conserved. Prefix has positive native time; no JSON reencoding, body/clock/stock/stage assignments or completed train claim. Current v3 movement; wider gait/material approach/reach animation still open.",
+  "originalPath": "/tmp/ruth-first-inspection-v3-accepted-prefix.json",
+  "originalRawSHA256": "e4346096264a0491bc6490b3ee63fc0832b27ac7f9a36de00c584646b41d11e2",
+  "gzipSHA256": "87f1f1e60d0a4b97b0c9f3a9f7cd107701c8e040990981969c9ae8f68bdaf5ce",
+  "rawBytes": 3948177,
+  "nativeReport": "/tmp/ruth-first-inspection-v3-report.json",
+  "baseCommit": "75ab04eba0be957d6c09e07541e61abfc887316a",
+  "currentPhysicalSources": {
+    "src/train-preparation.js": "af50cb684225f7c6a1d08b4b536cc4bf9e300f95cda1c253db873862ed86c2af",
+    "src/train-preparation-work.js": "ab86ad70bd1c4bc663ecd6d09cb1a0d91209780a9e4f054fddab1f94bbe5154b",
+    "src/train-camp-work.js": "4e28af5616e98e26cc60ed356ee4908039991ab225030843f7b26b857d8a5cd3",
+    "src/train-powder.js": "3887f8762fd7c4f641621a9eebe1220adabe352c9e6e8632d8371811d909a38a",
+    "src/train-native/locomotion-state.js": "b96c7ddef5f68e4eac499784938cad44a8b00eb093056467ffef55116ab041c3",
+    "src/train-native/idle-hand-interval.js": "d7bea4856a6e46b96111f83d1ef10c8e743327e49059cb8a5fd9dd4abfe26fea",
+    "content/campaign/train-preparation-camp.js": "8df73d9ab19c8b1115b84dc464aaa98093886ef4712ae23a3d07556477fd1049"
+  },
+  "laterZeroTimePosePriming": "Source hashes include the subsequent first-draw priming; the original performed prefix predates only that private-cache priming change."
+}

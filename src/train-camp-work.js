@@ -8,6 +8,10 @@ import {createTrainHuman,prepareTrainPose,physicalProjection,rigWorldPoint} from
 import {resolveFixedRef,inspectCustodyRequest} from './rival-continuation.js';
 import {powderFixedContactRoles,validatePowderCustodyCause} from './train-powder.js';
 import {TRAIN_PREPARATION_SOLIDS} from '../content/campaign/train-preparation-camp.js';
+import {captureNativeGroundLocomotion} from './train-native/locomotion-state.js';
+import {inspectNativeIdleHandInterval} from './train-native/idle-hand-interval.js';
+import {createHeldBox,compileHeldBoxSet,heldBoxContacts} from './train-held-volume.js';
+import {makeFrame} from './rail-foundation/rigid-frame.js';
 const point=a=>({x:a.x,y:a.y,z:a.z||0}),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z),mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
 const presentation=new WeakMap(),worlds=new WeakMap();
 const bodyStamp=a=>JSON.stringify([a.x,a.y,a.z,a.vx,a.vy,a.facing,a.pose,a.crouch,a.mounted,a.hp,a.handInjury,a.injured,a.toolHeld,a.holstered,a.carrying,a.weaponAction,a.attachment,a.reloadTimer,a.reloadWeaponId]);
@@ -32,9 +36,33 @@ function clearBones(world,old,current){
   for(let i=0;i<=count;i++){const joints=current.map((p,j)=>mix(old[j],p,i/count));for(const obstacle of world.obstacles||[])for(const [a,b]of [[0,1],[1,2]])if(segmentBox(joints[a],joints[b],obstacle,radius))return false;}
   return true;
 }
-export function createTrainCampWorkProvider(E,worldFor){
-  if(!E?.Humanoid||typeof worldFor!=='function')throw new TypeError('Native camp skeleton and world are required');
+export function createTrainCampWorkProvider(E,worldFor,{nativeArmIntervals=false}={}){
+  if(!E?.Humanoid||typeof worldFor!=='function'||typeof nativeArmIntervals!=='boolean')throw new TypeError('Native camp skeleton, world and fixed interval policy are required');
   const states=new WeakMap();
+  const nativeSolids=new Map();
+  function solidSet(world){
+    const source=world.obstacles.filter(o=>(o.height??35)>0),key=JSON.stringify(source);if(!source.length)return null;
+    if(nativeSolids.has(key))return nativeSolids.get(key);
+    const set=compileHeldBoxSet(source.map((o,i)=>({box:createHeldBox({id:'native-work-solid:'+i,frame:makeFrame({x:o.x+o.w/2,y:o.y+o.h/2,z:(o.z||0)+(o.height??35)/2},{x:1,y:0,z:0}),halfExtents:{x:o.w/2,y:o.h/2,z:(o.height??35)/2}}),ownerId:o.id||'world'})),{id:'native-work-complete-world'});
+    if(nativeSolids.size>=8)nativeSolids.delete(nativeSolids.keys().next().value);nativeSolids.set(key,set);return set;
+  }
+  function nativeSnapshot(entries){try{return entries.map(e=>({root:point(e.body),target:e.contact&&{...e.contact},hint:e.contactHint&&[...e.contactHint],motion:captureNativeGroundLocomotion(e.human.rig)}));}catch{return null;}}
+  function nativeIntervalClear(world,entries,old,current){
+    if(!old||!current||old.length!==entries.length)return false;
+    try{const set=solidSet(world);return entries.every((e,i)=>{
+      const a=old[i],b=current[i],same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+      if(!same(a.root,b.root)||!same(a.target,b.target)||!same(a.hint,b.hint)||!b.target||!b.hint)return false;
+      let intervals=0;
+      function visit(from,to,depth){
+        if(++intervals>256)return false;
+        const proof=inspectNativeIdleHandInterval(E,e.body,{from,to,target:b.target,elbowHint:b.hint,side:'R'});
+        if(proof&&Array.isArray(proof.parts)&&proof.parts.length&&(!set||proof.parts.every(part=>!heldBoxContacts(part,set).some(hit=>hit.interiorOverlap))))return true;
+        if(depth>=12||to.clock-from.clock<=1e-8)return false;
+        const middle={...from,clock:(from.clock+to.clock)/2};return visit(from,middle,depth+1)&&visit(middle,to,depth+1);
+      }
+      return visit(a.motion,b.motion,0);
+    });}catch{return false;}
+  }
   function cache(s){let c=states.get(s);if(!c){c={humans:new Map(),windows:new Map(),setupRoots:null};states.set(s,c);presentation.set(s,c.humans);}return c;}
   const occupants=s=>Object.values(s.entities).filter(a=>a.regionId==='snowbound'&&!a.hidden&&!a.departed&&['npc','player','enemy','mount','animal'].includes(a.category)).map(a=>({id:a.id,...point(a),radius:a.category==='mount'?13:9,height:53}));
   function handFree(s,id){const a=s.entities[id];return !!a&&a.hp>0&&!a.mounted&&!a.attachment&&!a.carrying&&!a.toolHeld&&!a.weaponAction&&!(a.reloadTimer>0)&&a.holstered!==false;}
@@ -85,9 +113,10 @@ export function createTrainCampWorkProvider(E,worldFor){
   function intervalClear(s,key,start,finish,entries){
     const c=cache(s),prior=c.windows.get(key),current=entries.map(e=>e.joints.map(point)),valid=entries.every(e=>e.reachable&&e.usable&&handFree(s,e.body.id)),world=worldFor(s);
     const old=start===finish?current:prior?.at===start?prior.joints:null;
-    const clear=!!world&&valid&&!!old&&entries.every((e,i)=>clearBones(world,old[i],current[i]));
+    const nativeCurrent=nativeArmIntervals?nativeSnapshot(entries):null,nativeOld=start===finish?nativeCurrent:prior?.at===start?prior.native:null;
+    const clear=!!world&&valid&&!!old&&(nativeArmIntervals?nativeIntervalClear(world,entries,nativeOld,nativeCurrent):entries.every((e,i)=>clearBones(world,old[i],current[i])));
     // Endpoint probes at the finish must not discard the accepted interval.
-    c.windows.set(key,{at:finish,joints:current,start,finish,clear});return clear;
+    c.windows.set(key,{at:finish,joints:current,start,finish,clear,...(nativeArmIntervals?{native:nativeCurrent}:{})});return clear;
   }
   function powderContactWindow(s,op,{start,finish}){
     if(s.region!=='snowbound'||finish!==s.elapsed||finish<start||finish-start>.1+1e-7)return null;

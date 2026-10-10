@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import {Journey,clinicCompleteNative,moveNative,trainRecord,interactNative,chooseNative} from './train-clinic-route.mjs';
 import {TRAIN_BRIEFING_APPROACHES,TRAIN_BRIEFING_CASH_APPROACH,TRAIN_BRIEFING_PAPER_CONTACTS,TRAIN_BRIEFING_HANDOFF_APPROACH} from '../../content/campaign/train-camp.js';
+import {preparationPlayerApproach} from '../../src/train-preparation-work.js';
 export {Journey,moveNative,trainRecord};
+/** Follow the same current work marker shown to a player, using real input. */
+export function followPreparationGuideNative(s){let guide=preparationPlayerApproach(s);for(let i=0;!guide&&s.campaign.missions['snowbound-what-the-line-carries']?.train.preparation?.work?.kind==='inspectChild'&&s.campaign.missions['snowbound-what-the-line-carries'].train.preparation.work.workId===null&&i<40;i++){Journey.stepCampaign(s,.05);guide=preparationPlayerApproach(s);}if(!guide)return false;moveNative(s,guide.point);return true;}
 const RIVAL='snowbound-the-names-they-took';
 const cached=new Map();
 function wait(s,predicate,seconds,label){for(let i=0;!predicate()&&i<seconds/.05;i++)Journey.stepCampaign(s,.05);assert.ok(predicate(),label);}

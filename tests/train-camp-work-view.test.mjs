@@ -1,3 +1,4 @@
+import {followPreparationGuideNative} from './helpers/train-preparation-route.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Journey,clinicCompleteNative,moveNative,trainRecord,interactNative} from './helpers/train-clinic-route.mjs';
 import {TRAIN_BRIEFING_APPROACHES,TRAIN_BRIEFING_HANDOFF_APPROACH} from '../content/campaign/train-camp.js';
@@ -44,7 +45,7 @@ test('normal accessible objective toggle retains full text, fits beside side con
 });
 
 test('actual preparation work frames activated props and the same current native contact without changing the campaign',()=>{
- const s=acceptedBriefingNative();moveNative(s,{x:790,y:1205});interactNative(s,'train:prepare-call');moveNative(s,TRAIN_STORE_MARA);interactNative(s,'train:prepare-talk:store');while(s.dialog)Journey.chooseCampaign(s,'train-prepare-next');interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');wait(s,()=>trainRecord(s).train.powder.pending.some(w=>w.kind==='inspect-child-seal'&&w.acceptedSeconds>0));
+ const s=acceptedBriefingNative();moveNative(s,{x:790,y:1205});interactNative(s,'train:prepare-call');moveNative(s,TRAIN_STORE_MARA);interactNative(s,'train:prepare-talk:store');while(s.dialog)Journey.chooseCampaign(s,'train-prepare-next');interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');followPreparationGuideNative(s);wait(s,()=>trainRecord(s).train.powder.pending.some(w=>w.kind==='inspect-child-seal'&&w.acceptedSeconds>0));
  const before=JSON.stringify(s),context=trainCampWorkContext(s);assert.equal(context.key,'train-preparation:quarry-charge-worktop');assert.equal(context.phase,'inspectChild');assert.deepEqual(context.actorIds,['mara','ruth']);
  for(const id of context.actorIds){const grip=getPreparationWorkPose(s,id).contact;assert.ok(context.points.some(p=>Math.hypot(p.x-grip.x,p.y-grip.y,p.z-grip.z)<1e-7));}
  for(const[width,height,safeRect]of [[320,568,{left:12,right:204,top:204,bottom:378}],[384,512,{left:12,right:372,top:130,bottom:390}],[720,500,{left:12,right:708,top:110,bottom:430}]])assertFramed(context,frameTrainCampWork(context,{view:E.VIEWS.threequarter,width,height,safeRect}),E.VIEWS.threequarter,width,height);

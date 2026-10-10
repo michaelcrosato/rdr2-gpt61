@@ -1,3 +1,4 @@
+import {followPreparationGuideNative} from '../helpers/train-preparation-route.mjs';
 import test,{after} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync,mkdirSync,writeFileSync,existsSync} from 'node:fs';
@@ -32,7 +33,7 @@ function begin(){
   wait(s,()=>!!s.dialog,20,'actual store speakers');while(s.dialog)chooseNative(s,'train-prepare-next');
   wait(s,()=>!!prep(s).campSetup.sites['quarry-charge-worktop'],20,'clear store worktop');return s;
 }
-function complete(s,id){interactNative(s,id);assert.ok(trainCampWorkContext(s)?.caption,'the actual requested operation has a readable work caption');wait(s,()=>prep(s).work===null,30,`complete ${id}`);}
+function complete(s,id){interactNative(s,id);followPreparationGuideNative(s);assert.ok(trainCampWorkContext(s)?.caption,'the actual requested operation has a readable work caption');wait(s,()=>prep(s).work===null,30,`complete ${id}`);}
 function approachMask(s,target=TRAIN_MASK_APPROACHES.mara){
   // This narrow valid contact is beside the bench, within a blocked 20-unit
   // navigation cell. Finish the ordinary movement from a clear outer cell.
@@ -46,7 +47,7 @@ test('real native bundle inspections and original tin work survive in-progress a
   assert.ok(Journey.worldForCampaign(s).obstacles.some(o=>o.id==='quarry-charge-worktop'));
   assert.equal(prep(s).campSetup.sites['ruth-wiring-case-stand'],undefined,'Skein still physically blocks the case');
   for(let i=1;i<=4;i++){
-    const id=`quarry-sealed-charge-${i}`;interactNative(s,`train:prepare-inspect:${id}`);
+    const id=`quarry-sealed-charge-${i}`;interactNative(s,`train:prepare-inspect:${id}`);followPreparationGuideNative(s);
     wait(s,()=>powder(s).pending.some(w=>w.kind==='inspect-child-seal'&&w.acceptedSeconds>0),30,'real clear native inspection interval');
     for(const actor of ['mara','ruth']){const p=getPreparationWorkPose(s,actor);assert.ok(p?.reachable&&p.usable);assert.equal(p.body,s.entities[actor]);assert.equal(p.operationKind,'inspect-child-seal');}
     if(i===1){capture(s,'02-first-inspection-mid-work');s=whole(s);}
@@ -66,7 +67,7 @@ test('real native bundle inspections and original tin work survive in-progress a
 
 test('Ada hands over one original mask through native contact; actual drawing interrupts work and stale revisions are refused',()=>{
   let s=begin();const stock=structuredClone(s.campaign.missions[RIVAL_ID].objects);
-  interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');wait(s,()=>powder(s).pending.some(w=>w.acceptedSeconds>0),30,'inspection starts');
+  interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');followPreparationGuideNative(s);wait(s,()=>powder(s).pending.some(w=>w.acceptedSeconds>0),30,'inspection starts');
   assert.ok(getPreparationWorkPose(s,'mara'));Journey.campaignAction(s,'draw');assert.equal(getPreparationWorkPose(s,'mara'),null,'same-clock occupied hand invalidates the pose');
   Journey.stepCampaign(s,.05);assert.equal(powder(s).pending.length,0);assert.ok(powder(s).physicalEvents.some(e=>e.kind==='work-cancelled'));assert.deepEqual(s.campaign.missions[RIVAL_ID].objects,stock);Journey.campaignAction(s,'holster');s=whole(s);
   approachMask(s);wait(s,()=>!!prep(s).campSetup.sites['ada-mending-worktop'],20,'clear mending worktop');

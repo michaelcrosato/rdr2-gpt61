@@ -7,8 +7,10 @@ import {lowerTorso} from './expedition-animation.js';
 import {createHeldBox,compileHeldSolidSet,heldBoxContacts} from './train-held-volume.js';
 import {makeFrame,worldPoint,localPoint,sub,length} from './rail-foundation/rigid-frame.js';
 import {capturePreparationBodyBounds,validatePreparationBodyBounds} from './train-preparation-layout.js';
+import {applyNativeGroundLocomotion} from './train-native/locomotion-state.js';
 
-export const PREPARATION_BODY_GEOMETRY_VERSION=3;
+// Supported component version; Layout's live capture default stays separate.
+export const PREPARATION_BODY_GEOMETRY_VERSION=4;
 const EPS=1e-7,axes=['x','y','z'],P=(x=0,y=0,z=0)=>({x,y,z});
 const faces=Object.freeze([[0,3,2,1],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]].map(Object.freeze));
 const mid=(a,b)=>P(...axes.map(k=>(a[k]+b[k])/2));
@@ -38,6 +40,50 @@ export function preparationNativeTorsoParts(rig,root,{moving=false}={}){
   }
   return Object.freeze(result);
 }
+/** Analytical locomotion enclosure for Humanoid._pose (engine1367–1444).
+ * Domain: every phase/time, sp=min(1,spW) in[0,1], the complete unit disk of
+ * blended local mv, declared pose weights in[0,1], and native squash[-.3,.3].
+ * Attack/lunge/dash/hurt/climb/air/cape simulation is a different motion owner;
+ * unsupported profiles/states refuse instead of receiving a locomotion proof.
+ * Attainable IK knees/elbows stay within their first bone length; engine441
+ * does not clamp too-short targets, so unproved/custom short targets use the
+ * actual x=(L1²-L2²+d²)/(2d), d≥.01 bound instead. Reached endpoints stay
+ * between anchor and target. Every existing capsule BOX corner is at most
+ * sqrt(3)*radius beyond its segment; joints alone are insufficient.
+ * These pieces grant no actor movement, arrival or work/Save acceptance. */
+export function preparationNativeLocomotionParts(rig,root,{fullArmReach=false}={}){
+  const o=rig?.o,pw=rig?.poseW??{guard:0,kneel:0},mvLimit=1+64*Number.EPSILON;if(!(rig instanceof globalThis.My3D2dge.Humanoid)||!finite(root)||!o||typeof fullArmReach!=='boolean'||!['t','phase','facing'].every(k=>Number.isFinite(rig[k]))||!['size','legUpper','legLower','hipZ','hipHalf','footSpread','torso','shoulderHalf','headR','armUpper','armLower','limbW','torsoW','stride','speedRef'].every(k=>Number.isFinite(o[k])&&o[k]>0)||!['neck','lift','swing'].every(k=>Number.isFinite(o[k])&&o[k]>=0)||!['lean','hunch'].every(k=>Number.isFinite(o[k]))||o.cape||!['coat','tunic','robe','shirt'].includes(o.outfit)||!['guard','kneel'].every(k=>Number.isFinite(pw[k]))||!Object.entries(pw).every(([k,v])=>['cheer','cast','guard','kneel','crouch','wave','hips','block'].includes(k)&&Number.isFinite(v)&&v>=0&&v<=1)||!Number.isFinite(rig.spW)||rig.spW<0||rig.spW>1.25||!Array.isArray(rig.mv)||rig.mv.length!==2||!rig.mv.every(Number.isFinite)||Math.hypot(...rig.mv)>mvLimit||!Number.isFinite(rig.sq)||Math.abs(rig.sq)>.3||!Number.isFinite(rig.downW??0)||(rig.downW??0)<0||(rig.downW??0)>1||['dashW','hurtW','atkW','airW','pointW','climbW','armW','lunge','hop','crouchA','atkLean','twist','spin','_cheat','stW','rdW','dieT'].some(k=>!Number.isFinite(rig[k]??0)||(rig[k]??0)!==0))throw new TypeError('Finite supported native locomotion profile/state required');
+  const cr=Math.max(pw.crouch||0,rig.downW>0?.85:0),kn=pw.kneel||0,guard=pw.guard||0,legMin=Math.abs(o.legUpper-o.legLower),armMin=Math.abs(o.armUpper-o.armLower),arm=o.armUpper+o.armLower;
+  function jointReach(a,b,minimum){const max=a+b-.01,d=Math.max(.01,Math.min(minimum,max)),delta=a*a-b*b;if(![max,d,delta].every(Number.isFinite)||max<=.01)throw new RangeError('Unresolved native IK dimensions');if(minimum>=.01&&minimum>=Math.abs(a-b)&&max>=Math.abs(a-b))return a;const x=q=>Math.abs((delta+q*q)/(2*q)),bound=Math.max(x(d),x(max),a)+a;if(!Number.isFinite(bound))throw new RangeError('Unresolved short-target native IK');return bound;}
+  // bob∈[-.8,.5], breath*.3∈[-.3,.3], hipXY∈±(.4,.3).
+  const hipLo=o.hipZ-1.1-kn*o.hipZ*.42-guard*.9-cr*o.hipZ*.32,hipHi=o.hipZ+.8,hipX=.4*mvLimit,hipY=o.hipHalf+.3*mvLimit,legReach=jointReach(o.legUpper,o.legLower,Math.max(0,hipLo-o.lift));
+  const footX=Math.max(o.stride*mvLimit,.8,kn*4.2,guard*2.8,cr*1.6,hipX+legMin),footY=Math.max(o.footSpread+o.stride*mvLimit,2.2,2.6,o.footSpread+.7,hipY+legMin);
+  const corner=Math.sqrt(3)*Math.max(2,o.limbW),scaleXY=1.12*o.size,scaleZ=1.3*o.size,pad=corner*1.3*o.size;
+  // Positive lower Z uses the SMALL squash scale; negative lower Z uses
+  // the LARGE one. Multiplying every endpoint by1.3 can narrow tall bodies.
+  const lowerZ=v=>Math.min(.7*v,1.3*v)*o.size,upperZ=v=>Math.max(.7*v,1.3*v)*o.size;
+  const make=(id,x,y,lo,hi)=>box(id,worldPoint(makeFrame(root,P(Math.cos(rig.facing),Math.sin(rig.facing))),P(0,0,(lo+hi)/2)),P(x,y,(hi-lo)/2),rig.facing);
+  const lower={x:Math.max(hipX+legReach,footX+1.9)*scaleXY+pad,y:Math.max(hipY+legReach,footY)*scaleXY+pad,lo:lowerZ(Math.min(0,hipLo-legReach))-pad,hi:upperZ(Math.max(o.lift+.3,hipHi+legReach))+pad};
+  // sin²(leanF)+cos²(leanF)+sin²(leanR)≥1; this bounds each
+  // normalized horizontal torso component without sampling lean angles.
+  const sinF=Math.min(1,Math.abs(Math.sin(o.lean))+.16*mvLimit+cr*.22),shCX=hipX+o.torso*sinF,shCY=.3*mvLimit+o.torso*Math.sin(.1*mvLimit),shY=shCY+o.shoulderHalf;
+  const leanMax=Math.abs(o.lean)+.16*mvLimit+cr*.22,dirZ=leanMax<Math.PI/2?Math.cos(leanMax)/Math.sqrt(1+Math.sin(.1*mvLimit)**2):-1,shLo=hipLo+o.torso*dirZ,shHi=hipHi+o.torso;
+  const gestures=fullArmReach||['cheer','cast','guard','wave','hips','block'].some(k=>(pw[k]||0)>0),armReach=jointReach(o.armUpper,o.armLower,gestures?0:Math.max(0,arm*.86-1.2)),reach=gestures?Math.max(arm,armReach):Math.max(armReach,armMin,Math.min(arm,o.swing*mvLimit+.9),Math.min(arm,.5+o.swing*mvLimit+Math.abs(o.hunch)*3));
+  const head=o.neck+o.headR,headPad=(o.headR+2)*1.3*o.size;
+  const upper={x:Math.max((shCX+reach)*scaleXY+pad,(shCX+head)*scaleXY+headPad),y:Math.max((shY+reach)*scaleXY+pad,(shCY+head)*scaleXY+headPad),lo:lowerZ(Math.min(shLo-(gestures?reach:Math.max(armReach,arm*.86,armMin)),shLo-head))-Math.max(pad,headPad),hi:upperZ(Math.max(shHi+(gestures?reach:Math.max(armReach,armMin,1.2)),shHi+head))+Math.max(pad,headPad)};
+  // Clothing is a third band: all coat tails[-3.4,-1.2], torso cap
+  // radii/plate offsets, and every tunic/robe skirt vertex remain occupied.
+  const clothPad=2*1.3*o.size,corePad=(o.torsoW*.72+2)*1.3*o.size,cloth={x:Math.max(Math.max(shCX,hipX)*scaleXY+corePad,(hipX+o.torsoW*.7*1.55+3.4)*scaleXY+clothPad,(shCX+1.1)*scaleXY+clothPad),y:Math.max(shCY*scaleXY+corePad,(shY+.4)*scaleXY+clothPad,o.hipHalf*1.25*1.55*scaleXY+clothPad),lo:Math.min(lowerZ(Math.min(hipLo,shLo))-corePad,lowerZ(Math.min(.6,(hipLo+.9)*.38,hipLo+.5,shLo-.8))-clothPad),hi:Math.max(upperZ(Math.max(hipHi,shHi))+corePad,upperZ(Math.max(hipHi+.9,shHi+.4))+clothPad)};
+  const ranges=[lower,upper,cloth];if(ranges.some(r=>!['x','y','lo','hi'].every(k=>Number.isFinite(r[k]))||r.x<=0||r.y<=0||r.hi<=r.lo))throw new RangeError('Unresolved native locomotion enclosure');
+  if(rig.downW>0){
+    // The engine rotates every joint and each draw offset before translating
+    // by dw*(hipZ+torso)/2 in X and dw*1.4 in Z. A full circumscribed radius
+    // covers the entire down transition, not just its endpoint rectangle.
+    const radius=Math.max(...ranges.map(r=>Math.hypot(r.x,r.y,Math.max(Math.abs(r.lo),Math.abs(r.hi)))))*1.3/.7+2*(o.torsoW+o.hipHalf+o.hipZ+o.torso+o.headR+o.neck+o.stride+o.lift)*scaleZ,shift=(o.hipZ+o.torso)*.5*scaleXY,lift=1.4*scaleZ;
+    if(![radius,shift,lift].every(Number.isFinite))throw new RangeError('Unresolved native down gait');return Object.freeze([make('locomotion-down',radius+shift,radius,-radius,radius+lift)]);
+  }
+  return Object.freeze([make('locomotion-lower',lower.x,lower.y,lower.lo,lower.hi),make('locomotion-upper',upper.x,upper.y,upper.lo,upper.hi),make('locomotion-cloth',cloth.x,cloth.y,cloth.lo,cloth.hi)]);
+}
 function horseParts(E,row){
   const body=model(row),mount=createTrainMount(E,body);mount.update(0,body);const parts=[],at=q=>P(...mount.world(body,q)),J=mount.J;
   const cap=(id,a,b,r)=>parts.push(capsuleBox(id,at(a),at(b),r));
@@ -56,14 +102,16 @@ function horseParts(E,row){
   }
   return parts;
 }
-function humanParts(E,row,rows,{at=0,contact=null}={}){
+function humanParts(E,row,rows,{at=0,contact=null,locomotion=null}={}){
   const body=model(row),human=createTrainHuman(E,body),rig=human.rig,o=rig.o;
   if(!['size','limbW','torsoW','headR','stride','footSpread','armUpper','armLower'].every(k=>Number.isFinite(o[k])&&o[k]>0))throw new TypeError('Invalid native profile');
+  if(row.geometryVersion===4&&body.id==='levi'&&(body.bound||body.restrained)&&row.binding.type!=='rest'&&Math.hypot(body.vx,body.vy)>EPS)throw new TypeError('Moving bound prone pose needs its separate native motion owner');
   // Deterministic source pose. Idle breath/sway is enclosed by the same
   // two-native-unit padding used by legacy camp bounds. No camera yaw is used.
   rig.t=0;rig.phase=0;rig.facing=body.facing;rig._cheat=0;rig.o.cheat=0;rig.downW=row.pose.down||row.binding.type==='rest'&&row.binding.targetId==='silas-bed'?1:0;
   rig.poseW={cheer:0,cast:0,guard:body.bound||body.restrained||body.surrendered?1:0,kneel:0,crouch:body.crouch||body.pose==='crouch'?1:0,wave:0,hips:0,block:0};if(Object.hasOwn(rig.poseW,body.pose))rig.poseW[body.pose]=1;rig._pose();
   if(body.id==='levi'&&(body.bound||body.restrained)){if(row.binding.type==='rest')lowerTorso(E,rig,5.5,0);boundRivalPose(E,rig,{prone:row.binding.type!=='rest'});}
+  if(locomotion){if(locomotion.facing!==body.facing)throw new TypeError('Native locomotion facing must match the declared body');applyNativeGroundLocomotion(rig,locomotion);}
   const parent=rows.find(r=>r.id===row.binding.targetId),mounted=['mounted','passenger'].includes(row.binding.type);let pose;
   if(mounted&&parent&&(parent.kind==='horse'||parent.category==='mount')){const mare=model(parent),mount=createTrainMount(E,mare);mount.update(0,mare);pose=prepareTrainMountedPose(E,human,{...body,...parent.point},mare,mount,{freeHands:true});}
   else pose=prepareTrainPose(E,human,body,null,{contacts:contact?[{side:contact.side||'R',target:contact.target,kind:contact.kind||'native-body-contact',elbowHint:contact.elbowHint||null}]:[],freeHands:true});
@@ -76,22 +124,27 @@ function humanParts(E,row,rows,{at=0,contact=null}={}){
     if(row.geometryVersion===2)parts.push(around('torso',['hipL','hipR','shL','shR'].map(atJoint),(o.torsoW+2)*size,frame));
     else parts.push(...preparationNativeTorsoParts(rig,pose.root,{moving:Math.hypot(body.vx,body.vy)>EPS}));
     parts.push(box('head',atJoint('head'),P(...Array(3).fill((o.headR+2)*size)),rig.facing));
-    if(Math.hypot(body.vx,body.vy)>EPS)parts.push(box('stride',P(row.point.x,row.point.y,row.point.z+Math.max(row.height,66)/2),P(Math.max(row.radius,(o.stride+4)*size),Math.max(row.radius,(o.footSpread+4)*size),Math.max(row.height,66)/2),body.facing));
+    if(Math.hypot(body.vx,body.vy)>EPS||locomotion){parts.push(box('stride',P(row.point.x,row.point.y,row.point.z+Math.max(row.height,66)/2),P(Math.max(row.radius,(o.stride+4)*size),Math.max(row.radius,(o.footSpread+4)*size),Math.max(row.height,66)/2),body.facing));if(row.geometryVersion===4)parts.push(...preparationNativeLocomotionParts(rig,pose.root,{fullArmReach:!!contact||row.pose.extended}));}
     if(row.pose.extended&&!contact)parts.push(around('unknown-manipulation',['shL','shR'].map(atJoint),(o.armUpper+o.armLower+3)*size,frame));
     return parts;
   }finally{pose.restore();}
 }
 /** Callers validate the typed historical row graph first. No current actor
  * replaces a historical pose. Unmodelled/dead animals keep conservative stored
- * envelopes rather than becoming empty or silently smaller. */
+ * envelopes rather than becoming empty or silently smaller. Explicit v4 can
+ * receive a profile/facing-matched native locomotion record, retaining braking
+ * gait even when body velocity is zero. This pure option does not bind that
+ * record to an actor/time or upgrade Layout/Save acceptance; its live movement
+ * owner must supply those separate authorities before integration. */
 export function preparationNativeBodyParts(row,rows,options={}){
-  const E=globalThis.My3D2dge;if(!E?.Humanoid||!row||![2,3].includes(row.geometryVersion)||!finite(row.point)||!row.pose||!['facing','vx','vy','fear'].every(k=>Number.isFinite(row.pose[k]))||row.pose.fear<0||row.pose.fear>100||!['bound','restrained','surrendered'].every(k=>typeof row.pose[k]==='boolean')||!Number.isFinite(row.radius)||row.radius<(row.kind==='horse'||row.category==='mount'?14:9)||!Number.isFinite(row.height)||row.height<=0||!Array.isArray(rows))throw new TypeError('Typed v2/v3 native body rows are required');
+  const E=globalThis.My3D2dge;if(!E?.Humanoid||!row||![2,3,4].includes(row.geometryVersion)||!finite(row.point)||!row.pose||!['facing','vx','vy','fear'].every(k=>Number.isFinite(row.pose[k]))||row.pose.fear<0||row.pose.fear>100||!['bound','restrained','surrendered'].every(k=>typeof row.pose[k]==='boolean')||!Number.isFinite(row.radius)||row.radius<(row.kind==='horse'||row.category==='mount'?14:9)||!Number.isFinite(row.height)||row.height<=0||!Array.isArray(rows))throw new TypeError('Typed v2/v3/v4 native body rows are required');
   if(options.contact!=null&&(!finite(options.contact.target)||options.contact.side!==undefined&&!['L','R'].includes(options.contact.side)||options.contact.elbowHint!=null&&(!Array.isArray(options.contact.elbowHint)||options.contact.elbowHint.length!==3||!options.contact.elbowHint.every(Number.isFinite))))throw new TypeError('Finite native contact required');
-  const parent=rows.find(r=>r.id===row.binding.targetId),key=JSON.stringify([row.geometryVersion,row.id,row.kind,row.category,row.hp,row.dead,row.point,row.radius,row.height,row.pose,row.binding,parent&&[parent.kind,parent.category,parent.hp,parent.point,parent.pose],options.contact||null,row.hp<=0||row.dead||row.category==='animal'||['carried','large-load','passenger'].includes(row.binding.type)?row.volumes:null]);
+  let locomotion=null;if(Object.hasOwn(options,'locomotion')){if(row.geometryVersion!==4||row.binding.type!=='free'||row.kind==='horse'||['mount','animal'].includes(row.category)||row.hp<=0||row.dead||options.contact!=null||row.pose.extended||row.pose.bound||row.pose.restrained||row.pose.surrendered||row.pose.down||![null,'stand','crouch'].includes(row.pose.pose))throw new TypeError('Native locomotion records require an ordinary free v4 Human');locomotion=structuredClone(options.locomotion);if(!locomotion)throw new TypeError('Actual native locomotion record required');}
+  const parent=rows.find(r=>r.id===row.binding.targetId),key=JSON.stringify([row.geometryVersion,row.id,row.kind,row.category,row.hp,row.dead,row.point,row.radius,row.height,row.pose,row.binding,parent&&[parent.kind,parent.category,parent.hp,parent.point,parent.pose],options.contact||null,row.hp<=0||row.dead||row.category==='animal'||['carried','large-load','passenger'].includes(row.binding.type)?row.volumes:null,...(locomotion?[locomotion]:[])]);
   if(cache.has(key))return cache.get(key);
   const result=physicalProjection(E,()=>{
     if(row.hp<=0||row.dead||row.category==='animal'||['carried','large-load','passenger'].includes(row.binding.type)){if(!Array.isArray(row.volumes)||!row.volumes.length)throw new TypeError('Conservative attached/dead envelope is required');return row.volumes.map((b,i)=>boundsBox(`conservative-${i}`,b));}
-    return row.kind==='horse'||row.category==='mount'?horseParts(E,row):humanParts(E,row,rows,options);
+    return row.kind==='horse'||row.category==='mount'?horseParts(E,row):humanParts(E,row,rows,{...options,locomotion});
   });
   Object.freeze(result);nativeArrays.add(result);if(cache.size>=1024)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
 }
