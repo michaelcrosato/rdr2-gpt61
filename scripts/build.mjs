@@ -2,6 +2,7 @@ import {build} from 'esbuild';
 import {readFile,mkdir,rm,writeFile} from 'node:fs/promises';
 import {resolve,relative} from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import {gzipSync,brotliCompressSync} from 'node:zlib';
 
 const root=resolve(import.meta.dirname,'..'),out=resolve(root,'dist');
@@ -20,7 +21,7 @@ html=html.replace('</head>',`  <link rel="preload" as="script" href="${assets.en
 await writeFile(resolve(out,'index.html'),html);
 await writeFile(resolve(out,'third-party-notices.txt'),await readFile(resolve(root,'THIRD_PARTY_NOTICES.md'),'utf8'));
 let revision=process.env.VERCEL_GIT_COMMIT_SHA||null;try{revision||=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim();}catch{}
-const sizes=[];for(const name of Object.keys(outputs)){const bytes=await readFile(resolve(root,name));sizes.push({file:relative(out,resolve(root,name)).replaceAll('\\','/'),bytes:bytes.length,gzip:gzipSync(bytes).length,brotli:brotliCompressSync(bytes).length});}
+const sizes=[];for(const name of Object.keys(outputs)){const bytes=await readFile(resolve(root,name));sizes.push({file:relative(out,resolve(root,name)).replaceAll('\\','/'),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),gzip:gzipSync(bytes).length,brotli:brotliCompressSync(bytes).length});}
 await writeFile(resolve(out,'build-info.json'),JSON.stringify({game:'Dust & Mercy',revision,assets,files:sizes},null,2)+'\n');
 await writeFile(resolve(out,'404.html'),'<!doctype html><meta name="viewport" content="width=device-width"><title>Dust & Mercy</title><style>body{background:#242a22;color:#e5d5af;font:20px Georgia;margin:10vh auto;max-width:36rem;padding:1.5rem}a{color:inherit}</style><h1>That trail ends here.</h1><p><a href="/">Return to Dust & Mercy</a></p>');
 console.log(JSON.stringify({output:'dist',revision,files:sizes,totalBytes:sizes.reduce((n,f)=>n+f.bytes,0),brotliBytes:sizes.reduce((n,f)=>n+f.brotli,0)},null,2));
