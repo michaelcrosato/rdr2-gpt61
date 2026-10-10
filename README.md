@@ -20,6 +20,8 @@ Inspect the deployed game at **https://rdr2-gpt61-2ow8.vercel.app/**. Choose **B
 
 The Git-connected Vercel project is `rdr2-gpt61-2ow8` in `michaelcrosato-1122s-projects`; its production branch is `main` and its build runtime is Node.js 24. Pull requests receive preview deployments, and merging to `main` updates production. Every build now verifies the published file list, HTML entry references, SHA-256 asset digests, attribution and cache configuration. `/build-info.json` identifies the deployed commit and asset digests; `npm run check:build` repeats the validation locally. The compiled game currently totals about 406 KiB with Brotli compression (a build estimate; actual transfer depends on server negotiation).
 
+The current inspection release reduces repeated Save decoding in menus and repeated immutable collision calculations. Continue preserves a saved crouching stance, and held keyboard crouch survives opening and closing a menu until the key is released. Broader camp navigation, horse and garment development remains on its separate development worktree until its release checks pass.
+
 ## Playable now
 
 - **The Last Warm Light:** a distinct nine-stage campaign opening. Prepare at the frozen refuge, ride the wire trail with Tomas and Inez, negotiate at Copperglass, fight the boiler-yard guards, collect six separate supplies, survive Pavel's disarming ambush, choose his fate, calm and lead Copper, rescue Ada and Gideon through the service doorway, then return with actual supplies. Both rescue priorities and all three Pavel outcomes write lasting consequences; the destroyed boiler, recovered log and captured/escaped Voss persist.

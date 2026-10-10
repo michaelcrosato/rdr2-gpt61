@@ -61,15 +61,24 @@ export function createSaveRepository({factory=globalThis.indexedDB,legacyStorage
   if(typeof restore!=='function'||typeof modeOf!=='function')throw new TypeError('The owning save codec is required.');
   if(legacyStorage===undefined){try{legacyStorage=globalThis.localStorage;}catch{legacyStorage=null;}}
   let db=null,cache=new Map(),tail=Promise.resolve(),ready=false,problem=null;
-  function valid(raw,slot){if(typeof raw!=='string')return false;try{const state=restore(raw);return !!state&&saveSlotFor(modeOf(state))===slot;}catch{return false;}}
+  // Retain at most four exact strings and scalar classifications. Decoded
+  // mutable game states never enter this cache; actual loading still restores.
+  const classifications=new Map();
+  function candidateMode(raw){
+    if(typeof raw!=='string')return null;
+    if(classifications.has(raw)){const mode=classifications.get(raw);classifications.delete(raw);classifications.set(raw,mode);return mode;}
+    let mode=null;try{const state=restore(raw),value=state&&modeOf(state);if(value==='campaign'||value==='mercy')mode=value;}catch{}
+    if(classifications.size>=4)classifications.delete(classifications.keys().next().value);classifications.set(raw,mode);return mode;
+  }
+  function valid(raw,slot){const mode=candidateMode(raw);return mode!==null&&saveSlotFor(mode)===slot;}
   function cleanup(){
     if(!legacyStorage)return;
     try{
-      const old=readLegacySave(legacyStorage),oldState=old&&restore(old),identical=oldState&&cache.get(saveSlotFor(modeOf(oldState)))===old;
+      const old=readLegacySave(legacyStorage),oldMode=candidateMode(old),identical=oldMode&&cache.get(saveSlotFor(oldMode))===old;
       const last=cache.get(SAVE_DATABASE_LAST_SLOT);
       // Different valid bytes are a distinct recovery candidate, not evidence
       // of an older/staler copy. Only exact migrated duplicates are removed.
-      if((old===null||!oldState||identical)&&allowed.has(last))legacyStorage.setItem(LEGACY_SAVE_KEY,JSON.stringify({format:'dust-mercy-database-reference',database:SAVE_DATABASE_NAME,slot:last}));
+      if((old===null||!oldMode||identical)&&allowed.has(last))legacyStorage.setItem(LEGACY_SAVE_KEY,JSON.stringify({format:'dust-mercy-database-reference',database:SAVE_DATABASE_NAME,slot:last}));
       for(const slot of slots){const previous=legacyStorage.getItem(slot);if(previous!==null&&cache.get(slot)===previous)legacyStorage.removeItem(slot);}
     }catch{ /* IndexedDB has committed; a locator is optional and not authority. */ }
   }
@@ -77,7 +86,7 @@ export function createSaveRepository({factory=globalThis.indexedDB,legacyStorage
     try{
       db=await openSaveDatabase(factory);cache=await readDatabaseSlots(db);
       const originals=legacyBytes(legacyStorage),migration=new Map();let legacyLast=null;
-      for(const [key,raw]of originals){let state;try{state=restore(raw);}catch{}if(!state)continue;const slot=saveSlotFor(modeOf(state));if(key!==LEGACY_SAVE_KEY&&key!==slot)continue;if(!cache.has(slot)&&(!migration.has(slot)||key===LEGACY_SAVE_KEY))migration.set(slot,raw);if(key===LEGACY_SAVE_KEY)legacyLast=slot;}
+      for(const [key,raw]of originals){const mode=candidateMode(raw);if(!mode)continue;const slot=saveSlotFor(mode);if(key!==LEGACY_SAVE_KEY&&key!==slot)continue;if(!cache.has(slot)&&(!migration.has(slot)||key===LEGACY_SAVE_KEY))migration.set(slot,raw);if(key===LEGACY_SAVE_KEY)legacyLast=slot;}
       if(migration.size){
         // Re-check within the transaction so another page's valid committed
         // world always wins over a stale legacy copy.
@@ -89,15 +98,16 @@ export function createSaveRepository({factory=globalThis.indexedDB,legacyStorage
       ready=true;cleanup();return true;
     }catch(error){problem=error;ready=true;return false;}
   })();
-  function fallback(mode){const originals=legacyBytes(legacyStorage),out=[];for(const key of [saveSlotFor(mode),LEGACY_SAVE_KEY]){const raw=originals.get(key);if(typeof raw==='string'&&!out.includes(raw))out.push(raw);}return out;}
+  function fallback(mode){const originals=legacyBytes(legacyStorage),out=[];for(const key of [saveSlotFor(mode),LEGACY_SAVE_KEY]){const raw=originals.get(key),kind=candidateMode(raw);if(kind&&(key===LEGACY_SAVE_KEY||saveSlotFor(kind)===key)&&!out.includes(raw))out.push(raw);}return out;}
   return {
     ready:initialized,
     get settled(){return ready;},get error(){return problem;},
+    candidateMode,
     recoveries(){
       const out=[],seen=new Set();
       for(const [key,raw]of [...cache,...legacyBytes(legacyStorage)]){
         if(key===SAVE_DATABASE_LAST_SLOT||allowed.has(key)&&cache.get(key)===raw||typeof raw!=='string')continue;
-        let state;try{state=restore(raw);}catch{}if(!state)continue;const slot=saveSlotFor(modeOf(state));if(cache.get(slot)===raw||seen.has(raw))continue;
+        const mode=candidateMode(raw);if(!mode)continue;const slot=saveSlotFor(mode);if(cache.get(slot)===raw||seen.has(raw))continue;
         seen.add(raw);out.push({key,slot,raw});
       }return out;
     },
@@ -114,7 +124,7 @@ export function createSaveRepository({factory=globalThis.indexedDB,legacyStorage
       const operation=tail.then(async()=>{
         await initialized;if(!db||problem)throw problem||new Error('Device save storage is unavailable.');
         const prior=legacyBytes(legacyStorage),old=prior.get(LEGACY_SAVE_KEY);let archive=null;
-        if(old){const state=restore(old),other=state&&saveSlotFor(modeOf(state));if(other&&other!==slot&&!valid(cache.get(other),other))archive={slot:other,serialized:old};}
+        if(old){const mode=candidateMode(old),other=mode&&saveSlotFor(mode);if(other&&other!==slot&&!valid(cache.get(other),other))archive={slot:other,serialized:old};}
         const write=beginDatabaseSave(db,slot,serialized,{archive,preservePrevious}),result=await write.done;
         // Confirmation reads cannot turn an already committed write into a
         // false failure. The transaction itself supplies the exact new bytes.

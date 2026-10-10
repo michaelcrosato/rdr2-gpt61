@@ -52,7 +52,7 @@ let renderedRegion = state.region;
 const progressKey = () => `${state.region}:${state.mission.id}:${state.mission.stage}:${state.mission.completed}`;
 let uiClock = 0, saveClock = 0, lastProgress = progressKey(), noticeText = '', statusTimer, previousShopSnapshot = '';
 let muted = false, touchMove = [0, 0], touchHeld = new Set(), stickPointer = null;
-let pointerMode = false, padAim = null, gameplaySpaceHeld = false, touchCrouching = false;
+let pointerMode = false, padAim = null, gameplaySpaceHeld = false, keyboardCrouchHeld = false, touchCrouching = false;
 let bowFireHeld = false, bowBlockedUntilRelease = false, huntPadCursor = null;
 const bowEquipped = () => state.mission.id === HUNT_ID && state.weapons?.[state.player.equippedWeaponId]?.kind === 'bow';
 function cancelBowInput() {
@@ -67,7 +67,7 @@ function syncRegionView() {
   cancelBowInput(); huntPadCursor = null;
   renderedRegion = state.region; world = rendererForState(); game.cam.snap = true;
   pointerMode = false; padAim = null;
-  setTouchCrouch(false);
+  setTouchCrouch(state.player.crouch === true);
   state.aiming = false; state.pointer = null; state.interactionTarget = null;
   if (Sim.isCampaign(state)) snowboundAudio.reset(state);
 }
@@ -89,8 +89,8 @@ document.body.classList.add('intro');
 const deviceSaves=createSaveRepository({restore:raw=>Sim.restore(raw),modeOf:value=>Sim.isCampaign(value)?'campaign':'mercy'});
 let saveRequest=0,startRequest=0,journeyGeneration=0,reviewDisposition=null;
 function savedJourney(mode = started ? Sim.isCampaign(state) ? 'campaign' : 'mercy' : requestedMode) {
-  try{for(const raw of deviceSaves.candidates(mode)){const restored=Sim.restore(raw);if(restored&&(mode==='campaign'||!Sim.isCampaign(restored)))return restored;}}catch{}
-  return null;
+  try{for(const raw of deviceSaves.candidates(mode)){const candidate=deviceSaves.candidateMode(raw);if(candidate&&(mode==='campaign'||candidate==='mercy'))return true;}}catch{}
+  return false;
 }
 async function loadSavedJourney(mode){
   try{for(const raw of await deviceSaves.loadCandidates(mode)){const restored=Sim.restore(raw);if(restored&&(mode==='campaign'||!Sim.isCampaign(restored)))return restored;}}catch{announce('The saved journey could not be read. Your current journey can still be exported.');}
@@ -133,7 +133,7 @@ function beginJourney(next,{review=null}={}) {
   reviewDisposition=review;invalidateJourneyAcknowledgement();
   cancelBowInput(); state = next; huntPadCursor = null;
   world = rendererForState(); renderedRegion = state.region;
-  pointerMode = false; padAim = null; setTouchCrouch(false); touchHeld.clear(); releaseStick();
+  pointerMode = false; padAim = null; keyboardCrouchHeld = false; setTouchCrouch(state.player.crouch === true); touchHeld.clear(); releaseStick();
   state.aiming = false; state.pointer = null; state.interactionTarget = null;
   started = true; lastProgress = progressKey(); saveClock = 0;
   document.body.classList.remove('intro'); $('welcome').hidden = true; $('hud').hidden = false;
@@ -558,8 +558,11 @@ game.start({
           if (game.input.pressed('shoot') || fireHeld) fire(touchHeld.has('shoot') && !pointerMode);
         }
         for (const [key, item] of [['tonic', 'tonic'], ['coffee', 'coffee'], ['oats', 'oats']]) if (game.input.pressed(key)) Sim.useItem(state, item);
+        // A restored stance persists until a real stance control overrides it.
+        // Keyboard/controller crouch still releases when its held input ends.
+        if (game.input.pressed('crouch')) setTouchCrouch(false);
         const hp = state.player.hp;
-        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch') || touchCrouching, focus: game.input.down('focus') || touchHeld.has('focus'), block: game.input.down('block') || touchHeld.has('block'), drawHeld: bowEquipped() && fireHeld && !bowBlockedUntilRelease, ...(bowAim || quarryAim ? { aimX: (bowAim || quarryAim).point[0], aimY: (bowAim || quarryAim).point[1], aimZ: (bowAim || quarryAim).z,scopeVisible:quarryAim?.visible!==false,scopeActors:quarryAim?.scopeActors } : {}) });
+        Sim.step(state, dt, { mx: move[0], my: move[1], sprint: game.input.down('sprint') || touchHeld.has('sprint'), crouch: game.input.down('crouch') || keyboardCrouchHeld || touchCrouching, focus: game.input.down('focus') || touchHeld.has('focus'), block: game.input.down('block') || touchHeld.has('block'), drawHeld: bowEquipped() && fireHeld && !bowBlockedUntilRelease, ...(bowAim || quarryAim ? { aimX: (bowAim || quarryAim).point[0], aimY: (bowAim || quarryAim).point[1], aimZ: (bowAim || quarryAim).z,scopeVisible:quarryAim?.visible!==false,scopeActors:quarryAim?.scopeActors } : {}) });
         if (state.aiming && !state.player.mounted && !state.player.carrying && state.player.weaponOwned !== false) {
           const target = bowEquipped() ? huntAim().point : aimTarget();
           state.player.facing = Math.atan2(target[1] - state.player.y, target[0] - state.player.x);
@@ -657,6 +660,10 @@ document.addEventListener('change', async e => {
   }
 });
 document.addEventListener('keydown', e => {
+  if (e.code === 'KeyC' && started && !activePanel && !state.dialog) {
+    // Modal input clearing must not release a key that is still physically held.
+    keyboardCrouchHeld = true; setTouchCrouch(false);
+  }
   if (e.code === 'Space' && (gameplaySpaceHeld || (started && !activePanel && !state.dialog))) {
     gameplaySpaceHeld = true;
     e.preventDefault();
@@ -667,6 +674,7 @@ document.addEventListener('keydown', e => {
   if ($('conversation').open && /^Digit[1-9]$/.test(e.code)) { e.stopPropagation(); e.preventDefault(); const choice = state.dialog?.choices[Number(e.code.slice(-1)) - 1]; if (choice) { chooseOption(choice.id); updateUI(); saveJourney(); } }
 }, true);
 document.addEventListener('keyup', e => {
+  if (e.code === 'KeyC') keyboardCrouchHeld = false;
   // A focus hold can outlive the frame that opens a failure conversation.
   // Its release must not activate the newly focused Retry button.
   if (e.code === 'Space' && gameplaySpaceHeld) { e.preventDefault(); gameplaySpaceHeld = false; }
@@ -703,8 +711,8 @@ document.querySelectorAll('[data-story-action]').forEach(el => {
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(name, () => touchHeld.delete('block'));
   el.addEventListener('click', e => { if (e.detail === 0 || el.dataset.storyAction==='nearby-actions') performAction(el.dataset.storyAction); });
 });
-addEventListener('blur', () => { cancelBowInput(); gameplaySpaceHeld = false; touchHeld.clear(); releaseStick(); if (started) saveJourney(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelBowInput(); touchHeld.clear(); releaseStick(); if (started) { saveJourney(); if (!activePanel && !state.dialog) openPanel('menu'); } } });
+addEventListener('blur', () => { cancelBowInput(); gameplaySpaceHeld = false; keyboardCrouchHeld = false; touchHeld.clear(); releaseStick(); if (started) saveJourney(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { cancelBowInput(); keyboardCrouchHeld = false; touchHeld.clear(); releaseStick(); if (started) { saveJourney(); if (!activePanel && !state.dialog) openPanel('menu'); } } });
 addEventListener('pagehide', () => { if (started) saveJourney(); });
 game.audio.setVolume(muted ? 0 : .65);
 deviceSaves.ready.then(available=>{

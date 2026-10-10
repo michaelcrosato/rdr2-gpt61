@@ -4,6 +4,7 @@ import {EPS,validPoint,validFrame,worldPoint,sub,dot,cross,length,scale,interpol
 import {immutableSnapshot} from './rail-foundation/accepted-step-context.js';
 import {worldCoverSolids} from './train-terrain.js';
 const BOXES=new WeakMap(),SETS=new WeakMap(),MOTIONS=new WeakMap(),WORLD_SETS=new WeakMap(),axes=['x','y','z'];
+const coordinateScales=new WeakMap();
 const faces=[[0,3,2,1],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]],P=(x=0,y=0,z=0)=>({x,y,z});
 function finite(n){if(!Number.isFinite(n))throw new RangeError('Geometry exceeds finite query range');return n;}
 function unit(v){const n=length(v);if(!Number.isFinite(n)||!n)throw new TypeError('Degenerate geometry axis');return scale(v,1/n);}
@@ -28,7 +29,10 @@ export function validateHeldWorldSnapshot(set,world,{fraction,mode}={}){try{cons
 function setData(set){const s=SETS.get(set);if(!s)throw new TypeError('A validated fixed solid set is required');return s;}
 function separatingAxes(a,b){const out=[...a.normals,...b.normals];for(const x of a.edges)for(const y of b.edges){const n=cross(x,y);if(!validPoint(n))throw new RangeError('Unresolved separating axis');if(length(n)>0)out.push(unit(n));}return out;}
 function projection(vertices,axis,origin){const values=vertices.map(p=>finite(dot(sub(p,origin),axis)));return{min:Math.min(...values),max:Math.max(...values)};}
-function numericPadding(a,b){return 64*Number.EPSILON*(1+Math.max(...a.vertices.flatMap(p=>axes.map(k=>Math.abs(p[k]))),...b.vertices.flatMap(p=>axes.map(k=>Math.abs(p[k])))));}
+// Only internal validated immutable shape records reach this memo. Neither
+// raw caller geometry nor a mutable input object can inherit its cached scale.
+function coordinateScale(shape){let value=coordinateScales.get(shape);if(value===undefined){value=0;for(const p of shape.vertices)for(const k of axes)value=Math.max(value,Math.abs(p[k]));coordinateScales.set(shape,value);}return value;}
+function numericPadding(a,b){return 64*Number.EPSILON*(1+Math.max(coordinateScale(a),coordinateScale(b)));}
 function sat(a,b,tolerance){let greatest=-Infinity,axis=null;const origin=a.vertices[0];for(const n of separatingAxes(a,b)){const x=projection(a.vertices,n,origin),y=projection(b.vertices,n,origin),forward=y.min-x.max,backward=x.min-y.max,gap=Math.max(forward,backward);if(gap>greatest){greatest=gap;axis=Object.freeze(scale(n,backward>=forward?1:-1));}}
  const padding=numericPadding(a,b);return{intersects:greatest-padding<=tolerance,interiorOverlap:greatest+padding< -tolerance,gap:greatest-padding,numericPadding:padding,penetration:Math.max(0,-greatest),axis,solidId:b.source.id,ownerId:b.source.ownerId??null};
 }
