@@ -12,8 +12,14 @@ import * as Preparation from './train-preparation.js';
 import {TRAIN_GEAR_DEFINITIONS,validateTrainGear} from './train-gear.js';
 import {createTrainPreparationWorkProvider,PREPARATION_PROOF_OWNERS} from './train-preparation-work.js';
 import {stepPreparationCampSetup} from './train-preparation-layout.js';
+import {createPreparationMaskProvider} from './train-preparation-mask.js';
+import {getPreparationStableInteractions,beginPreparationStable,stepPreparationStable} from './train-preparation-stable.js';
+import {beginPreparationCopperRecovery,stepPreparationCopperRecovery} from './train-preparation-copper-recovery.js';
+import {getTrainStableCareInteractions,beginTrainStableCare,stepTrainStableCare} from './train-stable-care.js';
 export {worldForTrainCamp} from './train-camp-work.js';
 import {blockedAt,moveActor} from './campaign-navigation.js';
+import * as CampNavigation from './train-preparation-navigation.js';
+import {getTrainCampHorseInteractions,interactTrainCampHorse} from './train-camp-horse-actions.js';
 import {requestTrainReload,stepTrainReload} from './train-combat.js';
 import * as Rescue from './rescue-mission.js';
 import * as Rival from './rival-mission.js';
@@ -51,7 +57,7 @@ export function validateTrainRecord(s){
 }
 export function validateTrainEntitySupport(s,actor){return actor?.support==null;}
 export function ensureTrainCast(s){return s;}
-const clinicProviders=new WeakMap(),campProviders=new WeakMap(),preparationProviders=new WeakMap(),active=s=>s.campaign?.activeMissionId===TRAIN_ID,record=s=>s.campaign.missions[TRAIN_ID],position=a=>({x:a.x,y:a.y,z:a.z||0});
+const clinicProviders=new WeakMap(),campProviders=new WeakMap(),preparationProviders=new WeakMap(),maskProviders=new WeakMap(),active=s=>s.campaign?.activeMissionId===TRAIN_ID,record=s=>s.campaign.missions[TRAIN_ID],position=a=>({x:a.x,y:a.y,z:a.z||0});
 const near=(a,b,r)=>a&&b&&Math.abs((a.z||0)-(b.z||0))<8&&Math.hypot(a.x-b.x,a.y-b.y)<=r;
 function clinicContext(s,ctx){
   if(typeof ctx.clinicBottleContact==='function')return ctx;
@@ -62,7 +68,9 @@ function campContext(s,ctx,dt=0){
   if(!campProviders.has(s))campProviders.set(s,createTrainCampWorkProvider(globalThis.My3D2dge,ctx.worldFor));
   const base={...ctx,...campProviders.get(s)};
   if(!preparationProviders.has(s))preparationProviders.set(s,createTrainPreparationWorkProvider(globalThis.My3D2dge,ctx.worldFor));
-  return preparationProviders.get(s).context(s,base,dt);
+  const prepared=preparationProviders.get(s).context(s,base,dt);
+  if(!maskProviders.has(s))maskProviders.set(s,createPreparationMaskProvider(globalThis.My3D2dge,ctx.worldFor));
+  return maskProviders.get(s).context(s,prepared,dt);
 }
 /** Native first-scene entry. Public availability remains false until the whole
  * twenty-scene operation exists. This has ordinary prerequisites/proximity,
@@ -79,10 +87,14 @@ export function beginTrainClinic(s,ctx){
 }
 export function getTrainInteractions(s,ctx){
   if(!active(s)||record(s).train.runtimeVersion!==1||s.dialog||s.failure)return [];
-  return[...getTrainPreludeInteractions(s),...Briefing.getTrainBriefingInteractions(s),...Preparation.getTrainPreparationInteractions(s,campContext(s,ctx)),...Rescue.getRescueInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10})),...Rival.getRivalInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10}))];
+  const workContext=campContext(s,ctx),horse=getTrainCampHorseInteractions(s,ctx);if(s.player.mounted)return horse;
+  return[...horse,...getPreparationStableInteractions(s,ctx),...getTrainStableCareInteractions(s,ctx),...getTrainPreludeInteractions(s),...Briefing.getTrainBriefingInteractions(s),...Preparation.getTrainPreparationInteractions(s,workContext),...Rescue.getRescueInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10})),...Rival.getRivalInteractions(s,ctx).map(a=>({...a,priority:(a.priority||0)+10}))];
 }
 export function interactTrain(s,id,ctx){
   if(!getTrainInteractions(s,ctx).some(a=>a.id===id))return s;
+  if(interactTrainCampHorse(s,id,ctx)){campContext(s,ctx);return s;}
+  if(id.startsWith('train:stable-care:')){const kind=id.slice('train:stable-care:'.length);if(beginTrainStableCare(s,kind,ctx))ctx.notice(s,kind==='tack'?'Inez will check Skein’s saddle strap. Give her room.':'Inez will examine Skein’s coat by hand. Give her room.');return s;}
+  if(id==='train:stable-lead-skein'){if(beginPreparationStable(s,ctx))ctx.notice(s,'Inez will take Skein’s rein and lead her clear. Leave their route open; tack, water and care still need their own work.');return s;}
   if(id.startsWith('train:prepare-')){Preparation.interactTrainPreparation(s,id,campContext(s,ctx));return s;}
   if(id.startsWith('train:brief-')){Briefing.interactTrainBriefing(s,id,campContext(s,ctx));return s;}
   if(id.startsWith('train:')){interactTrainPrelude(s,id,ctx);return s;}
@@ -106,18 +118,31 @@ export function chooseTrain(s,id,ctx){
 }
 export function stepTrain(s,dt,input={},ctx){
   const r=record(s);if(!active(s)||r.train.runtimeVersion!==1||s.dialog||s.failure||!Number.isFinite(dt)||dt<=0)return s;dt=Math.min(dt,.1);
+  const stationary=s.region==='snowbound'?Object.values(s.entities).filter(a=>a.category==='npc'&&a.regionId==='snowbound'&&a.hp>0&&!a.dead&&(a.z||0)===0&&a.onGround!==false&&!a.airborne&&!a.attachment&&!a.mounted&&!a.support).map(a=>({body:a,point:position(a)})):[];
   if(s.region==='snowbound')campContext(s,ctx).prepareCampWork(s);
   s.elapsed+=dt;s.time+=dt/80;if(s.time>=24){s.time-=24;s.day++;}r.timers.elapsed+=dt;
   s.notices=s.notices.map(n=>({...n,time:n.time-dt})).filter(n=>n.time>0);
   const p=s.player,world=ctx.worldFor(s);let mx=Math.max(-1,Math.min(1,Number(input.mx)||0)),my=Math.max(-1,Math.min(1,Number(input.my)||0)),length=Math.hypot(mx,my);if(length>1){mx/=length;my/=length;}
-  if(input.crouch!==undefined)p.crouch=!!input.crouch;
-  const sprint=!!input.sprint&&!p.carrying&&p.stamina>1,speed=p.carrying?50:p.crouch?60:sprint?160:105,before=position(p);
-  moveActor(world,p,mx*speed*dt,my*speed*dt,9);p.vx=(p.x-before.x)/dt;p.vy=(p.y-before.y)/dt;if(Math.hypot(p.vx,p.vy)>1)p.facing=Math.atan2(my,mx);
-  s.stats.distance+=Math.hypot(p.x-before.x,p.y-before.y);p.stamina=Math.max(0,Math.min(100,p.stamina+(sprint?-8:5)*dt));p.shotTimer=Math.max(0,(p.shotTimer||0)-dt);stepTrainReload(s,'mara',dt);
+  if(input.crouch!==undefined||p.mounted)p.crouch=!p.mounted&&!!input.crouch;
+  const horse=p.mounted?s.entities[p.mountId||s.party?.mountId]:null,sprint=!!input.sprint&&!p.carrying&&(p.mounted?horse?.stamina:p.stamina)>1,speed=p.mounted?(sprint?195:125):p.carrying?50:p.crouch?60:sprint?160:105,before=position(p);
+  if(p.mounted){if(typeof CampNavigation.stepPreparationMounted==='function')CampNavigation.stepPreparationMounted(s,dt,{mx,my},speed,{worldFor:ctx.worldFor});}
+  else moveActor(world,p,mx*speed*dt,my*speed*dt,9);
+  p.vx=(p.x-before.x)/dt;p.vy=(p.y-before.y)/dt;if(!p.mounted&&Math.hypot(p.vx,p.vy)>1)p.facing=Math.atan2(my,mx);
+  const moved=Math.hypot(p.x-before.x,p.y-before.y);s.stats.distance+=moved;p.stamina=Math.max(0,Math.min(100,p.stamina+(sprint&&!p.mounted?-8:5)*dt));
+  if(horse&&Number.isFinite(horse.stamina))horse.stamina=Math.max(0,Math.min(100,horse.stamina+(sprint&&moved>0?-10:4)*dt));
+  p.shotTimer=Math.max(0,(p.shotTimer||0)-dt);stepTrainReload(s,'mara',dt);
   stepTrainPrelude(s,dt,clinicContext(s,ctx));
   if(r.train.briefingVersion===1)Briefing.stepTrainBriefing(s,dt,campContext(s,ctx));
-  if(r.train.preparationVersion===1){stepPreparationCampSetup(s,dt,ctx);Preparation.stepTrainPreparation(s,dt,campContext(s,ctx,dt));}
+  if(r.train.preparationVersion===1){
+    stepPreparationCampSetup(s,dt,ctx);
+    if(!p.mounted){beginPreparationCopperRecovery(s,ctx);const handled=stepPreparationCopperRecovery(s,dt,ctx);if(!handled&&typeof CampNavigation.followPreparationOwnedMount==='function')CampNavigation.followPreparationOwnedMount(s,dt,{worldFor:ctx.worldFor});}
+    stepPreparationStable(s,dt,ctx);stepTrainStableCare(s,dt,ctx);Preparation.stepTrainPreparation(s,dt,campContext(s,ctx,dt));
+  }
   if(r.mission.stage===0&&trainClinicComplete(s)){r.mission.stage=1;r.mission.objective=TRAIN_STAGES[1];r.train.chronicle.stageEvents.push({fromStage:0,toStage:1,at:s.elapsed,cause:'clinic-complete'});ctx.checkpoint(s,'train-clinic-complete','Separate bedside exchanges and the actual bottle setdown completed');}
+  // Earlier routes can leave a terminal velocity in an inherited Save. An
+  // accepted frame with unchanged free feet is stopped, regardless of that
+  // old route. Moving/attached bodies retain their own controller's velocity.
+  for(const {body,point}of stationary)if(s.entities[body.id]===body&&!body.attachment&&!body.mounted&&!body.support&&body.x===point.x&&body.y===point.y&&(body.z||0)===point.z){body.vx=0;body.vy=0;}
   return s;
 }
 export function advanceTrainWorldWork(s,dt,ctx){if(!record(s)?.train?.powder||!Number.isFinite(dt)||dt<=0)return false;const workContext=s.region==='snowbound'?campContext(s,ctx):ctx;Powder.stepPowderWork(s,dt,workContext,{paused:false});Powder.advancePowderFuses(s,workContext,{paused:false});return true;}
@@ -142,8 +167,12 @@ export function actionTrain(s,id,ctx){
     if(selected?.owner==='mara'&&(selected.location==='carried'||selected.location==='saddle'&&rack&&near(p,rack,58))&&!p.carrying&&!p.weaponAction&&!p.toolHeld){p.equippedWeaponId=selected.id;selected.location='carried';delete selected.rackMountId;p.reloadTimer=0;delete p.reloadWeaponId;p.holstered=false;p.armed=true;ctx.present(s,'equip',position(p),selected.id,{...position(p),facing:p.facing||0},'mara',{sourceId:selected.id});}
   }
   else if(id==='draw'&&w?.owner==='mara'&&w.location==='carried'&&!p.carrying&&!p.weaponAction){p.holstered=false;p.armed=true;ctx.present(s,'draw',position(p),w.id,position(p),'mara',{sourceId:w.id});}
-  else if(id==='crouch')p.crouch=true;else if(id==='stand')p.crouch=false;
-  else if(id==='reload')requestTrainReload(s,'mara');else interactTrain(s,id,ctx);return s;
+  else if(id==='crouch'&&!p.mounted)p.crouch=true;else if(id==='stand')p.crouch=false;
+  else if(id==='reload')requestTrainReload(s,'mara');else interactTrain(s,id==='mount'?'train:mount-copper':id==='dismount'?'train:dismount-copper':id,ctx);return s;
 }
-export function whistleTrain(s){return s;}
+export function whistleTrain(s,ctx){
+ const p=s.player,h=s.entities?.[s.party?.mountId];
+ if(!active(s)||s.region!=='snowbound'||s.dialog||s.failure||p.mounted||h?.id!=='copper'||!h.owned||h.hp<=0||h.dead||h.hidden||h.departed||h.regionId!==s.region)return s;
+ h.hitched=false;h.following=true;beginPreparationCopperRecovery(s,ctx);ctx?.notice?.(s,'Copper heard your call. Leave a clear path.');return s;
+}
 export function cancelTrainTransient(s){return s;}

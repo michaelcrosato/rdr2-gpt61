@@ -349,6 +349,14 @@ body.camp-work-view #camp-objective-toggle{grid-column:2;grid-row:1/3;align-self
 body.camp-work-view #camp-objective-toggle:focus-visible{outline:2px solid var(--cream);outline-offset:2px;}
 body.camp-work-view:not(.camp-work-expanded) .objective :is(#objective-text,#mission-detail,#mission-progress){display:none;}
 body.camp-work-view.camp-work-expanded .objective :is(#objective-text,#mission-detail,#mission-progress){grid-column:1/-1;}
+body.camp-work-view #camp-store-detail-toggle{grid-column:1/-1;min-height:44px;margin-top:5px;padding:7px 10px;border:1px solid #d9caa780;background:#243b38;color:var(--cream);font:12px Arial,sans-serif;}
+#camp-store-detail{position:fixed;z-index:26;left:50%;top:50%;transform:translate(-50%,-40%);width:min(420px,calc(100vw - 24px));max-height:calc(100dvh - 160px);overflow:auto;padding:10px;border:2px solid #d9caa7;background:#1f3433;box-shadow:0 8px 35px #0b1519a6;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;pointer-events:auto;}
+#camp-store-detail[hidden]{display:none;}
+#camp-store-detail h2{margin:0;align-self:center;font:18px Georgia,serif;color:#eee5c4;}
+#camp-store-detail button{min-width:58px;min-height:44px;padding:7px;border:1px solid #d9caa780;background:#263b3b;color:#eee5c4;font:12px Arial,sans-serif;}
+#camp-store-detail p{grid-column:1/-1;margin:0;font:12px/1.4 Arial,sans-serif;color:#e3d6b6;}
+#camp-store-detail canvas{grid-column:1/-1;display:block;width:100%;height:auto;image-rendering:pixelated;background:#243b38;}
+#camp-store-detail :focus-visible,#camp-store-detail-toggle:focus-visible{outline:2px solid #eee5c4;outline-offset:2px;}
 .wanted{
   position:absolute;
   top:130px;

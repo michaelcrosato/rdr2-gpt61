@@ -1,0 +1,38 @@
+{
+  "scope": "Original unmodified native v1/60-unit Copper prefix. Actual PR9 owned-mask Save→ordinary Mara walk6001330→whistle→five accepted .05 native frames, no body/time/source/stock fixture assignments. Isolated WIP native provenance; NOT public browser, earned watch/stable/ride or full Train acceptance.",
+  "input": "/tmp/dust-mercy-copper-called-genuine.json",
+  "inputSha256": "9db13ccaba2fa62faaf1bb270ccc5cd3f836a55199b898d0b91790a954130e26",
+  "rawSha256": "33154f5985957baddd37725ae9f17d28793c4209651ab8e775ea16e10a635ff6",
+  "rawBytes": 4155980,
+  "routeVersion": null,
+  "targetDistance": 60,
+  "actualSteps": 5,
+  "actualDeltaY": 23.75,
+  "producer": "/tmp/dust-mercy-copper-preserve-v1-prefix.mjs",
+  "source": [
+    {
+      "path": "src/train-preparation-copper-recovery.js",
+      "sha256": "4fa4be6e968e95d418c4963d8c90b07e5454ba9b77f130eaf68b208b49fc6bd3"
+    },
+    {
+      "path": "src/train-preparation-navigation.js",
+      "sha256": "f85b0c8a098422a2d71d977cbc7cc42083e726980a514d2eb9b497ef9855bf76"
+    },
+    {
+      "path": "src/train-preparation-contact-resolution.js",
+      "sha256": "5bd3bf2bed30a31a602c01949aeb3cc722d98b216160e4eb3480d31e037a064f"
+    },
+    {
+      "path": "src/train-mission.js",
+      "sha256": "bf3ca7a70f56798fe9b6120ff503afa4cfec4e068ebba1cb23be476f597e2cf1"
+    },
+    {
+      "path": "src/train-preparation-layout.js",
+      "sha256": "f27b6fdd8fe458520a1293dfeefc3fc584a47cf37317a43d3f39277de57e03a3"
+    },
+    {
+      "path": "src/train-preparation-body-geometry.js",
+      "sha256": "99b153a66dd05ebfc06df8fb3a892d3d88f765bd4558af969d1eba012a901863"
+    }
+  ]
+}

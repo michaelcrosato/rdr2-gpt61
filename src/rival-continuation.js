@@ -43,7 +43,8 @@ function normalizeOperation(op){
   const value={kind:op.kind,actorIds:copy(op.actorIds),refs:copy(op.refs),to:op.to===undefined?null:copy(op.to),options:copy(op.options||{}),cause:copy(op.cause)};
   if(value.to!==null&&(!exactKeys(value.to,['owner','location'])||!custodians.has(value.to.owner)||!permittedLocation(value.to.location)))return null;
   const fields={ 'issue-kit':[],'open-tin':[],'move-object':[],'unseal-charge':['chargeId'],'attach-primer':['chargeId','primerId','mode'],'remove-primer':['chargeId','primerId'],'attach-fuse':['chargeId','fuseId'],'light-fuse':['chargeId','fuseId'],'blast-charge':['chargeId','trigger','physicalReceipt'],'return-papers':[],'establish-guard':['toActorId'],'guard-handover':['fromActorId','toActorId'],'wire-pay-out':['motion'],'cut-clamp':[],'damage-primer':['chargeId','primerId','physicalReceipt'],'lend-weapon':['weaponId'],'return-weapon':['weaponId'],'issue-mask':[] };
-  if(!exactKeys(value.options,fields[value.kind])||!value.actorIds.length&&!['blast-charge','damage-primer'].includes(value.kind)||value.to!==null&&!['move-object','cut-clamp'].includes(value.kind))return null;
+  const fittedMask=value.kind==='move-object'&&value.refs.length===1&&isTrainGearRef(value.refs[0])&&value.options?.maskFitVersion===2&&value.to?.owner==='mara'&&['worn','carried'].includes(value.to?.location?.type);
+  if(!exactKeys(value.options,fittedMask?['maskFitVersion']:fields[value.kind])||!value.actorIds.length&&!['blast-charge','damage-primer'].includes(value.kind)||value.to!==null&&!['move-object','cut-clamp'].includes(value.kind))return null;
   if(value.refs.some(isOriginalWeaponRef)&&!['lend-weapon','return-weapon'].includes(value.kind))return null;
   return value;
 }

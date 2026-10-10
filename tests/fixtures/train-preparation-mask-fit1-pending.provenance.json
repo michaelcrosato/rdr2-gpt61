@@ -1,0 +1,11 @@
+{
+  "scope": "Exact historical unmarked fit1 current-native UI accepted wear pending save. Independent restore/render/advance tests determine validity. The wider source-unstable UI driver failed later; this fixture does not claim that wider run passed.",
+  "sourceArtifact": "/home/micha/.local/state/dust-mercy/artifacts-20261010/preparation-mask-ui-desktop-second/chromium1440-wear-pending-0.json",
+  "sourceReport": "/home/micha/.local/state/dust-mercy/artifacts-20261010/preparation-mask-ui-desktop-second/report.json",
+  "sourceSaveCommit": "4",
+  "originalRawBytes": 3958341,
+  "originalRawSHA256": "defe1b0c06b094e6efe923c45e1913a80d80abc496702a6133a4adb1eafcafa5",
+  "gzipBytes": 803805,
+  "gzipSHA256": "e6a96e34f62180fd72f7133ee12d97371fe94bc5e2d64aa65d002c0f3570aa59",
+  "transformation": "Lossless gzip, mtime=0; no JSON parse/reserialize or state edits"
+}

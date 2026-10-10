@@ -647,7 +647,7 @@ export function createSnowboundRenderer(game) {
       h.rig.update(dt, { ...actor, ...m, vx: riding ? 0 : m.vx, vy: riding ? 0 : m.vy, z: actor.z || 0, facing: actor.facing ?? (Math.hypot(m.vx, m.vy) > 3 ? Math.atan2(m.vy, m.vx) : 1.15), point: h.ready,
         pose: actor.hp <= 0 ? 'die' : actor.id === 'gideon' && actor.injured ? 'down' : actor.captured || actor.restrained || actor.bound || actor.surrendered ? 'guard' : h.escortGesture > 0 ? 'cast' : actor.id === 'tomas' && state.mission?.stage === 0 ? 'hips' : null });
     }
-    if (state.horse && p) horseFor(state.horse.id || 'juniper').update(dt, p.mounted ? { ...p, hp: state.horse.hp, mounted: true } : { ...state.horse, ...motion(state.horse.id || 'juniper', state.horse, dt) });
+    if (state.horse && p&&!ownsTrainCampActor(state,state.horse)) horseFor(state.horse.id || 'juniper').update(dt, p.mounted ? { ...p, hp: state.horse.hp, mounted: true } : { ...state.horse, ...motion(state.horse.id || 'juniper', state.horse, dt) });
     for (const animal of state.animals || []) if (animal.id !== state.horse?.id&&!ownsTrainCampActor(state,animal)) horseFor(animal.id).update(dt, { ...animal, ...motion(animal.id, animal, dt) });
     for (const mount of state.mounts || []) if(!ownsTrainCampActor(state,mount))horseFor(mount.id).update(dt, { ...mount, ...motion(mount.id, mount, dt) });
   }
@@ -846,7 +846,7 @@ export function createSnowboundRenderer(game) {
     }
     for (const actor of [...(state.npcs || []), ...(state.enemies || [])]) drawHuman(r, actor, actor.id, state, horizon);
     const p = state.player, horse = p?.mounted ? p : state.horse;
-    if (!isRescuePresentation(state) && !isHuntPresentation(state) && !isRivalPresentation(state) && horse && r.w(horse.x, horse.y, 0)[1] >= horizon) {
+    if (!isRescuePresentation(state) && !isHuntPresentation(state) && !isRivalPresentation(state) && horse&&!ownsTrainCampActor(state,state.horse) && r.w(horse.x, horse.y, 0)[1] >= horizon) {
       r.shadow(horse.x, horse.y, 23, .22, '#58746b');
       r.actor(horse.x, horse.y, 0, (ctx, x, y) => horseFor(state.horse?.id || 'juniper').draw(ctx, x, y, 1.17, { ...horse, hp: state.horse?.hp ?? 100 }), { outline: false, margin: 110 });
     }

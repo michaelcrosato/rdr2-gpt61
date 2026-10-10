@@ -4,6 +4,7 @@ import {EPS,validPoint,validFrame,worldPoint,sub,dot,cross,length,scale,interpol
 import {immutableSnapshot} from './rail-foundation/accepted-step-context.js';
 import {worldCoverSolids} from './train-terrain.js';
 const BOXES=new WeakMap(),SETS=new WeakMap(),MOTIONS=new WeakMap(),WORLD_SETS=new WeakMap(),axes=['x','y','z'];
+const coordinateScales=new WeakMap();
 const faces=[[0,3,2,1],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]],P=(x=0,y=0,z=0)=>({x,y,z});
 function finite(n){if(!Number.isFinite(n))throw new RangeError('Geometry exceeds finite query range');return n;}
 function unit(v){const n=length(v);if(!Number.isFinite(n)||!n)throw new TypeError('Degenerate geometry axis');return scale(v,1/n);}
@@ -20,6 +21,38 @@ function shape(raw){
 }
 function makeBox(s){const h=s.halfExtents,local=[P(-h.x,-h.y,-h.z),P(h.x,-h.y,-h.z),P(h.x,h.y,-h.z),P(-h.x,h.y,-h.z),P(-h.x,-h.y,h.z),P(h.x,-h.y,h.z),P(h.x,h.y,h.z),P(-h.x,h.y,h.z)],vertices=local.map(p=>worldPoint(s.frame,p));if(!vertices.every(validPoint))throw new RangeError('Nonfinite held box');const data=shape({id:s.id,vertices,faces}),box=immutableSnapshot({...s,vertices});BOXES.set(box,data);return box;}
 export function createHeldBox(value){const s=immutableSnapshot(value);if(!s||typeof s.id!=='string'||!s.id||!validFrame(s.frame)||!validPoint(s.halfExtents)||axes.some(k=>s.halfExtents[k]<=0))throw new TypeError('Invalid finite held box');return makeBox(s);}
+const trustedFaces=Object.freeze(faces.map(f=>Object.freeze([...f]))),trustedEdges=Object.freeze((()=>{const seen=new Set(),out=[];for(const face of trustedFaces)for(let i=0;i<face.length;i++){const a=face[i],b=face[(i+1)%face.length],key=Math.min(a,b)+','+Math.max(a,b);if(!seen.has(key)){seen.add(key);out.push(Object.freeze([a,b]));}}return out;})());
+function translatedBoxData(id,vertices){
+ // Topology is already a known closed box. Numerical geometry is still checked
+ // from the ACTUAL translated vertices; a finite delta can collapse a small
+ // volume at a large origin and must never inherit stale axes/volume.
+ if(!vertices.every(validPoint))throw new RangeError('Nonfinite translated vertices');
+ const centre=vertices.reduce((p,v)=>P(p.x+v.x/8,p.y+v.y/8,p.z+v.z/8),P()),normals=[];
+ if(!validPoint(centre))throw new RangeError('Unresolved translated centre');
+ for(const face of trustedFaces){const origin=vertices[face[0]],raw=cross(sub(vertices[face[1]],origin),sub(vertices[face[2]],origin));if(!validPoint(raw)||!length(raw))throw new TypeError('Collapsed translated face');let n=unit(raw);if(dot(n,sub(centre,origin))>0)n=scale(n,-1);
+  if(!(dot(n,sub(centre,origin))<0)||face.some(i=>Math.abs(dot(n,sub(vertices[i],origin)))>EPS)||vertices.some(v=>dot(n,sub(v,origin))>EPS))throw new TypeError('Unresolved translated convex geometry');normals.push(Object.freeze(n));
+ }
+ const edges=trustedEdges.map(([a,b])=>{const v=sub(vertices[b],vertices[a]);if(!validPoint(v)||!length(v))throw new TypeError('Collapsed translated edge');return Object.freeze(unit(v));}),bb=bounds(vertices);
+ if(![bb.min,bb.max].every(validPoint)||axes.some(k=>!(bb.max[k]>bb.min[k])))throw new TypeError('Collapsed translated volume');
+ const frozenVertices=Object.freeze(vertices.map(v=>Object.freeze(v))),source=Object.freeze({id,vertices:frozenVertices,faces:trustedFaces});
+ return Object.freeze({source,vertices:frozenVertices,normals:Object.freeze(normals),edges:Object.freeze(edges),bounds:Object.freeze({min:Object.freeze(bb.min),max:Object.freeze(bb.max)})});
+}
+/** Translate only an owning branded immutable box. Public raw construction
+ * remains fully validating. This keeps frame residuals and derives every new
+ * vertex, face plane, edge and bound without deep-copying an entire solid. */
+export function translateHeldBox(box,delta){
+ boxData(box);const d=immutableSnapshot(delta);if(!validPoint(d))throw new TypeError('Finite translation required');
+ const origin=P(...axes.map(k=>box.frame.origin[k]+d[k]));if(!validPoint(origin))throw new RangeError('Nonfinite translated origin');
+ const frame=Object.freeze({...box.frame,origin:Object.freeze(origin)}),h=box.halfExtents,local=[P(-h.x,-h.y,-h.z),P(h.x,-h.y,-h.z),P(h.x,h.y,-h.z),P(-h.x,h.y,-h.z),P(-h.x,-h.y,h.z),P(h.x,-h.y,h.z),P(h.x,h.y,h.z),P(-h.x,h.y,h.z)],data=translatedBoxData(box.id,local.map(p=>worldPoint(frame,p))),result=Object.freeze({...box,frame,vertices:data.vertices});BOXES.set(result,data);return result;
+}
+/** Compile immutable branded box references once; copied/JSON/raw boxes never
+ * inherit trust. Source owners are snapshotted scalars, never callbacks. */
+export function compileHeldBoxSet(references,{id}={}){
+ if(typeof id!=='string'||!id||!Array.isArray(references)||!references.length)throw new TypeError('Named nonempty branded box references required');
+ const snapshot=Array.from(references,entry=>({box:entry?.box,ownerId:entry?.ownerId})),seen=new Set(),records=[];
+ for(const entry of snapshot){const data=boxData(entry.box),ownerId=entry.ownerId;if(ownerId!==undefined&&(typeof ownerId!=='string'||!ownerId))throw new TypeError('Invalid fixed box owner');const key=JSON.stringify([ownerId??null,data.source.id]);if(seen.has(key))throw new TypeError('Duplicate fixed body part');seen.add(key);const source=Object.freeze({...data.source,...(ownerId===undefined?{}:{ownerId})});records.push(Object.freeze({...data,source}));}
+ const set=Object.freeze({id,kind:'fixed-convex-solid-set',solids:Object.freeze(records.map(r=>r.source))});SETS.set(set,{records:Object.freeze(records),world:null});return set;
+}
 function boxData(box){const s=BOXES.get(box);if(!s)throw new TypeError('A validated immutable held box is required');return s;}
 /** Explicit component primitive. A set is not a claim that a game world is complete. */
 export function compileHeldSolidSet(solids,{id}={}){const snapshot=immutableSnapshot(solids);if(typeof id!=='string'||!id||!Array.isArray(snapshot)||!snapshot.length||new Set(snapshot.map(s=>JSON.stringify([s?.ownerId??null,s?.id]))).size!==snapshot.length)throw new TypeError('A named nonempty convex solid set is required');const records=snapshot.map(shape),set=Object.freeze({id,kind:'fixed-convex-solid-set',solids:snapshot});SETS.set(set,{records,world:null});return set;}
@@ -28,7 +61,10 @@ export function validateHeldWorldSnapshot(set,world,{fraction,mode}={}){try{cons
 function setData(set){const s=SETS.get(set);if(!s)throw new TypeError('A validated fixed solid set is required');return s;}
 function separatingAxes(a,b){const out=[...a.normals,...b.normals];for(const x of a.edges)for(const y of b.edges){const n=cross(x,y);if(!validPoint(n))throw new RangeError('Unresolved separating axis');if(length(n)>0)out.push(unit(n));}return out;}
 function projection(vertices,axis,origin){const values=vertices.map(p=>finite(dot(sub(p,origin),axis)));return{min:Math.min(...values),max:Math.max(...values)};}
-function numericPadding(a,b){return 64*Number.EPSILON*(1+Math.max(...a.vertices.flatMap(p=>axes.map(k=>Math.abs(p[k]))),...b.vertices.flatMap(p=>axes.map(k=>Math.abs(p[k])))));}
+// Only internal validated immutable shape records reach this memo. Neither
+// raw caller geometry nor a mutable input object can inherit its cached scale.
+function coordinateScale(shape){let value=coordinateScales.get(shape);if(value===undefined){value=0;for(const p of shape.vertices)for(const k of axes)value=Math.max(value,Math.abs(p[k]));coordinateScales.set(shape,value);}return value;}
+function numericPadding(a,b){return 64*Number.EPSILON*(1+Math.max(coordinateScale(a),coordinateScale(b)));}
 function sat(a,b,tolerance){let greatest=-Infinity,axis=null;const origin=a.vertices[0];for(const n of separatingAxes(a,b)){const x=projection(a.vertices,n,origin),y=projection(b.vertices,n,origin),forward=y.min-x.max,backward=x.min-y.max,gap=Math.max(forward,backward);if(gap>greatest){greatest=gap;axis=Object.freeze(scale(n,backward>=forward?1:-1));}}
  const padding=numericPadding(a,b);return{intersects:greatest-padding<=tolerance,interiorOverlap:greatest+padding< -tolerance,gap:greatest-padding,numericPadding:padding,penetration:Math.max(0,-greatest),axis,solidId:b.source.id,ownerId:b.source.ownerId??null};
 }

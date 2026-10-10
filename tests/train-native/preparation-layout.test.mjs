@@ -7,6 +7,9 @@ import {RIVAL_ID} from '../../content/campaign/bellwether-works.js';
 import * as Camp from '../../content/campaign/train-preparation-camp.js';
 import {TRAIN_TOOL_CASE} from '../../content/campaign/train-equipment.js';
 import {capturePreparationBodyBounds,validatePreparationBodyBounds,validatePreparationCampSetup,stepPreparationCampSetup,preparedCampSite} from '../../src/train-preparation-layout.js';
+import {preparationNativeBodyParts,preparationPartSolid} from '../../src/train-preparation-body-geometry.js';
+import {createHeldBox,compileHeldSolidSet,heldBoxContacts} from '../../src/train-held-volume.js';
+import {makeFrame} from '../../src/rail-foundation/rigid-frame.js';
 
 const STORE='quarry-charge-worktop',CASE='ruth-wiring-case-stand',MENDING='ada-mending-worktop';
 const prep=s=>trainRecord(s).train.preparation,point=a=>({x:a.x,y:a.y,z:a.z??0}),clone=structuredClone;
@@ -60,10 +63,13 @@ test('historical captures resolve typed rest/mounted attachments and remain deta
 });
 
 test('a full yawed horse body blocks introduction even when its radius14 root clears (staged negative geometry)',()=>{
-  const s=begin(),a=s.entities.skein;Object.assign(a,{x:715,y:1230,facing:Math.PI/2});
-  const site=Camp.TRAIN_PREPARATION_SOLIDS.find(p=>p.id===STORE),row=capturePreparationBodyBounds(s).find(r=>r.id===a.id);
-  assert.ok(a.y+14<site.y,'root footprint is clear');assert.ok(overlap(row,site),'actual long body reaches the proposed worktop');
-  setupOnly(s);assert.equal(preparedCampSite(s,STORE),false);assert.equal(a.x,715);assert.equal(a.y,1230);
+  const s=begin(),a=s.entities.skein;Object.assign(a,{x:750,y:1239,facing:Math.PI/2});
+  const site=Camp.TRAIN_PREPARATION_SOLIDS.find(p=>p.id===STORE),rows=capturePreparationBodyBounds(s),row=rows.find(r=>r.id===a.id);
+  const solid=createHeldBox({id:site.id,frame:makeFrame({x:site.x+site.w/2,y:site.y+site.h/2,z:site.z+site.height/2},{x:1,y:0,z:0}),halfExtents:{x:site.w/2,y:site.h/2,z:site.height/2}}),set=compileHeldSolidSet([preparationPartSolid(solid,site.id)],{id:'proposed-worktop'});
+  const contactingParts=preparationNativeBodyParts(row,rows).filter(part=>heldBoxContacts(part,set).some(hit=>hit.interiorOverlap)).map(part=>part.id);
+  assert.ok(a.y+row.radius<site.y,'owning radius14 footprint is clear');assert.ok(overlap(row,site),'native occupied bounds reach the proposed worktop');
+  assert.ok(contactingParts.includes('hoof-2')&&contactingParts.includes('hoof-3'),'actual native front hooves intersect the worktop');assert.ok(!contactingParts.includes('root-foot'),'the full native compound blocks beyond its clear owning footprint');
+  setupOnly(s);assert.equal(preparedCampSite(s,STORE),false);assert.equal(a.x,750);assert.equal(a.y,1239);
 });
 
 test('dead, hidden, and injured horizontal human volumes block setup without moving them (staged negatives)',()=>{

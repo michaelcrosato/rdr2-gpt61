@@ -3,7 +3,7 @@
 import {TRAIN_ID} from '../content/campaign/brass-cutting.js';
 import {RIVAL_ID} from '../content/campaign/bellwether-works.js';
 import {TRAIN_BRIEFING_TABLE as TABLE,TRAIN_BRIEFING_PAPER_CONTACTS as PAPERS} from '../content/campaign/train-camp.js';
-import {activeTrainCampWorkPose} from './train-camp-presentation.js';
+import {activeTrainCampWorkPose,createPreparationMaterialDetail} from './train-camp-presentation.js';
 import {TRAIN_PREPARATION_SOLIDS} from '../content/campaign/train-preparation-camp.js';
 import {getPreparationWorkPose} from './train-preparation-work.js';
 const finite=Number.isFinite,point=p=>p&&['x','y','z'].every(k=>finite(p[k]));
@@ -62,10 +62,19 @@ export function campWorkLogicalRect(screen,rect){
 export function createTrainCampWorkView(doc){
  const objective=doc?.querySelector?.('.objective');if(!objective)throw new TypeError('The ordinary objective panel is required');
  const toggle=doc.createElement('button'),caption=doc.createElement('p');toggle.id='camp-objective-toggle';toggle.type='button';toggle.hidden=true;toggle.setAttribute('aria-controls','objective-text mission-detail mission-progress');caption.id='camp-work-caption';caption.hidden=true;objective.append(caption,toggle);
- let expanded=false,lastState=null,lastScreen=null,lastKey=null,safeRects=[];
+ const detailToggle=doc.createElement('button'),detailPanel=doc.createElement('section'),detailTitle=doc.createElement('h2'),detailClose=doc.createElement('button'),detailDescription=doc.createElement('p');
+ detailToggle.id='camp-store-detail-toggle';detailToggle.type='button';detailToggle.hidden=true;detailToggle.textContent='Look closely';detailToggle.setAttribute('aria-controls','camp-store-detail');detailToggle.setAttribute('aria-expanded','false');
+ detailPanel.id='camp-store-detail';detailPanel.hidden=true;detailPanel.setAttribute('role','region');detailPanel.setAttribute('aria-labelledby','camp-store-detail-title');detailTitle.id='camp-store-detail-title';detailTitle.textContent='Store close-up';detailClose.type='button';detailClose.textContent='Close';detailClose.setAttribute('aria-label','Close store close-up');detailDescription.id='camp-store-detail-description';detailPanel.append(detailTitle,detailClose,detailDescription);objective.append(detailToggle,detailPanel);
+ let expanded=false,detailOpen=false,detailCanvas=null,materialDetail=null,lastState=null,lastScreen=null,lastKey=null,safeRects=[];
+ function paintDetail(s){
+  if(!detailCanvas){detailCanvas=doc.createElement('canvas');detailCanvas.width=320;detailCanvas.height=200;detailCanvas.setAttribute('role','img');detailCanvas.setAttribute('aria-describedby',detailDescription.id);detailPanel.append(detailCanvas);materialDetail=createPreparationMaterialDetail(globalThis.My3D2dge);}
+  const g=detailCanvas.getContext('2d');g.imageSmoothingEnabled=false;const result=materialDetail.draw(g,s,{width:detailCanvas.width,height:detailCanvas.height}),tin=result?.objects.find(o=>o.id==='cap-tin');
+  detailDescription.textContent=result?`Original numbered bundles and ${tin?.opened?'the opened':'the closed'} tin.`:'No materials remain on this surface.';detailCanvas.setAttribute('aria-label',detailDescription.textContent);detailCanvas.dataset.renderReceipt=JSON.stringify(result?{at:result.at,view:result.view,actors:result.actors,objects:result.objects,bounds:result.bounds,scale:result.scale,errors:result.errors}:{at:s.elapsed,view:'material-closeup',actors:[],objects:[]});
+ }
  function sync(s,{screen}){
-  const context=trainCampWorkContext(s);if(s!==lastState||context?.key!==lastKey)expanded=false;lastState=s;lastScreen=screen;lastKey=context?.key??null;
+  const context=trainCampWorkContext(s);if(s!==lastState||context?.key!==lastKey){expanded=false;detailOpen=false;}lastState=s;lastScreen=screen;lastKey=context?.key??null;
   doc.body.classList.toggle('camp-work-view',!!context);doc.body.classList.toggle('camp-work-expanded',!!context&&expanded);toggle.hidden=caption.hidden=!context;
+  const hasStore=context?.key==='train-preparation:quarry-charge-worktop';detailToggle.hidden=!hasStore;detailPanel.hidden=!hasStore||!detailOpen;detailToggle.setAttribute('aria-expanded',String(hasStore&&detailOpen));if(hasStore&&detailOpen)paintDetail(s);
   if(!context){safeRects=[];return null;}
   caption.textContent=context.caption;toggle.textContent=expanded?'Less':'More';toggle.setAttribute('aria-label',expanded?'Show compact objective':'Show full objective');toggle.setAttribute('aria-expanded',String(expanded));
   let top=12,bottom=screen.H-12;
@@ -77,5 +86,7 @@ export function createTrainCampWorkView(doc){
   safeRects=safeRects.filter(r=>r.right>r.left&&r.bottom>r.top).sort((a,b)=>(b.right-b.left)*(b.bottom-b.top)-(a.right-a.left)*(a.bottom-a.top));return context;
  }
  toggle.addEventListener('click',()=>{expanded=!expanded;if(lastState&&lastScreen)sync(lastState,{screen:lastScreen});});
+ detailToggle.addEventListener('click',()=>{detailOpen=!detailOpen;if(lastState&&lastScreen)sync(lastState,{screen:lastScreen});if(detailOpen)detailClose.focus?.();});
+ const closeDetail=()=>{detailOpen=false;if(lastState&&lastScreen)sync(lastState,{screen:lastScreen});detailToggle.focus?.();};detailClose.addEventListener('click',closeDetail);detailPanel.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeDetail();}});
  return{sync,frame(s,{view,screen}){const context=trainCampWorkContext(s);if(!context)return null;const candidates=safeRects.map(safeRect=>frameTrainCampWork(context,{view,width:screen.W,height:screen.H,safeRect})).filter(Boolean);return candidates.find(frame=>frame.fits)||candidates[0]||null;}};
 }

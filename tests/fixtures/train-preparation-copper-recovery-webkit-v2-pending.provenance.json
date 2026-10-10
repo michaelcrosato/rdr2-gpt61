@@ -1,0 +1,16 @@
+{
+  "scope": "Exact genuinely performed Source3 WebKit320 UI Call/recovery pending committed Save. The larger mobile flow failed later at Node cross-engine restore; this is a preserved observed input, not a claim that the full UI run passed.",
+  "sourceFile": "/home/micha/.local/state/dust-mercy/artifacts-20261010/copper-ui-webkit320-first/webkit320-recovery-pending.json",
+  "sourceReport": "/home/micha/.local/state/dust-mercy/artifacts-20261010/copper-ui-webkit320-first/report.json",
+  "sourceSaveCommit": "9",
+  "sourceSnapshot": "/tmp/dust-mercy-copper-ui-source-third-20261010",
+  "sourceSnapshotProvenanceSHA256": "5156465bbc4d56e518752fdd9945ac0608ddb1b5e7f3ab330fbf5f995252e71c",
+  "driverSHA256": "89443e2d89518b20187f18c0bb99fbe5d2d0e8304045778e2a3e88bc719412d4",
+  "inputSHA256": "2c3aa5309166cbb316838f5b2332165057671df8be8839d95424c5968d3bb76c",
+  "originalRawBytes": 4683475,
+  "originalRawSHA256": "85c2de805bbff957546eb0345fb7b3407114bc3172b74981407083938ead1e30",
+  "gzipBytes": 871581,
+  "gzipSHA256": "d4c63ea094656236281a3460f1d754bb05279ba4d356bdbb69f6a97ca405b00a",
+  "transformation": "Lossless gzip only, mtime=0; raw JSON was not parsed/reserialized or edited.",
+  "knownCrossEngineBoundary": "Original WebKit derived bounds differ from V8 by <=3.55e-15; Plover partition telemetry rest133 versus132 and walking151 versus150 while physical proof scalars are identical."
+}

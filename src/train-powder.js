@@ -462,7 +462,7 @@ export function powderTransferAllowed(s,reference){
   if([record.refs.lead,record.refs.detonator].some(ref=>sameRef(reference,ref))&&record.circuit.terminals.detonator.state==='fastened'&&record.circuit.recovery.disconnectAt===null)return false;
   return true;
 }
-export function requestPowderTransfer(s,reference,actorIds,to,ctx){if(!powderTransferAllowed(s,reference))return null;return requestPowderCustodyWork(s,operation('move-object',actorIds,[copy(reference)],{},copy(to)),ctx);}
+export function requestPowderTransfer(s,reference,actorIds,to,ctx,options={}){if(!powderTransferAllowed(s,reference))return null;return requestPowderCustodyWork(s,operation('move-object',actorIds,[copy(reference)],copy(options),copy(to)),ctx);}
 export function requestChargeUnseal(s,chargeId,actorId,ctx){
   if(!chargeIds.slice(0,3).includes(chargeId))return null;
   if(authoritative(s,original(chargeId),'sealed-charge')?.sealed!==true)return null;

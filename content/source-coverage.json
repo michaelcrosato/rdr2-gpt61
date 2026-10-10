@@ -3420,7 +3420,18 @@
       "original_counterpart": null,
       "implementation_evidence": [],
       "acceptance_evidence": [],
-      "mechanic_and_variant_audit_status": "pending"
+      "mechanic_and_variant_audit_status": "partial_care_mechanics_decomposed_full_catalog_pending",
+      "child_requirement_ids": [
+        "system-horse-care-bond-and-unlocks",
+        "system-horse-care-cleanliness-and-cores",
+        "system-horse-care-nutrition-and-weight",
+        "system-horse-care-fear-and-call-response",
+        "system-horse-care-storage-and-hitching",
+        "system-horse-care-saddle-and-tack-effects",
+        "system-horse-care-acquisition-and-permanent-loss"
+      ],
+      "inventory_sealed": false,
+      "notes": "Seven indexed mechanic children isolate pending care, tack and relationship obligations. Current camp leading and simple stamina/food fields do not establish this complete system. Water/tack/stable duties in the original Train specification are original obligations, not proof of a sourced horse-care catalog. Story/Online breed and variant counts in generalized source summaries remain edition-sensitive and unsealed."
     },
     {
       "id": "system-gunfight-aiming-cover-reloads-ranges-weapon-classes-and-dual-wielding",
@@ -10358,6 +10369,160 @@
       "original_design_status": "not_authored",
       "implementation_status": "unimplemented",
       "original_counterpart": null,
+      "implementation_evidence": [],
+      "acceptance_evidence": []
+    },
+    {
+      "id": "system-horse-care-bond-and-unlocks",
+      "category": "system-mechanic",
+      "parent_requirement_id": "system-horse-ownership-taming-bonding-care-fear-death-and-tack",
+      "source_title": "Bond levels and earned riding abilities",
+      "source_url": "https://reddead.fandom.com/wiki/Horse",
+      "research_status": "indexed_mechanic_excerpt_partial",
+      "research_date": "2026-10-10",
+      "source_revision_status": "not_pinned",
+      "source_observation": "Riding, feeding, grooming and calming build a persistent relationship. Bonding changes responses to danger and calls, and unlocks riding maneuvers. Exact thresholds and unlock ordering remain to be reconciled.",
+      "inventory_sealed": false,
+      "remaining_source_audit": "Linked detailed articles, exact conditions, variants, formulas and edition boundaries remain open; this subset does not seal the parent.",
+      "implementation_status": "unimplemented",
+      "original_design_status": "not_authored",
+      "original_counterpart": null,
+      "required_acceptance": [
+        "Track each mount independently across saves, loss and ownership changes.",
+        "Demonstrate the complete sourced progression and each distinct riding action; a bond number alone is insufficient."
+      ],
+      "implementation_evidence": [],
+      "acceptance_evidence": []
+    },
+    {
+      "id": "system-horse-care-cleanliness-and-cores",
+      "category": "system-mechanic",
+      "parent_requirement_id": "system-horse-ownership-taming-bonding-care-fear-death-and-tack",
+      "source_title": "Cleanliness, core drain and finite grooming",
+      "source_url": "https://reddead.fandom.com/wiki/Horse_Stats",
+      "research_status": "indexed_mechanic_excerpt_partial",
+      "research_date": "2026-10-10",
+      "source_revision_status": "not_pinned",
+      "source_observation": "The indexed stat article describes health/stamina behavior and a 25 percent core-drain penalty when a horse is not cleaned. Full core formulas, conditions and grooming thresholds remain unverified.",
+      "inventory_sealed": false,
+      "remaining_source_audit": "Linked detailed articles, exact conditions, variants, formulas and edition boundaries remain open; this subset does not seal the parent.",
+      "implementation_status": "unimplemented",
+      "original_design_status": "not_authored",
+      "original_counterpart": null,
+      "required_acceptance": [
+        "Persist cleanliness separately from current health and stamina.",
+        "Perform actual finite grooming, handle obstruction/interruption, and verify its physiological effect without restoring injuries."
+      ],
+      "implementation_evidence": [],
+      "acceptance_evidence": []
+    },
+    {
+      "id": "system-horse-care-nutrition-and-weight",
+      "category": "system-mechanic",
+      "parent_requirement_id": "system-horse-ownership-taming-bonding-care-fear-death-and-tack",
+      "source_title": "Nutrition, weight and sustained condition",
+      "source_url": "https://reddead.fandom.com/wiki/Horse_Stats",
+      "research_status": "indexed_mechanic_excerpt_partial",
+      "research_date": "2026-10-10",
+      "source_revision_status": "not_pinned",
+      "source_observation": "The indexed article connects daily caloric intake to horse weight, appearance and top speed. All provision effects, quantities and timing rules remain to be reconciled.",
+      "inventory_sealed": false,
+      "remaining_source_audit": "Linked detailed articles, exact conditions, variants, formulas and edition boundaries remain open; this subset does not seal the parent.",
+      "implementation_status": "unimplemented",
+      "original_design_status": "not_authored",
+      "original_counterpart": null,
+      "required_acceptance": [
+        "Consume the actual identified food from its real owner/store.",
+        "Persist intake and condition through real elapsed time; maintain a distinct visual/body-state response."
+      ],
+      "implementation_evidence": [],
+      "acceptance_evidence": []
+    },
+    {
+      "id": "system-horse-care-fear-and-call-response",
+      "category": "system-mechanic",
+      "parent_requirement_id": "system-horse-ownership-taming-bonding-care-fear-death-and-tack",
+      "source_title": "Fear, separation and call response",
+      "source_url": "https://reddead.fandom.com/wiki/Horse",
+      "research_status": "indexed_mechanic_excerpt_partial",
+      "research_date": "2026-10-10",
+      "source_revision_status": "not_pinned",
+      "source_observation": "A weak bond can affect behavior around gunfire and predators, including throwing the rider and fleeing with equipment. Higher bonding changes temperament and call reach.",
+      "inventory_sealed": false,
+      "remaining_source_audit": "Linked detailed articles, exact conditions, variants, formulas and edition boundaries remain open; this subset does not seal the parent.",
+      "implementation_status": "unimplemented",
+      "original_design_status": "not_authored",
+      "original_counterpart": null,
+      "required_acceptance": [
+        "Use actual sight/sound/threats and finite call distance rather than unconditional teleportation.",
+        "Preserve the same horse, rider, tack and carried equipment through panic, departure and recovery."
+      ],
+      "implementation_evidence": [],
+      "acceptance_evidence": []
+    },
+    {
+      "id": "system-horse-care-storage-and-hitching",
+      "category": "system-mechanic",
+      "parent_requirement_id": "system-horse-ownership-taming-bonding-care-fear-death-and-tack",
+      "source_title": "Horse storage, outfits and hitch recovery",
+      "source_url": "https://reddead.fandom.com/wiki/Transport",
+      "research_status": "indexed_mechanic_excerpt_partial",
+      "research_date": "2026-10-10",
+      "source_revision_status": "not_pinned",
+      "source_observation": "The primary horse carries extra weapons, items and three outfit sets. The indexed overview describes care needs and regeneration while hitched.",
+      "inventory_sealed": false,
+      "remaining_source_audit": "Linked detailed articles, exact conditions, variants, formulas and edition boundaries remain open; this subset does not seal the parent.",
+      "implementation_status": "unimplemented",
+      "original_design_status": "not_authored",
+      "original_counterpart": null,
+      "required_acceptance": [
+        "Represent finite real load locations, capacity and conflicts among cargo, passengers and equipment.",
+        "Perform attachment/hitching at an actual reachable place and restore the same stored objects after Save."
+      ],
+      "implementation_evidence": [],
+      "acceptance_evidence": []
+    },
+    {
+      "id": "system-horse-care-saddle-and-tack-effects",
+      "category": "system-mechanic",
+      "parent_requirement_id": "system-horse-ownership-taming-bonding-care-fear-death-and-tack",
+      "source_title": "Saddle variants, crafted saddles and tack effects",
+      "source_url": "https://reddead.fandom.com/wiki/Trapper",
+      "research_status": "indexed_mechanic_excerpt_partial",
+      "research_date": "2026-10-10",
+      "source_revision_status": "not_pinned",
+      "source_observation": "The indexed saddle section links distinct crafted saddles to specified pelts and different core-drain, regeneration and movement effects. Crafted saddle customization differs from stable equipment.",
+      "inventory_sealed": false,
+      "remaining_source_audit": "Linked detailed articles, exact conditions, variants, formulas and edition boundaries remain open; this subset does not seal the parent.",
+      "implementation_status": "unimplemented",
+      "original_design_status": "not_authored",
+      "original_counterpart": null,
+      "required_acceptance": [
+        "Reconcile every saddle, component, recipe, service cost and modifier before sealing this child.",
+        "Craft/equip the actual retained item, consume required pelts once and apply its sourced effects only while equipped."
+      ],
+      "implementation_evidence": [],
+      "acceptance_evidence": []
+    },
+    {
+      "id": "system-horse-care-acquisition-and-permanent-loss",
+      "category": "system-mechanic",
+      "parent_requirement_id": "system-horse-ownership-taming-bonding-care-fear-death-and-tack",
+      "source_title": "Mount acquisition and permanent loss",
+      "source_url": "https://reddead.fandom.com/wiki/Horse",
+      "research_status": "indexed_mechanic_excerpt_partial",
+      "research_date": "2026-10-10",
+      "source_revision_status": "not_pinned",
+      "source_observation": "The indexed article describes wild capture, stable purchase and unlawful acquisition. A dead horse loses its developed relationship; replacement requires a distinct animal.",
+      "inventory_sealed": false,
+      "remaining_source_audit": "Linked detailed articles, exact conditions, variants, formulas and edition boundaries remain open; this subset does not seal the parent.",
+      "implementation_status": "unimplemented",
+      "original_design_status": "not_authored",
+      "original_counterpart": null,
+      "required_acceptance": [
+        "Implement every acquisition path and its legal, ownership and service consequences.",
+        "Distinguish recoverable injury from death and preserve identity, equipment recovery and moral consequences."
+      ],
       "implementation_evidence": [],
       "acceptance_evidence": []
     }

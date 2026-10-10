@@ -9,7 +9,7 @@ import {interactNative,chooseNative} from '../helpers/train-clinic-route.mjs';
 import {TRAIN_STORE_MARA,TRAIN_PREPARATION_SOLIDS} from '../../content/campaign/train-preparation-camp.js';
 import {TRAIN_MASK_ID,TRAIN_MASK_APPROACHES} from '../../content/campaign/train-gear-data.js';
 import {RIVAL_ID} from '../../content/campaign/bellwether-works.js';
-import {getPreparationWorkPose,validatePreparationMaskEvidence} from '../../src/train-preparation-work.js';
+import {getPreparationWorkPose,validatePreparationMaskEvidence,preparationPlayerApproach} from '../../src/train-preparation-work.js';
 import {preparationInspectionEvidence} from '../../src/train-powder.js';
 import {trainCampWorkContext} from '../../src/train-camp-work-view.js';
 
@@ -33,10 +33,10 @@ function begin(){
   wait(s,()=>!!prep(s).campSetup.sites['quarry-charge-worktop'],20,'clear store worktop');return s;
 }
 function complete(s,id){interactNative(s,id);assert.ok(trainCampWorkContext(s)?.caption,'the actual requested operation has a readable work caption');wait(s,()=>prep(s).work===null,30,`complete ${id}`);}
-function approachMask(s){
+function approachMask(s,target=TRAIN_MASK_APPROACHES.mara){
   // This narrow valid contact is beside the bench, within a blocked 20-unit
   // navigation cell. Finish the ordinary movement from a clear outer cell.
-  moveNative(s,{x:390,y:1180});const t=TRAIN_MASK_APPROACHES.mara;
+  moveNative(s,{x:390,y:target.y});const t=target;
   for(let i=0;i<60&&Math.hypot(s.player.x-t.x,s.player.y-t.y)>.2;i++){const d=Math.hypot(s.player.x-t.x,s.player.y-t.y);Journey.stepCampaign(s,.005,{mx:(t.x-s.player.x)/d,my:(t.y-s.player.y)/d});}
   assert.ok(Math.hypot(s.player.x-t.x,s.player.y-t.y)<=.3);
 }
@@ -72,7 +72,7 @@ test('Ada hands over one original mask through native contact; actual drawing in
   approachMask(s);wait(s,()=>!!prep(s).campSetup.sites['ada-mending-worktop'],20,'clear mending worktop');
   const now=s.elapsed,revision=s.campaign.missions[RIVAL_ID].rival.continuation.events.length,e={schema:1,choice:'uncovered',at:now,revision,actorPosition:{x:s.player.x,y:s.player.y,z:s.player.z||0},itemRef:null,itemState:null,issueEventId:null};
   assert.equal(validatePreparationMaskEvidence(s,e),true);for(const revision of [-1,999])assert.equal(validatePreparationMaskEvidence(s,{...e,revision}),false);
-  capture(s,'06-mending-ready');interactNative(s,'train:prepare-mask-issue');assert.equal(trainCampWorkContext(s).phase,'issueMask');wait(s,()=>powder(s).pending.some(w=>w.kind==='issue-mask'&&w.acceptedSeconds>0),30,'real Ada and Mara hands');capture(s,'07-mask-mid-work');s=whole(s);assert.equal(trainCampWorkContext(s).phase,'issueMask');
+  capture(s,'06-mending-ready');interactNative(s,'train:prepare-mask-issue');Journey.stepCampaign(s,.05);const approach=preparationPlayerApproach(s);if(approach)approachMask(s,approach.point);assert.equal(trainCampWorkContext(s).phase,'issueMask');wait(s,()=>powder(s).pending.some(w=>w.kind==='issue-mask'&&w.acceptedSeconds>0),30,'real Ada and Mara hands');capture(s,'07-mask-mid-work');s=whole(s);assert.equal(trainCampWorkContext(s).phase,'issueMask');
   wait(s,()=>prep(s).work===null,10,'one finite windwrap handoff');assert.equal(s.itemInstances[TRAIN_MASK_ID].location.type,'carried');
   assert.equal(s.campaign.missions[RIVAL_ID].rival.continuation.events.filter(e=>e.kind==='issue-mask').length,1);assert.equal(Journey.getCampaignInteractions(s).some(a=>a.id==='train:prepare-mask-issue'),false);
   interactNative(s,'train:prepare-mask-bring');assert.equal(validatePreparationMaskEvidence(s,prep(s).maskChoice),true);s=whole(s);assert.equal(prep(s).maskChoice.choice,'bring');capture(s,'08-mask-owned-bring');
