@@ -67,7 +67,7 @@ function syncRegionView() {
   cancelBowInput(); huntPadCursor = null;
   renderedRegion = state.region; world = rendererForState(); game.cam.snap = true;
   pointerMode = false; padAim = null;
-  setTouchCrouch(state.player.crouch === true);
+  setTouchCrouch(state.player.crouch === true && !keyboardCrouchHeld && !game.input.down('crouch'));
   state.aiming = false; state.pointer = null; state.interactionTarget = null;
   if (Sim.isCampaign(state)) snowboundAudio.reset(state);
 }
