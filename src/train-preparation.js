@@ -127,7 +127,11 @@ export function getTrainPreparationInteractions(s){
   for(const kind of ['store','capsWire','holding','stable','loadout','readiness','review','workers','whyLater'])if(canCallExchange(s,kind))list.push(offer(s,`train:prepare-talk:${kind}`,({store:'Hear the four separate charge assignments',capsWire:'Discuss the separate tin, wire and tools',holding:'Confirm the actual holding watch',stable:'Arrange the stable duty after the watch changes',loadout:'Discuss the actual guns and remaining rounds',readiness:'Review readiness before Ruth departs',review:'Review the conserved load',workers:'Keep the workers distinct from company property',whyLater:'Revisit the possibility of a later hearing'})[kind],speakAnchor(kind),80));
   if(!p.work&&completed(p,'store')){
     for(const id of childIds)list.push(offer(s,`train:prepare-inspect:${id}`,`Inspect original bundle ${childIds.indexOf(id)+1}`,RIVAL_WORLD.camp.charges,75));
-    list.push(offer(s,'train:prepare-open-tin','Ask Ruth to open her original cap tin',RIVAL_WORLD.camp.charges),offer(s,'train:prepare-inspect-tin','Count the actual separate primer units',RIVAL_WORLD.camp.charges),offer(s,'train:prepare-issue-kit','Open Ruth’s actual wiring case with her',TRAIN_TOOL_CASE),offer(s,'train:prepare-inspect-kit','Count the actual wire and separate tools',TRAIN_TOOL_CASE));
+    const tin=rival(s).objects['cap-tin'],kit=record(s).train.powder.kit;
+    if(tin&&tin.openingEventId===undefined&&tin.primers===undefined)list.push(offer(s,'train:prepare-open-tin','Ask Ruth to open her original cap tin',RIVAL_WORLD.camp.charges));
+    if(tin?.openingEventId&&Array.isArray(tin.primers))list.push(offer(s,'train:prepare-inspect-tin','Count the actual separate primer units',RIVAL_WORLD.camp.charges));
+    if(Object.keys(kit).length===0)list.push(offer(s,'train:prepare-issue-kit','Open Ruth’s actual wiring case with her',TRAIN_TOOL_CASE));
+    if(TRAIN_KIT_IDS.every(id=>kit[id]))list.push(offer(s,'train:prepare-inspect-kit','Count the actual wire and separate tools',TRAIN_TOOL_CASE));
     const child=rival(s).objects[childIds[0]];
     if(child?.location.type==='crate'&&inspectedChildren(inspectionEvidence(s)))list.push(offer(s,'train:prepare-take-first','Take only the first original bundle out of the crate',RIVAL_WORLD.camp.charges));
     if(child?.sealed===true&&inspectedChildren(inspectionEvidence(s)))list.push(offer(s,'train:prepare-unseal-first','Ask Ruth to unseal only the assigned first bundle',s.entities.ruth));
@@ -136,7 +140,7 @@ export function getTrainPreparationInteractions(s){
     const guard=rival(s).captivity.guardId;if(held(s)&&['bastian','inez'].includes(guard))list.push(offer(s,`train:prepare-watch:${guard==='bastian'?'inez':'hob'}`,`Hand the actual holding watch to ${guard==='bastian'?'Inez':'Hob'}`,RIVAL_WORLD.camp.holding,65));
     if(rival(s).captivity.guardId!=='bastian')for(const id of ['mara-revolver','coach-gun','tern-carbine']){const ref=originalWeaponRef(id),w=s.weapons[id];if(w?.owner==='mara'&&s.entities.mara.equippedWeaponId!==id)list.push(offer(s,`train:prepare-lend:${id}`,`Offer Bastian the same ${w.name||id} as a temporary loan`,NORTH_CUTTING_WORLD.camp.chest));else if(activeRivalWeaponLoan(s,id))list.push(offer(s,`train:prepare-return:${id}`,`Take back the same ${w.name||id} with its remaining rounds`,NORTH_CUTTING_WORLD.camp.chest));}
     const mask=s.itemInstances[TRAIN_MASK_ID];
-    if(!mask)list.push(offer(s,'train:prepare-mask-issue','Ask Ada to hand over her one oilcloth windwrap',TRAIN_MASK_SOURCE));
+    if(!mask)list.push(offer(s,'train:prepare-mask-issue','Ask Ada to hand over her one oilcloth windwrap',{...TRAIN_MASK_SOURCE,z:0}));
     else{
       const target=mask.location.type==='saddle'?s.entities.copper:s.entities.mara;
       if(mask.location.type==='worn')list.push(offer(s,'train:prepare-mask-remove','Remove the same windwrap from your face',target));
@@ -246,8 +250,14 @@ export function validateTrainPreparation(s,proofOwners={}){
       if(!groups.has(e.exchangeId)){const prior=[...groups.values()].at(-1);if(prior&&prior.length!==TRAIN_PREPARATION_LINES[prior[0].kind].length)return false;groups.set(e.exchangeId,[]);}const group=groups.get(e.exchangeId);if(e.exchangeId!==`train-prepare-exchange-${groups.size}`||e.index!==group.length||group.length&&group[0].kind!==e.kind)return false;group.push(e);at=e.at;if(group.length===lines.length)finished.push({exchangeId:e.exchangeId,kind:e.kind,at:e.at});
     }
     if(!same(p.completed,finished))return false;
-    for(const event of rival(s).rival.continuation.events)if(event.workReceipt.startedAt>=p.startedAt&&!preparationOperationAllowed(s,event.operation,event.workReceipt.startedAt))return false;
-    for(const request of Object.values(rival(s).rival.continuation.requests))if(request.startedAt>=p.startedAt&&!preparationOperationAllowed(s,request.operation,request.startedAt))return false;
+    // A material-only component receipt is not a native camp-work proof. New
+    // work must additionally join its real deployed site through the fixed
+    // owning validator supplied by Train main. Older phase-two work which
+    // began before this actual declaration retains its original acceptance.
+    const inPreparationEpoch=at=>at>=p.startedAt&&(p.completedAt===null||at<p.completedAt);
+    for(const event of rival(s).rival.continuation.events)if(inPreparationEpoch(event.workReceipt.startedAt)&&(!preparationOperationAllowed(s,event.operation,event.workReceipt.startedAt)||!proofAccepted(proofOwners,'work',s,event.operation,event.workReceipt.startedAt)))return false;
+    for(const request of Object.values(rival(s).rival.continuation.requests))if(inPreparationEpoch(request.startedAt)&&(!preparationOperationAllowed(s,request.operation,request.startedAt)||!proofAccepted(proofOwners,'work',s,request.operation,request.startedAt)))return false;
+    for(const event of t.powder.physicalEvents)if(event.kind==='preparation-inspection-started'&&inPreparationEpoch(event.at)&&!proofAccepted(proofOwners,'work',s,event.data.operation,event.at))return false;
     if(p.exchange!==null){const x=p.exchange,group=groups.get(x.id)||[],lines=TRAIN_PREPARATION_LINES[x.kind];if(!keys(x,['id','kind','startedAt','cursor',...(Object.hasOwn(x,'awaitingSpeakers')?['awaitingSpeakers']:[])])||Object.hasOwn(x,'awaitingSpeakers')&&typeof x.awaitingSpeakers!=='boolean'||x.awaitingSpeakers&&(x.cursor!==0&&group.length===0||s.dialog?.id===`train-prepare-${x.kind}`)||!lines||!finite(x.startedAt)||x.startedAt<p.startedAt||x.startedAt>now||x.id!==`train-prepare-exchange-${p.exchangeSerial}`||x.cursor!==group.length||x.cursor>=lines.length||groups.size+(group.length?0:1)!==p.exchangeSerial||group.some(e=>e.at<x.startedAt))return false;}else if(groups.size!==p.exchangeSerial||[...groups.values()].some(group=>group.length!==TRAIN_PREPARATION_LINES[group[0].kind].length))return false;
     if(p.work!==null){
       const w=p.work;if(!validWork(w,p,now))return false;

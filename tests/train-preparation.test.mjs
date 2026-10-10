@@ -52,6 +52,7 @@ test('historical source revision resolves actual accepted custody prefixes and n
   f.approach('ruth',RIVAL_WORLD.camp.charges);const start=f.s.elapsed;assert.deepEqual(Custody.sourceForRevision(f.s,tinRef,0,start),before);f.complete(Powder.requestTinOpening(f.s,f.ctx));
   const event=f.s.campaign.missions[RIVAL_ID].rival.continuation.events[0],at=event.at;f.tick(.1);
   assert.deepEqual(Custody.sourceForRevision(f.s,tinRef,0,start),before);assert.equal(Custody.sourceForRevision(f.s,tinRef,1,start),null);assert.equal(Custody.sourceForRevision(f.s,tinRef,0,at+.01),null,'a strictly older prefix is stale after the actual event');
+  assert.equal(Custody.validCustodyRevision(f.s,0,start),true);assert.equal(Custody.validCustodyRevision(f.s,1,start),false);assert.equal(Custody.validCustodyRevision(f.s,-1,at),false);assert.equal(Custody.validCustodyRevision(f.s,999,at),false);assert.equal(Custody.validCustodyRevision(f.s,0,at+.01),false);assert.equal(Custody.validCustodyRevision(f.s,0,at),true,'same-clock prefix order remains legitimate');
   const opened=Custody.sourceForRevision(f.s,tinRef,1,at);assert.equal(opened.primers.length,6);opened.primers.length=0;assert.equal(Custody.sourceForRevision(f.s,tinRef,1,at).primers.length,6);assert.equal(Custody.sourceForRevision(f.s,tinRef,2,at),null);assert.equal(Custody.sourceForRevision(f.s,{sourceMissionId:RIVAL_ID,objectId:'invented-cap'},1,at),null);assert.equal(f.history(),true);
 });
 

@@ -31,13 +31,15 @@ export function worldToRig(rig,root,target){
  const base=rig._w([0,0,0]),origin=add(root,{x:base[0],y:base[1],z:base[2]}),unit=i=>{const a=[0,0,0];a[i]=1;const p=rig._w(a);return{x:p[0]-base[0],y:p[1]-base[1],z:p[2]-base[2]};},x=unit(0),y=unit(1),z=unit(2),v=sub(target,origin),det=dot(x,cross(y,z));
  if(Math.abs(det)<1e-8)throw new TypeError('Degenerate native joint transform');return[dot(v,cross(y,z))/det,dot(v,cross(z,x))/det,dot(v,cross(x,y))/det];
 }
-export function fitWorldLimb(E,rig,root,side,target,{leg=false,kind='contact'}={}){
+function validateElbowHint(hint){if(hint!==undefined&&hint!==null&&(!Array.isArray(hint)||hint.length!==3||!hint.every(Number.isFinite)))throw new TypeError('A finite local three-component elbow hint is required');}
+export function fitWorldLimb(E,rig,root,side,target,{leg=false,kind='contact',elbowHint=null}={}){
+ validateElbowHint(elbowHint);
  const local=worldToRig(rig,root,target),start=rig.J[(leg?'hip':'sh')+side],reach=leg?rig.o.legUpper+rig.o.legLower:rig.o.armUpper+rig.o.armLower,d=Math.hypot(...local.map((n,i)=>n-start[i]));
- solveLimb(E,rig,side,local,1,leg);const hit=rigWorldPoint(rig,root,(leg?'foot':'hand')+side);
+ solveLimb(E,rig,side,local,1,leg,elbowHint);const hit=rigWorldPoint(rig,root,(leg?'foot':'hand')+side);
  return{kind,side,leg,target:{...target},hit,error:length(sub(target,hit)),reachable:d<=reach+1e-6};
 }
 function contactKey(c){return(c.hand===false?'foot':'hand')+(c.side||'R');}
-function validateContacts(contacts){const seen=new Set();for(const c of contacts){const key=contactKey(c);if(seen.has(key))throw new TypeError('One native limb cannot hold simultaneous distinct contacts');seen.add(key);}}
+function validateContacts(contacts){const seen=new Set();for(const c of contacts){validateElbowHint(c.elbowHint);const key=contactKey(c);if(seen.has(key))throw new TypeError('One native limb cannot hold simultaneous distinct contacts');seen.add(key);}}
 function handBlock(body,c,freeHands){
  if(c.hand===false)return null;
  const side=c.side||'R';
@@ -45,7 +47,7 @@ function handBlock(body,c,freeHands){
  if(body.handInjury&&body.injured!==false&&!body.handInjury.recovered&&body.handInjury.side===(side==='R'?'right':'left'))return'injured-hand';
  return freeHands?null:'hands-occupied';
 }
-function fitContact(E,rig,root,body,c,freeHands){const blocked=handBlock(body,c,freeHands);return blocked?{kind:c.kind||'hand-contact',side:c.side||'R',leg:false,target:{...c.target},hit:rigWorldPoint(rig,root,'hand'+(c.side||'R')),error:Infinity,reachable:false,blocked}:fitWorldLimb(E,rig,root,c.side||'R',c.target,{leg:c.hand===false,kind:c.kind||'hand-contact'});}
+function fitContact(E,rig,root,body,c,freeHands){const blocked=handBlock(body,c,freeHands);return blocked?{kind:c.kind||'hand-contact',side:c.side||'R',leg:false,target:{...c.target},hit:rigWorldPoint(rig,root,'hand'+(c.side||'R')),error:Infinity,reachable:false,blocked}:fitWorldLimb(E,rig,root,c.side||'R',c.target,{leg:c.hand===false,kind:c.kind||'hand-contact',elbowHint:c.elbowHint});}
 function finalContacts(rig,root,diagnostics){for(const c of diagnostics){c.hit=rigWorldPoint(rig,root,(c.leg?'foot':'hand')+c.side);c.error=length(sub(c.target,c.hit));c.reachable=!!c.reachable&&!c.blocked&&c.error<=1e-5;}return diagnostics;}
 export function prepareTrainPose(E,h,body,platform,{contacts=[],freeHands=true}={}){
  validateContacts(contacts);

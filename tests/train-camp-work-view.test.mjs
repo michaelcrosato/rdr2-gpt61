@@ -3,6 +3,9 @@ import {Journey,clinicCompleteNative,moveNative,trainRecord,interactNative} from
 import {TRAIN_BRIEFING_APPROACHES,TRAIN_BRIEFING_HANDOFF_APPROACH} from '../content/campaign/train-camp.js';
 import {trainCampWorkContext,frameTrainCampWork,campWorkLogicalRect,createTrainCampWorkView} from '../src/train-camp-work-view.js';
 import {getTrainCampWorkPose} from '../src/train-camp-work.js';
+import {acceptedBriefingNative} from './helpers/train-preparation-route.mjs';
+import {TRAIN_STORE_MARA} from '../content/campaign/train-preparation-camp.js';
+import {getPreparationWorkPose} from '../src/train-preparation-work.js';
 const E=globalThis.My3D2dge;
 function wait(s,predicate){for(let i=0;!predicate()&&i<800;i++)Journey.stepCampaign(s,.05);assert.ok(predicate());}
 function setup(name){const s=clinicCompleteNative(name);moveNative(s,TRAIN_BRIEFING_APPROACHES.mara);Journey.campaignAction(s,'holster');interactNative(s,'train:brief-call');wait(s,()=>trainRecord(s).train.briefing.setup.acceptedSeconds>=.2);return s;}
@@ -38,4 +41,13 @@ test('normal accessible objective toggle retains full text, fits beside side con
  const doc={querySelector:selector=>elements.get(selector)||null,createElement:()=>element(),body:{classList:{toggle(name,on){on?classes.add(name):classes.delete(name);}}}},screen={W:320,H:568,S:1,dpr:1,OX:0,OY:0,canvas:{getBoundingClientRect:()=>({left:0,top:0})}},view=createTrainCampWorkView(doc);view.sync(s,{screen});const frame=view.frame(s,{view:E.VIEWS.threequarter,screen});assertFramed(trainCampWorkContext(s),frame,E.VIEWS.threequarter,320,568);assert.equal(frame.safeRect.right,204,'work fits beside actual right-side controls');
  const toggle=elements.get('#camp-objective-toggle');assert.equal(toggle.type,'button');assert.equal(toggle.attributes['aria-expanded'],'false');assert.equal(toggle.attributes['aria-controls'],'objective-text mission-detail mission-progress');toggle.listeners.click();assert.equal(toggle.attributes['aria-expanded'],'true');assert.ok(classes.has('camp-work-expanded'));assert.equal(JSON.stringify(s),before);
  const restored=Journey.restoreCampaign(Journey.serializeCampaign(s));assert.ok(restored);view.sync(restored,{screen});assert.equal(toggle.attributes['aria-expanded'],'false');assert.equal(JSON.stringify(s),before);
+});
+
+test('actual preparation work frames activated props and the same current native contact without changing the campaign',()=>{
+ const s=acceptedBriefingNative();moveNative(s,{x:790,y:1205});interactNative(s,'train:prepare-call');moveNative(s,TRAIN_STORE_MARA);interactNative(s,'train:prepare-talk:store');while(s.dialog)Journey.chooseCampaign(s,'train-prepare-next');interactNative(s,'train:prepare-inspect:quarry-sealed-charge-1');wait(s,()=>trainRecord(s).train.powder.pending.some(w=>w.kind==='inspect-child-seal'&&w.acceptedSeconds>0));
+ const before=JSON.stringify(s),context=trainCampWorkContext(s);assert.equal(context.key,'train-preparation:quarry-charge-worktop');assert.equal(context.phase,'inspectChild');assert.deepEqual(context.actorIds,['mara','ruth']);
+ for(const id of context.actorIds){const grip=getPreparationWorkPose(s,id).contact;assert.ok(context.points.some(p=>Math.hypot(p.x-grip.x,p.y-grip.y,p.z-grip.z)<1e-7));}
+ for(const[width,height,safeRect]of [[320,568,{left:12,right:204,top:204,bottom:378}],[384,512,{left:12,right:372,top:130,bottom:390}],[720,500,{left:12,right:708,top:110,bottom:430}]])assertFramed(context,frameTrainCampWork(context,{view:E.VIEWS.threequarter,width,height,safeRect}),E.VIEWS.threequarter,width,height);
+ const normal=E.VIEWS.threequarter,detail=new E.View('test-camp-detail','Camp detail',normal.yawDeg,normal.pitchDeg,normal.scale*1.35,normal.zBoost),frame=frameTrainCampWork(context,{view:detail,width:320,height:568,safeRect:{left:12,right:204,top:204,bottom:378}});assertFramed(context,frame,detail,320,568);assert.equal(detail.yawDeg,normal.yawDeg);assert.equal(detail.pitchDeg,normal.pitchDeg);
+ assert.equal(JSON.stringify(s),before);assert.ok(Journey.restoreCampaign(Journey.serializeCampaign(s)));
 });

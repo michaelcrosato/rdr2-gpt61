@@ -140,9 +140,9 @@ export function createBellwetherRenderer(game){
     for(const b of s.bullets||[])r.queue(b.x,b.y,b.z||32,g=>P.line(g,...r.w(b.x,b.y,b.z||32),...r.w(b.x-(b.vx||0)*.018,b.y-(b.vy||0)*.018,(b.z||32)-(b.vz||0)*.018),'#e2ce9c',2));overlay(r,s);
   },inspectAnimation:()=>actors.inspect()};
 }
-export function createRivalCampPresentation(game){
+export function createRivalCampPresentation(game,{skipProp=()=>false}={}){
   const actors=createRivalActors(E,game);let clock=0;
   return{update(dt,s){if(!game.reduceMotion)clock+=dt;actors.update(dt,s);},draw(r,s){
-    const camp=WORLD.camp||{};architecture(r,s,camp);const placed=new Set();for(const p of rows(camp.props)){const key=`${p.kind}:${p.x}:${p.y}`;if(placed.has(key))continue;placed.add(key);prop(r,p,s,clock);}actors.draw(r,s);if(s.campaign?.activeMissionId==='snowbound-the-names-they-took')overlay(r,s);
+    const camp=WORLD.camp||{};architecture(r,s,camp);const placed=new Set();for(const p of rows(camp.props)){const key=`${p.kind}:${p.x}:${p.y}`;if(placed.has(key)||skipProp(s,p))continue;placed.add(key);prop(r,p,s,clock);}actors.draw(r,s);if(s.campaign?.activeMissionId==='snowbound-the-names-they-took')overlay(r,s);
   },inspect:()=>actors.inspect()};
 }

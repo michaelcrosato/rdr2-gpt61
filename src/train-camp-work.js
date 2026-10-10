@@ -10,7 +10,8 @@ import {powderFixedContactRoles,validatePowderCustodyCause} from './train-powder
 import {TRAIN_PREPARATION_SOLIDS} from '../content/campaign/train-preparation-camp.js';
 const point=a=>({x:a.x,y:a.y,z:a.z||0}),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z),mix=(a,b,t)=>({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t});
 const presentation=new WeakMap(),worlds=new WeakMap();
-const bodyStamp=a=>JSON.stringify([a.x,a.y,a.z,a.facing,a.pose,a.crouch,a.mounted,a.hp,a.handInjury,a.injured,a.toolHeld,a.holstered,a.carrying,a.weaponAction,a.attachment,a.reloadTimer,a.reloadWeaponId]);
+const bodyStamp=a=>JSON.stringify([a.x,a.y,a.z,a.vx,a.vy,a.facing,a.pose,a.crouch,a.mounted,a.hp,a.handInjury,a.injured,a.toolHeld,a.holstered,a.carrying,a.weaponAction,a.attachment,a.reloadTimer,a.reloadWeaponId]);
+function idleOffset(id){let value=2166136261;for(const ch of id)value=Math.imul(value^ch.charCodeAt(0),16777619)>>>0;return(value%1000)/100;}
 export function worldForTrainCamp(s,base){
   if(base?.id!=='snowbound')return base;
   const train=s.campaign?.missions?.[TRAIN_ID]?.train,table=train?.briefing?.setup?.finishedAt!=null,sites=train?.preparationVersion===1?train.preparation?.campSetup?.sites:null,props=TRAIN_PREPARATION_SOLIDS.filter(p=>sites&&Object.hasOwn(sites,p.id));if(!table&&!props.length)return base;
@@ -38,14 +39,20 @@ export function createTrainCampWorkProvider(E,worldFor){
   const occupants=s=>Object.values(s.entities).filter(a=>a.regionId==='snowbound'&&!a.hidden&&!a.departed&&['npc','player','enemy','mount','animal'].includes(a.category)).map(a=>({id:a.id,...point(a),radius:a.category==='mount'?13:9,height:53}));
   function handFree(s,id){const a=s.entities[id];return !!a&&a.hp>0&&!a.mounted&&!a.attachment&&!a.carrying&&!a.toolHeld&&!a.weaponAction&&!(a.reloadTimer>0)&&a.holstered!==false;}
   function handUsable(s,id){const a=s.entities[id];return !!a&&!(a.handInjury&&a.injured!==false&&!a.handInjury.recovered&&a.handInjury.side==='right');}
-  function native(s,id,target=null){
+  function native(s,id,target=null,{elbowHint=null}={}){
+    if(elbowHint!==null&&(!Array.isArray(elbowHint)||elbowHint.length!==3||!elbowHint.every(Number.isFinite)))throw new TypeError('A finite local three-component elbow hint is required');
     const body=s.entities[id];if(!body)return null;const humans=cache(s).humans;let entry=humans.get(id);
     if(!entry||entry.body!==body){entry={body,human:createTrainHuman(E,body),at:null,target:null,joints:null};humans.set(id,entry);}
-    const key=JSON.stringify(target),stamp=bodyStamp(body);if(entry.at===s.elapsed&&entry.target===key&&entry.stamp===stamp)return entry;
-    const dt=entry.at===null?0:Math.max(0,Math.min(.1,s.elapsed-entry.at));if(entry.at!==s.elapsed||entry.stamp!==stamp)entry.human.rig.update(dt,{...body,pose:body.id==='silas'&&body.attachment?.type==='rest'||body.id==='gideon'&&body.injured?'down':body.pose||(body.crouch?'crouch':null)});
-    physicalProjection(E,()=>{const pose=prepareTrainPose(E,entry.human,body,null,{contacts:target?[{side:'R',kind:'camp-work',target}]:[],freeHands:handFree(s,id)});
+    const key=JSON.stringify(target),hintKey=JSON.stringify(elbowHint),stamp=bodyStamp(body);if(entry.at===s.elapsed&&entry.target===key&&entry.hintKey===hintKey&&entry.stamp===stamp)return entry;
+    const dt=entry.at===null?0:Math.max(0,Math.min(.1,s.elapsed-entry.at));if(entry.at!==s.elapsed||entry.stamp!==stamp){
+      // This skeleton supplies physical contact, so constructor randomness or
+      // a gap in cache use cannot choose a different idle shoulder on reload.
+      entry.human.rig.t=s.elapsed+idleOffset(id)-dt;
+      entry.human.rig.update(dt,{...body,pose:body.id==='silas'&&body.attachment?.type==='rest'||body.id==='gideon'&&body.injured?'down':body.pose||(body.crouch?'crouch':null)});
+    }
+    physicalProjection(E,()=>{const pose=prepareTrainPose(E,entry.human,body,null,{contacts:target?[{side:'R',kind:'camp-work',target,elbowHint}]:[],freeHands:handFree(s,id)});
       try{entry.joints=['shR','elbowR','handR'].map(j=>rigWorldPoint(entry.human.rig,pose.root,j));entry.reachable=pose.diagnostics.every(c=>c.reachable&&c.error<1e-5);entry.usable=handUsable(s,id)&&pose.diagnostics.every(c=>!c.blocked);}finally{pose.restore();}});
-    entry.at=s.elapsed;entry.target=key;entry.stamp=stamp;entry.contact=target&&{...target};return entry;
+    entry.at=s.elapsed;entry.target=key;entry.hintKey=hintKey;entry.stamp=stamp;entry.contact=target&&{...target};entry.contactHint=elbowHint&&[...elbowHint];return entry;
   }
   function fixedContact(s,id){
     const paper=Object.values(PAPERS).find(p=>p.id===id);if(paper&&s.campaign.missions[TRAIN_ID].train.briefing?.setup.finishedAt!=null)return point(paper);

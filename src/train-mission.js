@@ -10,6 +10,8 @@ import {createTrainCampWorkProvider} from './train-camp-work.js';
 import * as Briefing from './train-briefing.js';
 import * as Preparation from './train-preparation.js';
 import {TRAIN_GEAR_DEFINITIONS,validateTrainGear} from './train-gear.js';
+import {createTrainPreparationWorkProvider,PREPARATION_PROOF_OWNERS} from './train-preparation-work.js';
+import {stepPreparationCampSetup} from './train-preparation-layout.js';
 export {worldForTrainCamp} from './train-camp-work.js';
 import {blockedAt,moveActor} from './campaign-navigation.js';
 import {requestTrainReload,stepTrainReload} from './train-combat.js';
@@ -41,7 +43,7 @@ function exact(value,shape){
 }
 export function validateTrainRecord(s){
   const r=s?.campaign?.missions?.[TRAIN_ID];
-  if(r?.train?.runtimeVersion!==undefined)return validateTrainRuntime(s)&&validateTrainGear(s);
+  if(r?.train?.runtimeVersion!==undefined)return validateTrainRuntime(s,{preparation:PREPARATION_PROOF_OWNERS})&&validateTrainGear(s);
   if(!object(r)||!['locked','unstarted'].includes(r.status)||s.campaign.activeMissionId===TRAIN_ID)return false;
   const expected=createTrainRecord();expected.status=r.status;
   if(!exact(r,expected)||TRAIN_ENTITY_IDS.some(id=>Object.hasOwn(s.entities||{},id)))return false;
@@ -49,16 +51,18 @@ export function validateTrainRecord(s){
 }
 export function validateTrainEntitySupport(s,actor){return actor?.support==null;}
 export function ensureTrainCast(s){return s;}
-const clinicProviders=new WeakMap(),campProviders=new WeakMap(),active=s=>s.campaign?.activeMissionId===TRAIN_ID,record=s=>s.campaign.missions[TRAIN_ID],position=a=>({x:a.x,y:a.y,z:a.z||0});
+const clinicProviders=new WeakMap(),campProviders=new WeakMap(),preparationProviders=new WeakMap(),active=s=>s.campaign?.activeMissionId===TRAIN_ID,record=s=>s.campaign.missions[TRAIN_ID],position=a=>({x:a.x,y:a.y,z:a.z||0});
 const near=(a,b,r)=>a&&b&&Math.abs((a.z||0)-(b.z||0))<8&&Math.hypot(a.x-b.x,a.y-b.y)<=r;
 function clinicContext(s,ctx){
   if(typeof ctx.clinicBottleContact==='function')return ctx;
   if(!clinicProviders.has(s))clinicProviders.set(s,createClinicBottleContactProvider(globalThis.My3D2dge,ctx.worldFor));
   return{...ctx,clinicBottleContact:clinicProviders.get(s)};
 }
-function campContext(s,ctx){
+function campContext(s,ctx,dt=0){
   if(!campProviders.has(s))campProviders.set(s,createTrainCampWorkProvider(globalThis.My3D2dge,ctx.worldFor));
-  return{...ctx,...campProviders.get(s)};
+  const base={...ctx,...campProviders.get(s)};
+  if(!preparationProviders.has(s))preparationProviders.set(s,createTrainPreparationWorkProvider(globalThis.My3D2dge,ctx.worldFor));
+  return preparationProviders.get(s).context(s,base,dt);
 }
 /** Native first-scene entry. Public availability remains false until the whole
  * twenty-scene operation exists. This has ordinary prerequisites/proximity,
@@ -112,7 +116,7 @@ export function stepTrain(s,dt,input={},ctx){
   s.stats.distance+=Math.hypot(p.x-before.x,p.y-before.y);p.stamina=Math.max(0,Math.min(100,p.stamina+(sprint?-8:5)*dt));p.shotTimer=Math.max(0,(p.shotTimer||0)-dt);stepTrainReload(s,'mara',dt);
   stepTrainPrelude(s,dt,clinicContext(s,ctx));
   if(r.train.briefingVersion===1)Briefing.stepTrainBriefing(s,dt,campContext(s,ctx));
-  if(r.train.preparationVersion===1)Preparation.stepTrainPreparation(s,dt,campContext(s,ctx));
+  if(r.train.preparationVersion===1){stepPreparationCampSetup(s,dt,ctx);Preparation.stepTrainPreparation(s,dt,campContext(s,ctx,dt));}
   if(r.mission.stage===0&&trainClinicComplete(s)){r.mission.stage=1;r.mission.objective=TRAIN_STAGES[1];r.train.chronicle.stageEvents.push({fromStage:0,toStage:1,at:s.elapsed,cause:'clinic-complete'});ctx.checkpoint(s,'train-clinic-complete','Separate bedside exchanges and the actual bottle setdown completed');}
   return s;
 }

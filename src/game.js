@@ -36,6 +36,7 @@ const game = new E.Game({ canvas: 'screen', view: 'threequarter', views: ['three
 const campWorkView=createTrainCampWorkView(document);
 const normalView = E.VIEWS.threequarter;
 const sightglassView = new E.View('rival-sightglass','Quarry sightglass',normalView.yawDeg,normalView.pitchDeg,normalView.scale,normalView.zBoost);
+const campDetailView = new E.View('train-camp-detail','Camp preparation',normalView.yawDeg,normalView.pitchDeg,normalView.scale*1.35,normalView.zBoost);
 const snowboundAudio = createSnowboundAudio(game.audio);
 let state = Sim.createState(requestedMode), started = false, activePanel = '', previousDialog = null;
 const renderers = new Map();
@@ -45,6 +46,8 @@ function rendererForState() {
   return renderers.get(id);
 }
 let world = rendererForState();
+// Read-only rendered-frame diagnostics; never exposes a mutable journey.
+game.inspectTrainCampPresentation=()=>state.region==='snowbound'?renderers.get('snowbound')?.inspectTrainCampAnimation()??null:null;
 let renderedRegion = state.region;
 const progressKey = () => `${state.region}:${state.mission.id}:${state.mission.stage}:${state.mission.completed}`;
 let uiClock = 0, saveClock = 0, lastProgress = progressKey(), noticeText = '', statusTimer, previousShopSnapshot = '';
@@ -379,7 +382,7 @@ function updateUI() {
   $('holster-label').textContent = state.player.holstered ? 'Draw' : 'Holster';
   document.querySelectorAll('[data-story-action]').forEach(el => { el.hidden = el.dataset.storyAction === 'nearby-actions' ? state.mission.id !== RIVAL_ID && !state.campaign?.missions[RIVAL_ID] || !Sim.getInteractions(state).some(a=>a.id.startsWith('rival')) && state.mission.id !== RIVAL_ID : el.dataset.storyAction.startsWith('scope:') ? !state.scope?.raised : el.dataset.storyAction === 'cancel-rope' ? state.mission.id!==RIVAL_ID || state.mission.stage!==10 || !['flying','taut'].includes(rope?.phase) : el.dataset.storyAction === 'cancel-bow' ? !bowEquipped() || !state.bow?.drawing : el.dataset.storyAction !== 'holster' && !melee; el.disabled = el.dataset.storyAction === 'holster' && state.player.weaponOwned === false; });
   const nearbyButton=document.querySelector('[data-story-action="nearby-actions"]');
-  if(campaign&&Sim.getInteractions(state).some(a=>a.id.startsWith('holding:')))nearbyButton.hidden=false;
+  if(campaign&&Sim.getInteractions(state).some(a=>a.id.startsWith('holding:')||state.mission.id===TRAIN_ID&&a.id.startsWith('train:')))nearbyButton.hidden=false;
   document.body.classList.toggle('expanded-actions',!nearbyButton.hidden);
   const interaction = Sim.getInteraction(state);
   $('interact').hidden = !interaction || !!state.dialog || !!activePanel;
@@ -506,7 +509,7 @@ game.start({
     const desiredScale = normalView.scale * (looking ? state.scope.zoom : 1);
     if(looking && (game.view !== sightglassView || Math.abs(game.view.scale-desiredScale)>1e-8)){
       sightglassView.set(normalView.yawDeg,normalView.pitchDeg,desiredScale,normalView.zBoost);game.setView(sightglassView);
-    }else if(!looking && game.view !== normalView)game.setView(normalView);
+    }else if(!looking){const detail=campWorkView.frame(state,{view:campDetailView,screen:game.screen}),view=detail?.fits&&detail.context.startsWith('train-preparation:')?campDetailView:normalView;if(game.view!==view)game.setView(view);}
     if (game.input.pressed('pause')) {
       if (state.dialog) { if (state.dialog.choices.some(c => c.id === 'leave')) chooseOption('leave'); }
       else if (activePanel) closePanel(); else openPanel('menu');

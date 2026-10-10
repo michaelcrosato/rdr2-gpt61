@@ -4,12 +4,28 @@ import {TRAIN_ID} from '../content/campaign/brass-cutting.js';
 import {RIVAL_ID} from '../content/campaign/bellwether-works.js';
 import {TRAIN_BRIEFING_TABLE as TABLE,TRAIN_BRIEFING_PAPER_CONTACTS as PAPERS} from '../content/campaign/train-camp.js';
 import {activeTrainCampWorkPose} from './train-camp-presentation.js';
+import {TRAIN_PREPARATION_SOLIDS} from '../content/campaign/train-preparation-camp.js';
+import {getPreparationWorkPose} from './train-preparation-work.js';
 const finite=Number.isFinite,point=p=>p&&['x','y','z'].every(k=>finite(p[k]));
 const root=a=>({x:a.x,y:a.y,z:a.z||0});
 
+function preparationContext(s,r,p){
+ const prep=r.train.preparation;if(r.mission.stage!==2||r.train.preparationVersion!==1||!prep)return null;
+ const requested=prep.work&&({inspectChild:'quarry-charge-worktop',openTin:'quarry-charge-worktop',inspectTin:'quarry-charge-worktop',issueKit:'ruth-wiring-case-stand',inspectKit:'ruth-wiring-case-stand',issueMask:'ada-mending-worktop'})[prep.work.kind];if(prep.work&&!requested)return null;
+ const candidates=TRAIN_PREPARATION_SOLIDS.filter(site=>prep.campSetup?.sites?.[site.id]&&(!requested||site.id===requested)).map(site=>({site,distance:Math.hypot(p.x-site.x-site.w/2,p.y-site.y-site.h/2)})).filter(row=>row.distance<=110).sort((a,b)=>a.distance-b.distance),site=candidates[0]?.site;if(!site)return null;
+ const mask=site.id==='ada-mending-worktop',ids=mask?['mara','ada']:['mara','ruth'],participants=ids.map(id=>s.entities[id]).filter(a=>a&&a.hp>0&&!a.hidden&&!a.departed&&a.regionId==='snowbound'&&point(root(a))&&Math.hypot(a.x-site.x-site.w/2,a.y-site.y-site.h/2)<=150),points=[];
+ for(const x of[site.x,site.x+site.w])for(const y of[site.y,site.y+site.h])for(const z of[site.z,site.z+site.height+16])points.push({x,y,z});
+ for(const a of participants){points.push(root(a),{x:a.x,y:a.y,z:(a.z||0)+66});const work=getPreparationWorkPose(s,a.id);if(work?.contact)points.push({...work.contact});}
+ let caption=mask?'Ask Ada about the windwrap.':site.id==='quarry-charge-worktop'?'Inspect each numbered bundle and the separate tin.':'Open and count Ruth’s actual wiring case.';
+ if(prep.work)caption=prep.work.kind==='inspectChild'?`Inspect original bundle ${prep.work.args.objectId.slice(-1)} with Ruth.`:({openTin:'Let Ruth open her one cap tin.',inspectTin:'Count the actual units in the separate tin.',issueKit:'Open Ruth’s case together.',inspectKit:'Count the wire and separate tools.',issueMask:'Meet Ada’s hands above the mending basket.'})[prep.work.kind]||'Finish the current preparation work.';
+ return{key:`train-preparation:${site.id}`,phase:prep.work?.kind||'preparation',caption:(s.replayCanonical?'Mission replay · ':'')+caption,actorIds:participants.map(a=>a.id),points};
+}
+
 export function trainCampWorkContext(s){
  const r=s?.campaign?.missions?.[TRAIN_ID],b=r?.train?.briefing,p=s?.entities?.mara;
- if(s?.campaign?.activeMissionId!==TRAIN_ID||s.region!=='snowbound'||s.failure||r.mission.stage!==1||r.train.briefingVersion!==1||!b||!p||p.hp<=0||!point(root(p))||Math.hypot(p.x-TABLE.x,p.y-TABLE.y)>150)return null;
+ if(s?.campaign?.activeMissionId!==TRAIN_ID||s.region!=='snowbound'||s.failure||!p||p.hp<=0||!point(root(p)))return null;
+ if(r.mission.stage===2)return preparationContext(s,r,p);
+ if(r.mission.stage!==1||r.train.briefingVersion!==1||!b||Math.hypot(p.x-TABLE.x,p.y-TABLE.y)>150)return null;
  const participants=['mara','tomas','della'].map(id=>s.entities[id]).filter(a=>a&&a.hp>0&&!a.hidden&&!a.departed&&a.regionId==='snowbound'&&point(root(a))&&Math.hypot(a.x-TABLE.x,a.y-TABLE.y)<=150);
  const points=[];
  for(const x of[-TABLE.width/2,TABLE.width/2])for(const y of[-TABLE.depth/2,TABLE.depth/2])for(const z of[0,TABLE.height])points.push({x:TABLE.x+x,y:TABLE.y+y,z:TABLE.z+z});
