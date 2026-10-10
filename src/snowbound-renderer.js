@@ -8,7 +8,8 @@ import { createRivalCampPresentation } from './bellwether-renderer.js';
 import { ownsRivalActor, isRivalPresentation } from './rival-actors.js';
 import { createWillowCampPresentation } from './willow-run-renderer.js';
 import { ownsWillowActor, isHuntPresentation } from './willow-run-actors.js';
-import {createTrainCampPresentation,ownsTrainCampActor} from './train-camp-presentation.js';
+import {createTrainCampPresentation,ownsTrainCampActor,ownsPreparationCampProp} from './train-camp-presentation.js';
+import {trainCampWorkContext} from './train-camp-work-view.js';
 
 const E = globalThis.My3D2dge;
 const P = E.px;
@@ -101,13 +102,18 @@ function treeScenery() {
   return props;
 }
 
-function drawTree(r, p, clock, player) {
+/** The existing foreground fade also protects the actual active work points.
+ * These are presentation targets only; foliage remains in the same world. */
+export function shouldFadeSnowboundTree(r,p,targets){
+  const[x,y]=r.w(p.x,p.y,0),s=p.size;
+  return targets.some(point=>{const target=r.w(point.x,point.y,point.z||0);return y>target[1]&&y-130*s<target[1]&&Math.abs(x-target[0])<40*s;});
+}
+function drawTree(r, p, clock, targets) {
   if (!r.visible(p.x, p.y, 0, 65, 165, 65)) return;
   r.shadow(p.x, p.y, 18 * p.size, .18, '#526f71');
   r.queue(p.x, p.y, 0, g => {
     const [x, y] = r.w(p.x, p.y, 0), s = p.size, sway = Math.sin(clock * .6 + p.seed) * s;
-    const target = player ? r.w(player.x, player.y, 0) : null;
-    const fade = target && y > target[1] && y - 130 * s < target[1] && Math.abs(x - target[0]) < 40 * s;
+    const fade = shouldFadeSnowboundTree(r,p,targets);
     if (fade) { g.save(); g.globalAlpha *= .3; }
     if (p.kind === 'rock') {
       P.poly(g, [[x - 20 * s, y], [x - 13 * s, y - 23 * s], [x + 6 * s, y - 30 * s], [x + 24 * s, y - 4 * s]], '#7a9190');
@@ -547,7 +553,7 @@ export function createSnowboundRenderer(game) {
   const expedition = createExpeditionActors(E, game);
   const restingPatient=createExpeditionActors(E,game),patientViews=new WeakMap(),otherViews=new WeakMap();
   const willow = createWillowCampPresentation(game);
-  const rival = createRivalCampPresentation(game);
+  const rival = createRivalCampPresentation(game,{skipProp:ownsPreparationCampProp});
   const trainCamp=createTrainCampPresentation(E,{reduceMotion:()=>game.reduceMotion}),trainViews=new WeakMap();
   function withoutTrain(state){
     if(!state.entities||!Object.values(state.entities).some(body=>ownsTrainCampActor(state,body)))return state;
@@ -793,7 +799,8 @@ export function createSnowboundRenderer(game) {
     for (const b of buildings()) drawFloor(r, b);
     drawExpeditionCamp(E,r,state);
     g.restore();
-    for (const p of scenery) if (!(state.entities?.elin && p.x > 250 && p.x < 510 && p.y > 1140 && p.y < 1370) && !(state.entities?.orla && p.x > 20 && p.x < 300 && p.y > 1100 && p.y < 1400) && r.w(p.x, p.y, 0)[1] >= horizon) drawTree(r, p, clock, state.player);
+    const treeTargets=[...(state.player?[{x:state.player.x,y:state.player.y,z:0}]:[]),...(trainCampWorkContext(state)?.points||[])];
+    for (const p of scenery) if (!(state.entities?.elin && p.x > 250 && p.x < 510 && p.y > 1140 && p.y < 1370) && !(state.entities?.orla && p.x > 20 && p.x < 300 && p.y > 1100 && p.y < 1400) && r.w(p.x, p.y, 0)[1] >= horizon) drawTree(r, p, clock, treeTargets);
     const roofState = animation.carry(state) && !state.player.carrying ? { ...state, player: { ...state.player, carrying: 'gideon' } } : state;
     for (const o of obstacles()) {
       if (r.w(o.x + o.w / 2, o.y + o.h, 0)[1] < horizon) continue;

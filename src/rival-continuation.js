@@ -345,15 +345,19 @@ export function rivalHistoricalValidationState(s){
  * Equal-time events have an order; a later event strictly before at means the
  * requested revision is stale for that time and cannot be used as evidence.
  */
+export function validCustodyRevision(s,revision,at){
+  const c=stateOf(s);
+  return usesRivalContinuation(s)&&Array.isArray(c?.events)&&Number.isSafeInteger(revision)&&revision>=0&&revision<=c.events.length&&Number.isFinite(at)&&at>=0&&at<=s.elapsed&&!c.events.slice(0,revision).some(e=>!Number.isFinite(e?.at)||e.at>at)&&!c.events.slice(revision).some(e=>!Number.isFinite(e?.at)||e.at<at);
+}
 export function sourceForRevision(s,reference,revision,at){
   try{
-    const c=stateOf(s);if(!usesRivalContinuation(s)||isOriginalWeaponRef(reference)||!referenceKnown(reference)||!Number.isSafeInteger(revision)||revision<0||revision>c.events.length||!Number.isFinite(at)||at<0||at>s.elapsed||c.events.slice(0,revision).some(e=>e.at>at)||c.events.slice(revision).some(e=>e.at<at))return null;
+    const c=stateOf(s);if(!validCustodyRevision(s,revision,at)||isOriginalWeaponRef(reference)||!referenceKnown(reference))return null;
     const model=c.baseline?{objects:copy(c.baseline.objects),kit:copy(c.baseline.kit),gear:{}}:{objects:copy(rec(s).objects),kit:copy(powder(s)?.kit||{}),gear:{}};
     for(const event of c.events.slice(0,revision))for(const effect of event.effects){const map=isTrainGearRef(effect.ref)?model.gear:effect.ref.sourceMissionId===RIVAL_ID?model.objects:effect.ref.sourceMissionId===TRAIN_ID?model.kit:null;if(!map)return null;if(effect.after===null)delete map[effect.ref.objectId];else map[effect.ref.objectId]=copy(effect.after);}
     const item=modelObject(model,reference);return item?copy(item):null;
   }catch{return null;}
 }
-export function custodyValidationLinks(s){return{requestFor:id=>inspectCustodyRequest(s,id),eventFor:id=>{const event=stateOf(s)?.events.find(event=>event.id===id);return event?copy(event):null;},sourceForRevision:(ref,revision,at)=>sourceForRevision(s,ref,revision,at)};}
+export function custodyValidationLinks(s){return{requestFor:id=>inspectCustodyRequest(s,id),eventFor:id=>{const event=stateOf(s)?.events.find(event=>event.id===id);return event?copy(event):null;},sourceForRevision:(ref,revision,at)=>sourceForRevision(s,ref,revision,at),validRevision:(revision,at)=>validCustodyRevision(s,revision,at)};}
 export function validateRivalContinuation(s){
   try{
     if(!usesRivalContinuation(s))return false;
