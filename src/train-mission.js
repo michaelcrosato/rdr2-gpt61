@@ -16,6 +16,7 @@ import {createPreparationMaskProvider} from './train-preparation-mask.js';
 import {getPreparationStableInteractions,beginPreparationStable,stepPreparationStable} from './train-preparation-stable.js';
 import {beginPreparationCopperRecovery,stepPreparationCopperRecovery} from './train-preparation-copper-recovery.js';
 import {getTrainStableCareInteractions,beginTrainStableCare,stepTrainStableCare} from './train-stable-care.js';
+import {advancePreparationGroundMotion} from './train-preparation-ground-motion.js';
 export {worldForTrainCamp} from './train-camp-work.js';
 import {blockedAt,moveActor} from './campaign-navigation.js';
 import * as CampNavigation from './train-preparation-navigation.js';
@@ -143,6 +144,7 @@ export function stepTrain(s,dt,input={},ctx){
   // accepted frame with unchanged free feet is stopped, regardless of that
   // old route. Moving/attached bodies retain their own controller's velocity.
   for(const {body,point}of stationary)if(s.entities[body.id]===body&&!body.attachment&&!body.mounted&&!body.support&&body.x===point.x&&body.y===point.y&&(body.z||0)===point.z){body.vx=0;body.vy=0;}
+  if(r.train.preparation?.groundMotion&&!advancePreparationGroundMotion(s))throw new TypeError('Accepted native preparation ground motion could not advance');
   return s;
 }
 export function advanceTrainWorldWork(s,dt,ctx){if(!record(s)?.train?.powder||!Number.isFinite(dt)||dt<=0)return false;const workContext=s.region==='snowbound'?campContext(s,ctx):ctx;Powder.stepPowderWork(s,dt,workContext,{paused:false});Powder.advancePowderFuses(s,workContext,{paused:false});return true;}

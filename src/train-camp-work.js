@@ -5,6 +5,7 @@ import {TRAIN_ID} from '../content/campaign/brass-cutting.js';
 import {RIVAL_ID,RIVAL_WORLD} from '../content/campaign/bellwether-works.js';
 import {TRAIN_BRIEFING_TABLE as TABLE,TRAIN_BRIEFING_TABLE_SOLID as SOLID,TRAIN_BRIEFING_SETUP_APPROACHES as SETUP,TRAIN_BRIEFING_PAPER_CONTACTS as PAPERS} from '../content/campaign/train-camp.js';
 import {createTrainHuman,prepareTrainPose,physicalProjection,rigWorldPoint} from './train-native/rigs.js';
+import {preparationGroundMotionHuman} from './train-preparation-ground-motion.js';
 import {resolveFixedRef,inspectCustodyRequest} from './rival-continuation.js';
 import {powderFixedContactRoles,validatePowderCustodyCause} from './train-powder.js';
 import {TRAIN_PREPARATION_SOLIDS} from '../content/campaign/train-preparation-camp.js';
@@ -65,7 +66,7 @@ export function createTrainCampWorkProvider(E,worldFor,{nativeArmIntervals=false
   }
   function cache(s){let c=states.get(s);if(!c){c={humans:new Map(),windows:new Map(),setupRoots:null};states.set(s,c);presentation.set(s,c.humans);}return c;}
   const occupants=s=>Object.values(s.entities).filter(a=>a.regionId==='snowbound'&&!a.hidden&&!a.departed&&['npc','player','enemy','mount','animal'].includes(a.category)).map(a=>({id:a.id,...point(a),radius:a.category==='mount'?13:9,height:53}));
-  function handFree(s,id){const a=s.entities[id];return !!a&&a.hp>0&&!a.mounted&&!a.attachment&&!a.carrying&&!a.toolHeld&&!a.weaponAction&&!(a.reloadTimer>0)&&a.holstered!==false;}
+  function handFree(s,id){const a=s.entities[id],owned=s.campaign?.missions?.[TRAIN_ID]?.train?.preparation?.groundMotion?.actors?.[id];return !!a&&a.hp>0&&!a.mounted&&!a.attachment&&!a.carrying&&!a.toolHeld&&!a.weaponAction&&!(a.reloadTimer>0)&&a.holstered!==false&&(!owned||!!preparationGroundMotionHuman(s,id,E));}
   function handUsable(s,id){const a=s.entities[id];return !!a&&!(a.handInjury&&a.injured!==false&&!a.handInjury.recovered&&a.handInjury.side==='right');}
   function native(s,id,target=null,{elbowHint=null}={}){
     if(elbowHint!==null&&(!Array.isArray(elbowHint)||elbowHint.length!==3||!elbowHint.every(Number.isFinite)))throw new TypeError('A finite local three-component elbow hint is required');
@@ -79,8 +80,9 @@ export function createTrainCampWorkProvider(E,worldFor,{nativeArmIntervals=false
       rig.poseW={cheer:0,cast:0,guard:0,kneel:0,crouch:0,wave:0,hips:0,block:0};if(Object.hasOwn(rig.poseW,pose))rig.poseW[pose]=1;rig.downW=pose==='down'?1:0;
       humans.set(id,entry);
     }
-    const key=JSON.stringify(target),hintKey=JSON.stringify(elbowHint),stamp=bodyStamp(body);if(entry.at===s.elapsed&&entry.target===key&&entry.hintKey===hintKey&&entry.stamp===stamp)return entry;
-    const dt=entry.at===null?0:Math.max(0,Math.min(.1,s.elapsed-entry.at));if(entry.at!==s.elapsed||entry.stamp!==stamp){
+    const owned=preparationGroundMotionHuman(s,id,E);
+    const key=JSON.stringify(target),hintKey=JSON.stringify(elbowHint),stamp=bodyStamp(body);if(entry.at===s.elapsed&&entry.target===key&&entry.hintKey===hintKey&&entry.stamp===stamp&&(owned?entry.human===owned.human:!entry.owned))return entry;
+    const dt=entry.at===null?0:Math.max(0,Math.min(.1,s.elapsed-entry.at));if(owned){entry.human=owned.human;}else if(entry.at!==s.elapsed||entry.stamp!==stamp){
       // This skeleton supplies physical contact, so constructor randomness or
       // a gap in cache use cannot choose a different idle shoulder on reload.
       entry.human.rig.t=s.elapsed+idleOffset(id)-dt;
@@ -91,7 +93,7 @@ export function createTrainCampWorkProvider(E,worldFor,{nativeArmIntervals=false
     }
     physicalProjection(E,()=>{const pose=prepareTrainPose(E,entry.human,body,null,{contacts:target?[{side:'R',kind:'camp-work',target,elbowHint}]:[],freeHands:handFree(s,id)});
       try{entry.joints=['shR','elbowR','handR'].map(j=>rigWorldPoint(entry.human.rig,pose.root,j));entry.reachable=pose.diagnostics.every(c=>c.reachable&&c.error<1e-5);entry.usable=handUsable(s,id)&&pose.diagnostics.every(c=>!c.blocked);}finally{pose.restore();}});
-    entry.at=s.elapsed;entry.target=key;entry.hintKey=hintKey;entry.stamp=stamp;entry.contact=target&&{...target};entry.contactHint=elbowHint&&[...elbowHint];return entry;
+    entry.at=s.elapsed;entry.target=key;entry.hintKey=hintKey;entry.stamp=stamp;entry.owned=!!owned;entry.contact=target&&{...target};entry.contactHint=elbowHint&&[...elbowHint];return entry;
   }
   function fixedContact(s,id){
     const paper=Object.values(PAPERS).find(p=>p.id===id);if(paper&&s.campaign.missions[TRAIN_ID].train.briefing?.setup.finishedAt!=null)return point(paper);

@@ -19,6 +19,8 @@ import {preparationMaskOperationMode,validatePreparationMaskWork} from './train-
 import {validatePreparationStable,completePreparationStable,ownsPreparationStableActor} from './train-preparation-stable.js';
 import {validatePreparationCopperRecovery} from './train-preparation-copper-recovery.js';
 import {validateTrainStableCare,ownsTrainStableCareActor} from './train-stable-care.js';
+import {beginPreparationGroundMotion,validatePreparationGroundMotion} from './train-preparation-ground-motion.js';
+import {isOrdinaryNativeGroundBody} from './train-native/ground-motion-step.js';
 const point=a=>({x:a.x,y:a.y,z:a.z||0}),distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z),copy=structuredClone;
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const keys=(v,names)=>object(v)&&Object.keys(v).length===names.length&&names.every(k=>Object.hasOwn(v,k));
@@ -42,7 +44,7 @@ export function validatePreparationMaskEvidence(s,e,at=s.elapsed){
     return same(e.itemRef,gearRef())&&same(e.itemState,{owner:item.owner,location:item.location})&&e.issueEventId===item.issueEventId&&item.owner==='mara'&&(e.choice==='bring'||item.location.type!=='worn');
   }catch{return false;}
 }
-export const PREPARATION_PROOF_OWNERS=Object.freeze({layout:validatePreparationCampSetup,mask:validatePreparationMaskEvidence,work:validatePreparationWork,stable:validatePreparationStable,stableComplete:completePreparationStable,copperRecovery:validatePreparationCopperRecovery,stableCare:validateTrainStableCare});
+export const PREPARATION_PROOF_OWNERS=Object.freeze({layout:validatePreparationCampSetup,mask:validatePreparationMaskEvidence,work:validatePreparationWork,stable:validatePreparationStable,stableComplete:completePreparationStable,copperRecovery:validatePreparationCopperRecovery,stableCare:validateTrainStableCare,groundMotion:validatePreparationGroundMotion});
 const siteReady=preparedCampSite;
 function simpleConfig(kind,objectId,maskVersion=1,inspectionVersion=1){
   if(kind==='inspect-child-seal'){const slot=(inspectionVersion===3?Camp.TRAIN_INSPECTION_V3_CONTACTS:inspectionVersion===2?Camp.TRAIN_INSPECTION_V2_CONTACTS:Camp.TRAIN_CHILD_CONTACTS)[objectId];return slot&&{site:'quarry-charge-worktop',actors:{mara:{pose:inspectionVersion===3?Camp.TRAIN_INSPECTION_V3_MARA_APPROACH:Camp.TRAIN_STORE_MARA,target:inspectionVersion===3?Camp.TRAIN_INSPECTION_V3_MARA_HAND:Camp.TRAIN_STORE_MARA_HAND,elbowHint:UP},ruth:{pose:slot.approach,target:slot.grip,elbowHint:UP}}};}
@@ -183,6 +185,7 @@ export function createTrainPreparationWorkProvider(E,worldFor){
     // the first paused draw without advancing an interval or a world clock.
     if(dt===0&&active(s))for(const w of train(s).powder.pending){const op=inspectCustodyRequest(s,w.requestId)?.operation||train(s).powder.physicalEvents.find(e=>e.id===w.workId)?.data.operation;if(!configFor(s,op||{}))continue;let seen=primedBodies.get(s);if(!seen){seen=new Map();primedBodies.set(s,seen);}const firstBody=op.actorIds.some(id=>seen.get(id)!==s.entities[id]),bornNow=w.startedAt===s.elapsed&&!op.actorIds.every(id=>getPreparationWorkPose(s,id));if(firstBody||bornNow){contactWindow(s,op,{start:s.elapsed,finish:s.elapsed});for(const id of op.actorIds)seen.set(id,s.entities[id]);}}
     return{...base,preparationProofOwners:PREPARATION_PROOF_OWNERS,
+    beginPreparationGroundMotion(s){const sources=['mara','ruth'].filter(id=>isOrdinaryNativeGroundBody(s.entities[id])).map(id=>{const entry=kernel.prepareNativeActor(s,id);return{body:entry.body,human:entry.human};});if(sources.length)beginPreparationGroundMotion(s,E,sources);},
     preparePreparationWork:(s,w)=>prepare(s,w,dt),
     preparePreparationExchange:prepareExchange,
     prepareCampWork(s){base.prepareCampWork(s);workActors.set(s,new Set());if(!active(s))return;const pending=train(s).powder.pending;for(const w of pending){const op=inspectCustodyRequest(s,w.requestId)?.operation||train(s).powder.physicalEvents.find(e=>e.id===w.workId)?.data.operation;if(configFor(s,op||{}))contactWindow(s,op,{start:s.elapsed,finish:s.elapsed});}before.set(s,{at:s.elapsed,boxes:otherBounds(s)});},

@@ -2,6 +2,7 @@
  * No arrival, name, possession, body position or clinical progress is written.
  */
 import {createTrainHuman,createTrainMount,prepareTrainPose,prepareTrainMountedPose,physicalProjection,drawTrainOutfit,rigWorldPoint} from './train-native/rigs.js';
+import {preparationGroundMotionHuman} from './train-preparation-ground-motion.js';
 import {prepareClinicBottlePose,getClinicBottleHuman as physicsHuman} from './train-camp-motion.js';
 import {TRAIN_WATCH_BOTTLE_REST} from './train-prelude.js';
 import {savePose} from './western-animation.js';
@@ -64,7 +65,7 @@ export function currentPreparationCareWork(state,body){
  const operation=TRAIN_STABLE_CARE.operations[care.work.kind];if(!operation||care.work.phase!=='approach'&&!finite(care.target))return null;
  return{kind:'manual-care',phase:care.work.phase,operationKind:care.work.kind,seconds:care.work.seconds,target:care.target,componentRef:{bodyId:'skein',componentId:operation.componentId},glove:TRAIN_STABLE_CARE.glove,mare:care.mare,leader:care.inez};
 }
-export function ownsTrainCampActor(state,body){return !!body&&state.region==='snowbound'&&state.entities?.[body.id]===body&&body.regionId==='snowbound'&&(ids.has(body.id)||!!currentPreparationCareWork(state,body)||!!currentPreparationStableWork(state,body)||!!currentPreparationMaskMount(state,body)||!!currentPreparationMaskPose(state,body)||!!activePreparationCampWorkPose(state,body)||!!activeTrainCampWorkPose(state,body));}
+export function ownsTrainCampActor(state,body){return !!body&&state.region==='snowbound'&&state.entities?.[body.id]===body&&body.regionId==='snowbound'&&(ids.has(body.id)||!!currentPreparationCareWork(state,body)||!!currentPreparationStableWork(state,body)||!!currentPreparationMaskMount(state,body)||!!currentPreparationMaskPose(state,body)||!!activePreparationCampWorkPose(state,body)||!!activeTrainCampWorkPose(state,body)||!!preparationGroundMotionHuman(state,body.id));}
 /** Replaces only old decorative resource proxies once the same actual store
  * fixture is latched. People, mounts and the earlier room remain unchanged. */
 export function ownsPreparationCampProp(state,prop){return state.region==='snowbound'&&['ruth-charge-store','ruth-cap-store'].includes(prop.id)&&preparedCampSite(state,'quarry-charge-worktop');}
@@ -166,11 +167,12 @@ export function createTrainCampPresentation(E,{getClinicBottleHuman=physicsHuman
  function human(body){if(humans.get(body.id)?.body!==body)humans.set(body.id,{body,h:createTrainHuman(E,body)});return humans.get(body.id).h;}
  function mount(body){if(mounts.get(body.id)?.body!==body){const rig=createTrainMount(E,body);rig.update(0,body,!!reduceMotion());mounts.set(body.id,{body,rig});}return mounts.get(body.id).rig;}
  function visualBody(body){return{...body,z:0,vx:body.mounted?0:body.vx||0,vy:body.mounted?0:body.vy||0,vz:body.mounted?0:body.vz||0,pose:body.hp<=0?'die':body.pose||(body.crouch?'crouch':null)};}
- function currentHuman(s,body){const care=currentPreparationCareWork(s,body);if(care&&body.id==='inez'){const h=human(body);if(care.phase==='approach'&&!updated.has(h)){h.rig.update(0,visualBody(body));updated.add(h);}return{h,shared:false,care};}const stable=currentPreparationStableWork(s,body);if(stable&&body.id==='inez'&&stable.phase!=='approach')return{h:human(body),shared:false,stable};const mask=currentPreparationMaskPose(s,body),work=mask?.kind==='mask-fitting'?mask:activePreparationCampWorkPose(s,body)||activeTrainCampWorkPose(s,body);if(work)return{h:work.human,shared:true,work,mask};if(mask)return{h:mask.human,shared:true,mask};const shared=body.id==='abel'?getClinicBottleHuman(s):null;if(shared)return{h:shared,shared:true};const h=human(body);if(!updated.has(h)){h.rig.update(0,visualBody(body));updated.add(h);}return{h,shared:false};}
+ function currentHuman(s,body){const care=currentPreparationCareWork(s,body);if(care&&body.id==='inez'){const h=human(body);if(care.phase==='approach'&&!updated.has(h)){h.rig.update(0,visualBody(body));updated.add(h);}return{h,shared:false,care};}const stable=currentPreparationStableWork(s,body);if(stable&&body.id==='inez'&&stable.phase!=='approach')return{h:human(body),shared:false,stable};const mask=currentPreparationMaskPose(s,body),work=mask?.kind==='mask-fitting'?mask:activePreparationCampWorkPose(s,body)||activeTrainCampWorkPose(s,body);if(work)return{h:work.human,shared:true,work,mask};const ground=preparationGroundMotionHuman(s,body.id,E);if(ground)return{h:ground.human,shared:true,mask,ground};if(mask)return{h:mask.human,shared:true,mask};const shared=body.id==='abel'?getClinicBottleHuman(s):null;if(shared)return{h:shared,shared:true};const h=human(body);if(!updated.has(h)){h.rig.update(0,visualBody(body));updated.add(h);}return{h,shared:false};}
  function update(dt,s){
   if(!Number.isFinite(dt)||dt<0)return;
   for(const body of Object.values(s.entities||{})){
    if(!ownsTrainCampActor(s,body)||body.hidden||body.departed||body.escaped)continue;
+   if(preparationGroundMotionHuman(s,body.id,E))continue;
    if(body.kind==='horse'||body.id==='rivet'){if(!currentPreparationMaskMount(s,body)&&!currentPreparationStableWork(s,body)&&!currentPreparationCareWork(s,body))mount(body).update(dt,body,!!reduceMotion());}
    else if((!currentPreparationCareWork(s,body)||currentPreparationCareWork(s,body).phase==='approach')&&(!currentPreparationStableWork(s,body)||currentPreparationStableWork(s,body).phase==='approach')&&!(body.id==='abel'&&getClinicBottleHuman(s))&&!currentPreparationMaskPose(s,body)&&!activePreparationCampWorkPose(s,body)&&!activeTrainCampWorkPose(s,body)){const h=human(body);h.rig.update(dt,visualBody(body));updated.add(h);}
   }
@@ -187,7 +189,7 @@ export function createTrainCampPresentation(E,{getClinicBottleHuman=physicsHuman
    r.shadow?.(body.x,body.y,body.kind==='horse'||body.id==='rivet'?18:8,.2,'#526d69',body.z||0);
    r.queue(body.x,body.y,body.z||0,g=>physicalProjection(E,()=>{
     if(body.kind==='horse'||body.id==='rivet'){const physical=currentPreparationMaskMount(s,body),stable=currentPreparationStableWork(s,body),care=currentPreparationCareWork(s,body),rig=physical?.mountRig||(stable||care?createTrainMount(E,body):mount(body));if((stable||care)&&!physical)rig.update(0,body);else if(!physical)rig.pose(body);const result=rig.draw(g,r,body);diagnostics.actors.push({id:body.id,kind:'mount',world:point(body),physicsMount:!!physical,nativeStablePose:!!stable,stablePhase:stable?.phase??null,nativeCarePose:!!care,carePhase:care?.phase??null,rigUpdateSkipped:!!physical||!!stable||!!care,...(result.mark?{mark:result.mark}:{})});return;}
-    const {h,shared,work,mask,stable,care}=currentHuman(s,body),restore=savePose(h.rig),drawState=['_pitch','_camSide'].map(key=>({key,had:Object.hasOwn(h.rig,key),value:h.rig[key]})),p=prelude(s),held=body.id==='abel'&&bottle?.id==='abel-watch-bottle'&&bottle.location?.type==='carried'&&bottle.location.targetId===body.id;
+    const {h,shared,work,mask,stable,care,ground}=currentHuman(s,body),restore=savePose(h.rig),drawState=['_pitch','_camSide'].map(key=>({key,had:Object.hasOwn(h.rig,key),value:h.rig[key]})),p=prelude(s),held=body.id==='abel'&&bottle?.id==='abel-watch-bottle'&&bottle.location?.type==='carried'&&bottle.location.targetId===body.id;
     let pose;
     try{
      const horse=body.mounted?s.entities?.[body.mountId||s.party?.mountId]:null;
@@ -221,7 +223,7 @@ export function createTrainCampPresentation(E,{getClinicBottleHuman=physicsHuman
      }
      diagnostics.contacts.push(...pose.diagnostics.map(c=>({...copy(c),actorId:body.id,errorFinite:Number.isFinite(c.error),...(care?{presentation:'manual-care',carePhase:care.phase,componentRef:copy(care.componentRef)}:{})})));
      for(const c of pose.diagnostics)if(!c.reachable||!Number.isFinite(c.error)||c.error>1e-5)diagnostics.errors.push({id:body.id,kind:'unreached-native-contact',contact:c.kind});
-     diagnostics.actors.push({id:body.id,kind:'human',world:point(body),drawRoot:point(pose.root),physicsHuman:shared,nativeStablePose:!!stable,stablePhase:stable?.phase??null,nativeCarePose:!!care,carePhase:care?.phase??null,rigUpdateSkipped:shared||!!stable||!!care&&care.phase!=='approach',work:work?.kind||null,workId:work?.workId||null,operationKind:work?.operationKind||null,maskPresentation:mask?.kind||null,...(mask?{maskHead:rigWorldPoint(h.rig,pose.root,'head')}:{}),...(['preparation','mask-fitting'].includes(work?.kind)?{elbow:rigWorldPoint(h.rig,pose.root,'elbowR'),contactHint:copy(work.contactHint)}:{})});
+     diagnostics.actors.push({id:body.id,kind:'human',world:point(body),drawRoot:point(pose.root),physicsHuman:shared,nativeStablePose:!!stable,stablePhase:stable?.phase??null,nativeCarePose:!!care,carePhase:care?.phase??null,rigUpdateSkipped:shared||!!stable||!!care&&care.phase!=='approach',work:work?.kind||null,workId:work?.workId||null,operationKind:work?.operationKind||null,maskPresentation:mask?.kind||null,...(ground?{groundMotion:{clock:h.rig.t,phase:h.rig.phase,speedWeight:h.rig.spW,movement:[...h.rig.mv],poseWeights:copy(h.rig.poseW)}}:{}),...(mask?{maskHead:rigWorldPoint(h.rig,pose.root,'head')}:{}),...(['preparation','mask-fitting'].includes(work?.kind)?{elbow:rigWorldPoint(h.rig,pose.root,'elbowR'),contactHint:copy(work.contactHint)}:{})});
     }finally{pose?.restore();restore();for(const {key,had,value}of drawState){if(had)h.rig[key]=value;else delete h.rig[key];}}
    }),{occluder:true});
   }
